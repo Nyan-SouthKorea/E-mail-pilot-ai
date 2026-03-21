@@ -4,10 +4,11 @@
 
 현재 상태:
 
-- 구현 시작 전
+- template schema/reader 골격 정의 완료
 
 예상 역할:
 
+- 프로필별 레퍼런스 Excel을 `TemplateProfile`로 해석
 - canonical row schema 정의
 - workbook template 매핑
 - sheet별 append / update 정책 관리
@@ -17,6 +18,7 @@
 현재 구현 방향:
 
 - 프로젝트 전체에 하나의 고정 열 구조를 먼저 박아두기보다, 프로필별 레퍼런스 Excel 문서를 읽어 템플릿 규칙으로 해석하는 방식을 우선한다.
+- 템플릿 해석 객체는 우선 `TemplateProfile -> TemplateSheet -> TemplateColumn` 구조로 둔다.
 - 입력 계약은 우선 `ExtractedRecord`를 기준으로 받는다.
 - 공통 의미 필드는 `ExtractedRecord`에 유지하고, 실제 workbook 열 순서와 헤더 이름은 프로필별 템플릿에서 가져온다.
 - 템플릿 열 이름이 비정형이면 LLM으로 의미를 해석하고, 실제 셀 위치 계산과 쓰기는 코드가 담당한다.

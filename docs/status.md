@@ -56,7 +56,7 @@
 |---|---|---|
 | Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
 | Analysis | 기본 schema 클래스 골격 있음 | `EvidenceRef`, `ExtractedRecord` 객체 계약 정의 |
-| Exports | 설계 전 | 프로필별 템플릿 해석과 `ExtractedRecord -> ExportRow` mapping next |
+| Exports | template schema/reader 골격 있음 | `TemplateProfile`과 템플릿 reader 초안 정의 |
 | LLM | 설계 전 | OpenAI client, prompt, structured response 담당 |
 
 ## 핵심 메모
@@ -82,7 +82,7 @@
 
 ## 다음 작업
 
-1. 프로필별 레퍼런스 Excel을 읽어 `TemplateProfile` 같은 내부 템플릿 규칙으로 바꾸는 기준을 정한다.
+1. `TemplateProfile`에 의미 키를 부여하는 LLM 매핑 단계와 내부 schema를 정한다.
 2. 공통 의미 필드와 프로필별 Excel 열을 어떻게 연결할지 매핑 규칙을 정한다.
 3. fixture 기반 `raw bundle -> NormalizedMessage -> ExtractedRecord` 첫 smoke를 만든다.
 4. 템플릿 해석 결과를 이용해 workbook append와 스타일 상속 규칙을 구체화한다.

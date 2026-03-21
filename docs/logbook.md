@@ -10,6 +10,14 @@
 - 문서에는 `공통 의미 필드`와 `프로필별 템플릿 규칙`을 분리하는 기준, LLM이 맡는 부분과 코드가 맡는 부분, 다음 작업 순서를 반영했다.
 - 이후에는 계획이 대화에서만 사라지지 않도록, 방향이 바뀔 때마다 `status`, `decisions`, `logbook`을 함께 읽고 갱신하는 흐름으로 계속 진행한다.
 
+## 2026-03-21 | Human + Codex | exports 템플릿 객체 모델과 reader 골격 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `exports/README.md`였다.
+- `openpyxl`이 아직 설치되어 있지 않은 상태라서, 의존성 설치보다 먼저 재사용 가능한 `TemplateProfile` 객체 모델과 reader 인터페이스를 추가하는 쪽이 적절하다고 판단했다.
+- 이에 따라 `exports/schema.py`에 `TemplateProfile`, `TemplateSheet`, `TemplateColumn`을 추가했다.
+- `exports/template_profile.py`에는 레퍼런스 Excel을 읽어 템플릿 초안을 만드는 `TemplateWorkbookReader` 골격과 `read_template_profile` helper를 추가했다.
+- 실제 열 의미 해석과 semantic key 부여는 다음 단계에서 LLM 매핑 계층으로 이어가기로 했다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.
