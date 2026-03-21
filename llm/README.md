@@ -6,6 +6,7 @@
 
 - OpenAI Responses wrapper 골격 추가
 - JSONL usage log와 가격표 snapshot 기반 비용 추정 추가
+- 템플릿 unresolved header 의미 보충용 fallback 호출 경로 추가
 
 예상 역할:
 
@@ -26,6 +27,7 @@
 - 모든 OpenAI 호출은 wrapper를 거치고, 기본 로그는 `../results/llm/openai_usage.jsonl`에 JSONL로 남긴다.
 - 예상 비용은 API 응답의 `usage` 토큰과 가격표 snapshot으로 계산한다.
 - structured output이 필요한 호출은 Responses API 기준으로 설계한다.
+- 템플릿 헤더 의미 해석은 rule로 먼저 처리하고, unresolved header만 작은 structured output 요청으로 fallback 한다.
 
 현재 참고 기준:
 

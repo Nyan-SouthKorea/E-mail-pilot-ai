@@ -6,6 +6,14 @@ from .schema import (
     TemplateProfile,
     TemplateSheet,
 )
+from .llm_mapping import (
+    UNRESOLVED_TEMPLATE_HEADER_SENTINEL,
+    UnresolvedTemplateHeader,
+    apply_hybrid_template_mapping,
+    build_hybrid_template_mapping,
+    build_llm_fallback_template_mapping,
+    build_llm_template_mapping_input,
+)
 from .record_projection import (
     RECORD_TEMPLATE_PROJECTION_SCHEMA_VERSION,
     ProjectedTemplateRow,
@@ -28,6 +36,7 @@ from .semantic_mapping import (
     TemplateSemanticMapping,
     apply_template_semantic_mapping,
     default_semantic_field_definitions,
+    merge_template_semantic_mappings,
     semantic_field_definition_map,
 )
 from .template_profile import TemplateWorkbookReader, read_template_profile
@@ -49,13 +58,20 @@ __all__ = [
     "TemplateSemanticMapping",
     "TemplateSheet",
     "TemplateWorkbookReader",
+    "UNRESOLVED_TEMPLATE_HEADER_SENTINEL",
+    "UnresolvedTemplateHeader",
     "WorkbookAppendResult",
+    "apply_hybrid_template_mapping",
     "apply_template_semantic_mapping",
     "apply_rule_based_template_mapping",
     "append_projected_row_to_workbook",
+    "build_hybrid_template_mapping",
+    "build_llm_fallback_template_mapping",
+    "build_llm_template_mapping_input",
     "build_rule_based_template_mapping",
     "default_extracted_record_aliases",
     "default_semantic_field_definitions",
+    "merge_template_semantic_mappings",
     "project_record_to_template",
     "read_template_profile",
     "resolve_record_semantic_values",

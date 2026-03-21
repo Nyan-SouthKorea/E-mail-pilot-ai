@@ -5,6 +5,7 @@
 현재 상태:
 
 - template schema/reader, semantic mapping, record projection, workbook append 규칙 정의 완료
+- unresolved header 대상 rule-first + LLM fallback 절차 추가
 
 예상 역할:
 
@@ -22,6 +23,7 @@
 - 프로젝트 전체에 하나의 고정 열 구조를 먼저 박아두기보다, 프로필별 레퍼런스 Excel 문서를 읽어 템플릿 규칙으로 해석하는 방식을 우선한다.
 - 템플릿 해석 객체는 우선 `TemplateProfile -> TemplateSheet -> TemplateColumn` 구조로 둔다.
 - 열 의미 해석 결과는 `TemplateSemanticMapping`으로 분리해 rule 기반, LLM 기반, 수동 보정 결과를 같은 형식으로 다룰 수 있게 한다.
+- 열 의미 해석은 먼저 rule 기반 exact/partial match를 적용하고, 그래도 남는 unresolved header만 LLM fallback으로 보충한다.
 - 입력 계약은 우선 `ExtractedRecord`를 기준으로 받는다.
 - `ExtractedRecord`의 필드명이 바로 의미 키와 같지 않아도 alias와 summary fallback으로 공통 의미 키를 먼저 해석한 뒤, 템플릿 열 순서로 projection 한다.
 - 공통 의미 필드는 `ExtractedRecord`에 유지하고, 실제 workbook 열 순서와 헤더 이름은 프로필별 템플릿에서 가져온다.

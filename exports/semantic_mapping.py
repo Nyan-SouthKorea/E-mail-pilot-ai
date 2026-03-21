@@ -356,3 +356,57 @@ def apply_template_semantic_mapping(
         sheets.append(replace(sheet, columns=mapped_columns))
 
     return replace(profile, sheets=sheets)
+
+
+def merge_template_semantic_mappings(
+    *mappings: TemplateSemanticMapping,
+) -> TemplateSemanticMapping:
+    """기능: 여러 템플릿 의미 매핑 결과를 우선순위대로 합친다.
+
+    입력:
+    - mappings: 앞에 오는 결과가 우선인 매핑 목록
+
+    반환:
+    - 중복 열은 앞선 결과를 유지한 `TemplateSemanticMapping`
+    """
+
+    if not mappings:
+        raise ValueError("최소 1개의 TemplateSemanticMapping이 필요합니다.")
+
+    merged_mappings: list[TemplateColumnSemanticMapping] = []
+    seen_keys: set[tuple[str, int]] = set()
+    notes: list[str] = []
+
+    for mapping in mappings:
+        for item in mapping.mappings:
+            key = (item.sheet_name, item.column_index)
+            if key in seen_keys:
+                continue
+            merged_mappings.append(item)
+            seen_keys.add(key)
+
+        for note in mapping.notes:
+            if note not in notes:
+                notes.append(note)
+
+    resolved_headers = {
+        f"{item.sheet_name}:{item.header_text}"
+        for item in merged_mappings
+    }
+    unresolved_headers: list[str] = []
+    for mapping in mappings:
+        for header_ref in mapping.unresolved_headers:
+            if header_ref in resolved_headers:
+                continue
+            if header_ref in unresolved_headers:
+                continue
+            unresolved_headers.append(header_ref)
+
+    first_mapping = mappings[0]
+    return TemplateSemanticMapping(
+        profile_id=first_mapping.profile_id,
+        template_id=first_mapping.template_id,
+        mappings=merged_mappings,
+        unresolved_headers=unresolved_headers,
+        notes=notes,
+    )

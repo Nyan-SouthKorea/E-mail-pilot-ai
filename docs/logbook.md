@@ -2,6 +2,16 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 체크포인트 7 완료 - unresolved template header LLM fallback 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/decisions.md`, `exports/README.md`, `llm/README.md`였다.
+- `exports/semantic_mapping.py`에 여러 매핑 결과를 우선순위대로 합치는 `merge_template_semantic_mappings()`를 추가했다.
+- `exports/llm_mapping.py`를 추가해 rule 기반으로 해결되지 않은 템플릿 헤더만 모아, OpenAI structured output으로 의미 키를 보충하는 최소 fallback 절차를 구현했다.
+- 이 경로는 `rule -> unresolved 수집 -> LLM fallback -> merged mapping` 순서로만 동작하고, rule로 이미 확정된 헤더에는 추가 호출을 하지 않는다.
+- synthetic 템플릿 smoke를 live로 실행해 `참가 목적 -> application_purpose`, `브랜드 소개 -> company_intro_one_line`, `검토 의견 -> internal_notes` 매핑을 확인했고, 결과는 `results/exports_smoke/template_header_llm_fallback_smoke.json`에 저장했다.
+- 실제 김정민 템플릿에도 hybrid mapping을 적용해 보았고, unresolved header가 없어서 usage log entry 수가 `5 -> 5`로 유지되는 것을 확인했다.
+- 현재 usage log 누적 기준은 `entry_count=5`, `input_tokens=6641`, `output_tokens=4207`, `estimated_total_cost_usd=0.0797075`다.
+
 ## 2026-03-21 | Human + Codex | 체크포인트 6 완료 - fixture end-to-end pipeline smoke 실행
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `analysis/README.md`, `exports/README.md`였다.

@@ -171,3 +171,8 @@
 
 - 결정: workbook 출력은 reference 템플릿 원본을 직접 수정하지 않고, 기본적으로 `results/` 아래 결과 workbook을 생성하거나 기존 결과본에 append한다.
 - 이유: reference fixture와 실제 생성 산출물을 분리해야 회귀 비교가 쉬워지고, 사용자가 제공한 기준 파일을 안전하게 보존할 수 있기 때문이다.
+
+## 2026-03-21 | 템플릿 헤더 의미 해석은 unresolved header만 LLM fallback으로 보충한다
+
+- 결정: 템플릿 헤더 의미 해석은 rule 기반 exact/partial match를 먼저 적용하고, 그래도 남는 unresolved header만 OpenAI structured output으로 보충한다.
+- 이유: 대부분의 헤더는 규칙만으로 충분히 안정적으로 처리할 수 있고, LLM은 애매한 헤더에만 제한적으로 쓰는 편이 비용과 예측 가능성 측면에서 더 낫기 때문이다.
