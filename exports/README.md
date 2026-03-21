@@ -24,6 +24,7 @@
 - 템플릿 해석 객체는 우선 `TemplateProfile -> TemplateSheet -> TemplateColumn` 구조로 둔다.
 - 열 의미 해석 결과는 `TemplateSemanticMapping`으로 분리해 rule 기반, LLM 기반, 수동 보정 결과를 같은 형식으로 다룰 수 있게 한다.
 - 열 의미 해석은 먼저 rule 기반 exact/partial match를 적용하고, 그래도 남는 unresolved header만 LLM fallback으로 보충한다.
+- 단, 이 순서는 비용 절감 때문이 아니라, exact header나 system field처럼 코드가 더 정확한 부분은 코드에 맡기고 애매한 의미 해석에만 LLM을 집중하기 위한 기준이다.
 - 입력 계약은 우선 `ExtractedRecord`를 기준으로 받는다.
 - `ExtractedRecord`의 필드명이 바로 의미 키와 같지 않아도 alias와 summary fallback으로 공통 의미 키를 먼저 해석한 뒤, 템플릿 열 순서로 projection 한다.
 - 공통 의미 필드는 `ExtractedRecord`에 유지하고, 실제 workbook 열 순서와 헤더 이름은 프로필별 템플릿에서 가져온다.
@@ -33,6 +34,7 @@
 - 새로 쓰는 셀은 기존 폰트, 정렬, 줄바꿈, 수식, 셀 너비를 최대한 이어받아 사람이 이어서 작성한 것처럼 보이게 한다.
 - 결과 workbook은 원본 템플릿을 덮어쓰지 않고 기본적으로 로컬 `results/` 경로에 생성 또는 누적한다.
 - generated 파일은 리포 안이 아니라 로컬 `results/` 계층을 기본 출력으로 본다.
+- generated workbook과 reference fixture의 차이는 deterministic workbook diff로 회귀 확인한다.
 
 현재 참고 기준:
 

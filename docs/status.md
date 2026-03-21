@@ -39,6 +39,7 @@
 - 내부 데이터 흐름 기준: `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계 계약으로 계층을 나눈다.
 - 템플릿 기준: `ExtractedRecord`의 공통 의미 필드는 유지하되, 실제 Excel 열 구조와 시트/헤더/스타일 규칙은 프로필별 레퍼런스 Excel 템플릿에서 읽어온다.
 - 템플릿 의미 해석 기준: 먼저 rule 기반 exact/partial match를 적용하고, unresolved header만 LLM fallback으로 보충한다.
+- LLM 사용 기준: 비용 절감보다 성능과 정확도를 우선하고, LLM이 더 잘하는 해석/요약/비정형 이해는 적극 사용한다. 비용 로그는 관찰용으로만 유지한다.
 - LLM 역할 기준: 프로필 템플릿의 열 의미 해석, 필드 매핑 보조, 요약/정리 문장 생성에 사용한다.
 - 코드 역할 기준: 실제 workbook의 행 위치, 셀 쓰기, 스타일 복사, 수식 보존, append 순서를 결정적으로 처리한다.
 - 시스템 필드 기준: `번호` 같은 system 필드는 `ExtractedRecord`에서 직접 뽑지 않고, workbook append 단계에서 코드가 자동 생성한다.
@@ -60,7 +61,7 @@
 |---|---|---|
 | Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
 | Analysis | schema + fixture analysis/export smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, structured output schema, end-to-end smoke 스크립트 정의 |
-| Exports | template schema/reader + semantic mapping + record projection + workbook append 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 결과 workbook append와 스타일 상속 검증 완료 |
+| Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 결과 workbook append와 reference 대비 회귀 비교 검증 완료 |
 | LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 템플릿 헤더 fallback 호출 경로 정의 |
 
 ## 핵심 메모
@@ -93,9 +94,10 @@
 5. 완료: workbook append와 스타일 상속 규칙을 구현하고 fixture 결과 workbook을 생성한다.
 6. 완료: fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만들고 실제 workbook까지 생성한다.
 7. 완료: unresolved template header만 대상으로 LLM fallback 매핑 절차를 구현하고 live smoke로 검증한다.
+8. 완료: generated workbook과 reference fixture workbook의 차이를 비교하는 회귀 확인 도구를 추가한다.
 
 ## 다음 작업
 
-1. generated workbook 결과와 reference fixture의 차이를 비교하는 회귀 확인 방식을 정한다.
-2. fixture smoke 결과를 기반으로 실제 mailbox 연동 전에 어떤 artifact 저장 경로를 먼저 고정할지 정한다.
-3. 실제 mailbox 연동 전용 `MailBundle` 디렉토리 구조와 파일명 규칙을 정한다.
+1. fixture smoke 결과를 기반으로 실제 mailbox 연동 전에 어떤 artifact 저장 경로를 먼저 고정할지 정한다.
+2. 실제 mailbox 연동 전용 `MailBundle` 디렉토리 구조와 파일명 규칙을 정한다.
+3. `raw.eml / preview.html / attachments / normalized.json / summary.md` 번들의 최소 생성 흐름을 정한다.

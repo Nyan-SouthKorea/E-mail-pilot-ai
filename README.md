@@ -22,8 +22,8 @@
 |---|---|---|
 | [mailbox](mailbox/README.md) | 메일 수집, 번들 보관, 정규화 입력 생성 | 기본 schema 클래스 골격 있음 |
 | [analysis](analysis/README.md) | 분류, 정보 추출, 요약, schema 정규화 | fixture analysis/export smoke 진입점 있음 |
-| [exports](exports/README.md) | Excel 출력, 템플릿 해석, workbook 반영 | 템플릿 해석, projection, workbook append 규칙 있음 |
-| [llm](llm/README.md) | OpenAI 호출, prompt, structured response | wrapper + usage log + cost estimate 골격 있음 |
+| [exports](exports/README.md) | Excel 출력, 템플릿 해석, workbook 반영 | 템플릿 해석, projection, workbook append, regression check 규칙 있음 |
+| [llm](llm/README.md) | OpenAI 호출, prompt, structured response | wrapper + usage log + 성능 우선 LLM orchestration 기준 있음 |
 
 workflow routing, reply draft, notification은 실제 구현이 시작될 때 디렉토리를 추가한다.
 

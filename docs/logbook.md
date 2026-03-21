@@ -2,6 +2,16 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 성능 우선 LLM 기준 반영과 workbook regression check 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `exports/README.md`, `llm/README.md`였다.
+- 사용자는 현재 프로젝트에서 API 비용을 과도하게 아끼지 말고, LLM이 더 잘하는 일은 적극적으로 LLM에 맡기고 rule/code가 더 잘하는 일은 그쪽으로 두는 성능 우선 방향을 원한다고 명시했다.
+- 현재 구현은 완전히 반대 방향은 아니었지만, 일부 문서와 `fixture_pipeline_smoke`가 `rule 우선` 쪽으로만 보일 수 있어 기준을 다시 정리했다.
+- 이에 따라 `docs/개발방침.md`, `docs/status.md`, `docs/decisions.md`, `llm/README.md`, `exports/README.md`, `README.md`에 비용은 관찰용이고 설계 판단은 성능/정확도 우선이라는 원칙을 반영했다.
+- 코드에서는 `analysis/fixture_pipeline_smoke.py`를 pure rule 매핑에서 hybrid 매핑 호출로 바꿨다. 현재 템플릿에서는 unresolved header가 없어 추가 호출은 생기지 않지만, 이후 프로필에서는 더 자연스럽게 LLM 보조를 받을 수 있다.
+- `exports/regression_check.py`를 추가해 generated workbook과 reference fixture workbook을 deterministic하게 비교하는 회귀 확인 도구를 만들었다.
+- 실제 실행 결과 `results/exports_smoke/fixture_regression_report.json`에 보고서를 남겼고, 현재 비교 결과는 `compared_cell_count=22`, `matched_cell_count=6`, `match_ratio=0.2727`이었다.
+
 ## 2026-03-21 | Human + Codex | 체크포인트 7 완료 - unresolved template header LLM fallback 추가
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/decisions.md`, `exports/README.md`, `llm/README.md`였다.

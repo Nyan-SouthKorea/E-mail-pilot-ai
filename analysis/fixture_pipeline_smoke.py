@@ -13,7 +13,7 @@ if __package__ in (None, ""):
 
 from exports import (
     append_projected_row_to_workbook,
-    apply_rule_based_template_mapping,
+    apply_hybrid_template_mapping,
     project_record_to_template,
     read_template_profile,
 )
@@ -176,7 +176,10 @@ def run_fixture_pipeline_smoke(
         profile_id=profile_id,
         template_id=Path(template_path).stem,
     )
-    mapped_profile, mapping = apply_rule_based_template_mapping(template_profile)
+    mapped_profile, mapping = apply_hybrid_template_mapping(
+        template_profile,
+        wrapper=wrapper,
+    )
 
     analysis_results_dir = default_analysis_results_dir()
     exports_results_dir = default_exports_results_dir()

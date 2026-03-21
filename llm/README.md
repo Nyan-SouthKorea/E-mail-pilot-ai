@@ -26,6 +26,7 @@
 - 민감한 원문은 로그에 과도하게 남기지 않는다.
 - 모든 OpenAI 호출은 wrapper를 거치고, 기본 로그는 `../results/llm/openai_usage.jsonl`에 JSONL로 남긴다.
 - 예상 비용은 API 응답의 `usage` 토큰과 가격표 snapshot으로 계산한다.
+- 비용 로그는 관찰용으로 유지하되, 실제 설계 판단은 비용보다 성능과 정확도를 우선한다.
 - structured output이 필요한 호출은 Responses API 기준으로 설계한다.
 - 템플릿 헤더 의미 해석은 rule로 먼저 처리하고, unresolved header만 작은 structured output 요청으로 fallback 한다.
 
