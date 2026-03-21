@@ -2,6 +2,16 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 프로필 폴더 구조를 `참고자료 / 실행결과`로 정리하고 MailBundle 저장 helper 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `exports/README.md`, `llm/README.md`였다.
+- 사용자는 실제 산출물을 사용자 프로필 폴더 아래에서 관리하길 원했고, 상위 폴더는 한국어로 두되 내부 기계 식별자는 안정적인 방식으로 가는 의견을 요청했다.
+- 이에 따라 `김정민` 프로필 아래를 `참고자료/`와 `실행결과/`로 나누고, 기존 예시 메일과 기대 산출물은 `참고자료/`로, 기존 smoke 산출물은 `실행결과/엑셀 산출물`, `실행결과/로그`로 옮겼다.
+- 코드에는 `project_paths.py`를 추가해 프로필 기준 reference/runtime 경로 규칙을 공용 helper로 묶었다.
+- `mailbox/bundle_storage.py`에는 `build_mail_bundle_id()`, `build_mail_bundle_paths()`, `create_mail_bundle_skeleton()`을 추가해 `받은 메일/<bundle-id>/raw.eml, preview.html, normalized.json, summary.md, attachments/` 뼈대를 만드는 최소 생성 흐름을 구현했다.
+- `analysis/fixture_pipeline_smoke.py`, `exports/regression_check.py`는 기본 경로를 새 프로필 구조로 옮겼고, fixture pipeline smoke와 regression check가 새 경로에서 정상 동작하는 것도 확인했다.
+- 현재 새 bundle skeleton smoke 결과 폴더는 `secrets/사용자 설정/김정민/실행결과/받은 메일/20260321_123456_msg_16b0db71/`에 생성되어 있다.
+
 ## 2026-03-21 | Human + Codex | 쉬운 설명 우선 원칙 반영
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`였다.
@@ -18,7 +28,7 @@
 - 이에 따라 `docs/개발방침.md`, `docs/status.md`, `docs/decisions.md`, `llm/README.md`, `exports/README.md`, `README.md`에 비용은 관찰용이고 설계 판단은 성능/정확도 우선이라는 원칙을 반영했다.
 - 코드에서는 `analysis/fixture_pipeline_smoke.py`를 pure rule 매핑에서 hybrid 매핑 호출로 바꿨다. 현재 템플릿에서는 unresolved header가 없어 추가 호출은 생기지 않지만, 이후 프로필에서는 더 자연스럽게 LLM 보조를 받을 수 있다.
 - `exports/regression_check.py`를 추가해 generated workbook과 reference fixture workbook을 deterministic하게 비교하는 회귀 확인 도구를 만들었다.
-- 실제 실행 결과 `results/exports_smoke/fixture_regression_report.json`에 보고서를 남겼고, 현재 비교 결과는 `compared_cell_count=22`, `matched_cell_count=6`, `match_ratio=0.2727`이었다.
+- 당시 실제 실행 결과는 `results/exports_smoke/fixture_regression_report.json`에 남겼고, 이후 현재 기준으로는 `secrets/사용자 설정/김정민/실행결과/로그/exports/fixture_regression_report.json`로 정리했다. 비교 결과 자체는 `compared_cell_count=22`, `matched_cell_count=6`, `match_ratio=0.2727`이었다.
 
 ## 2026-03-21 | Human + Codex | 체크포인트 7 완료 - unresolved template header LLM fallback 추가
 
@@ -26,7 +36,7 @@
 - `exports/semantic_mapping.py`에 여러 매핑 결과를 우선순위대로 합치는 `merge_template_semantic_mappings()`를 추가했다.
 - `exports/llm_mapping.py`를 추가해 rule 기반으로 해결되지 않은 템플릿 헤더만 모아, OpenAI structured output으로 의미 키를 보충하는 최소 fallback 절차를 구현했다.
 - 이 경로는 `rule -> unresolved 수집 -> LLM fallback -> merged mapping` 순서로만 동작하고, rule로 이미 확정된 헤더에는 추가 호출을 하지 않는다.
-- synthetic 템플릿 smoke를 live로 실행해 `참가 목적 -> application_purpose`, `브랜드 소개 -> company_intro_one_line`, `검토 의견 -> internal_notes` 매핑을 확인했고, 결과는 `results/exports_smoke/template_header_llm_fallback_smoke.json`에 저장했다.
+- synthetic 템플릿 smoke를 live로 실행해 `참가 목적 -> application_purpose`, `브랜드 소개 -> company_intro_one_line`, `검토 의견 -> internal_notes` 매핑을 확인했고, 결과는 당시 `results/exports_smoke/template_header_llm_fallback_smoke.json`에 저장했다. 현재 기준 경로는 `secrets/사용자 설정/김정민/실행결과/로그/exports/template_header_llm_fallback_smoke.json`이다.
 - 실제 김정민 템플릿에도 hybrid mapping을 적용해 보았고, unresolved header가 없어서 usage log entry 수가 `5 -> 5`로 유지되는 것을 확인했다.
 - 현재 usage log 누적 기준은 `entry_count=5`, `input_tokens=6641`, `output_tokens=4207`, `estimated_total_cost_usd=0.0797075`다.
 
@@ -35,7 +45,7 @@
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `analysis/README.md`, `exports/README.md`였다.
 - 수동 명령으로만 검증하던 흐름을 `analysis/fixture_pipeline_smoke.py`로 묶어, fixture 이메일 로딩 -> live LLM 분석 -> projection -> workbook append까지 한 번에 실행할 수 있게 했다.
 - direct script 실행과 `python -m` 실행 둘 다 가능하도록 import 경로를 정리했고, `reuse_existing_analysis` 옵션도 추가했다.
-- 실제로 스크립트를 실행해 `results/exports_smoke/기업 신청서 모음_fixture_pipeline.xlsx`를 생성했고, 두 fixture가 row 4, row 5에 순서대로 append되는 것을 확인했다.
+- 실제로 스크립트를 실행해 당시 `results/exports_smoke/기업 신청서 모음_fixture_pipeline.xlsx`를 생성했고, 두 fixture가 row 4, row 5에 순서대로 append되는 것을 확인했다. 현재 기준 경로는 `secrets/사용자 설정/김정민/실행결과/엑셀 산출물/기업 신청서 모음_fixture_pipeline.xlsx`다.
 - 현재 usage log 누적 기준은 `entry_count=4`, `input_tokens=5384`, `output_tokens=4021`, `estimated_total_cost_usd=0.073775`다.
 
 ## 2026-03-21 | Human + Codex | 체크포인트 4, 5 완료 - rule 기반 템플릿 매핑과 workbook append 검증
@@ -44,9 +54,9 @@
 - `exports/rule_mapping.py`를 추가해 템플릿 헤더를 공통 의미 키와 rule 기반 exact/partial match로 연결하는 첫 절차를 구현했다.
 - 이 과정에서 `번호` 헤더가 `연락처` 계열로 잘못 붙을 수 있는 문제를 발견했고, 공통 의미 키에 `row_number` system field를 추가해 workbook 단계에서 자동 생성하도록 수정했다.
 - `analysis/schema.py`에는 저장된 `ExtractedRecord` JSON을 다시 불러오기 위한 `from_dict()` 복원 경로를 추가했다.
-- `exports/workbook_writer.py`를 추가해 원본 템플릿을 건드리지 않고 `results/` 아래 결과 workbook에 append하는 writer를 구현했다.
+- `exports/workbook_writer.py`를 추가해 원본 템플릿을 건드리지 않고 별도 결과 workbook에 append하는 writer를 구현했다.
 - writer는 마지막 실데이터 다음 행을 찾고, 직전 데이터 행의 서식과 수식을 최대한 이어받은 뒤 projection 값을 기록하도록 만들었다.
-- fixture 2건의 live 분석 결과 JSON을 사용해 실제 workbook append smoke를 실행했고, 결과 파일 `results/exports_smoke/기업_신청서_모음_fixture_smoke.xlsx`가 생성되었다.
+- fixture 2건의 live 분석 결과 JSON을 사용해 실제 workbook append smoke를 실행했고, 결과 파일은 당시 `results/exports_smoke/기업_신청서_모음_fixture_smoke.xlsx`로 생성되었다. 현재 기준 경로는 `secrets/사용자 설정/김정민/실행결과/엑셀 산출물/기업_신청서_모음_fixture_smoke.xlsx`다.
 - smoke 결과 기준으로 row 4, row 5에 새 행이 정상 추가되었고, `번호`는 각각 `3`, `4`로 자동 생성되었다.
 
 ## 2026-03-21 | Human + Codex | 프로필별 Excel 템플릿 해석 중심 계획 반영
@@ -98,15 +108,15 @@
 
 - 사용자는 ChatGPT API를 쓸 때 반드시 공용 wrapper를 거치고, 사용 로그를 바탕으로 토큰량과 예상 비용을 계산할 수 있길 원했다.
 - 이에 따라 `llm/` 계층에 OpenAI Responses wrapper, JSONL usage logger, 가격표 snapshot 기반 비용 계산기를 추가했다.
-- 사용 로그 기본 경로는 `../results/llm/openai_usage.jsonl`로 두었고, 기본 가격표는 `2026-03-21` 기준 OpenAI 공식 가격 페이지 snapshot으로 시작했다.
+- 사용 로그 기본 경로는 처음에는 `../results/llm/openai_usage.jsonl`로 두었고, 기본 가격표는 `2026-03-21` 기준 OpenAI 공식 가격 페이지 snapshot으로 시작했다. 현재 프로필 기준 기본 경로는 `secrets/사용자 설정/김정민/실행결과/로그/llm/openai_usage.jsonl`이다.
 - 동시에 `analysis/fixture_smoke.py`와 `analysis/llm_extraction.py`를 추가해, fixture 이메일 본문 + ZIP 내부 파일 목록 + ZIP 안 XLSX 텍스트 요약을 LLM 입력으로 묶는 첫 smoke 진입점을 만들었다.
 - 현재 환경에는 `OPENAI_API_KEY`가 없어서 실제 live 호출까지는 아직 실행하지 않았고, dry-run으로 입력 조립과 wrapper 집계 동작만 먼저 확인했다.
 
 ## 2026-03-21 | Human + Codex | 체크포인트 3 완료 - fixture 2건 live 분석 smoke 실행
 
 - 사용자가 `secrets/chatgpt_api_key.txt`에 API 키를 두었다고 알려주어, wrapper가 환경 변수 우선 후 로컬 키 파일을 fallback으로 읽게 했다.
-- 이후 fixture 2건에 대해 실제 OpenAI live 호출을 실행했고, `ExtractedRecord` JSON 결과를 `results/analysis_smoke/` 아래에 남겼다.
-- usage log는 `results/llm/openai_usage.jsonl`에 2건이 누적되었고, 현재 두 호출 합산 기준 `input_tokens=2692`, `output_tokens=1970`, `estimated_total_cost_usd=0.03628`로 집계됐다.
+- 이후 fixture 2건에 대해 실제 OpenAI live 호출을 실행했고, `ExtractedRecord` JSON 결과를 처음에는 `results/analysis_smoke/` 아래에 남겼다. 현재 기준 경로는 `secrets/사용자 설정/김정민/실행결과/로그/analysis_smoke/`다.
+- usage log는 처음에는 `results/llm/openai_usage.jsonl`에 쌓였고, 현재는 `secrets/사용자 설정/김정민/실행결과/로그/llm/openai_usage.jsonl` 기준으로 이어서 관리한다. 당시 두 호출 합산 기준 `input_tokens=2692`, `output_tokens=1970`, `estimated_total_cost_usd=0.03628`였다.
 - 이제 체크포인트 3은 완료로 보고, 다음 단계는 템플릿 열 의미 키의 실제 rule/LLM 매핑 절차로 넘어간다.
 
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀

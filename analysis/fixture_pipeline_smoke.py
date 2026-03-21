@@ -17,7 +17,8 @@ from exports import (
     project_record_to_template,
     read_template_profile,
 )
-from llm import OpenAIResponsesWrapper
+from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
+from project_paths import ProfilePaths, default_example_profile_root
 
 if __package__ in (None, ""):
     from analysis.fixture_smoke import load_fixture_email_input, run_fixture_analysis_smoke
@@ -63,19 +64,6 @@ class FixturePipelineRunResult:
         return asdict(self)
 
 
-def workspace_root() -> Path:
-    """기능: 현재 워크스페이스 루트를 반환한다.
-
-    입력:
-    - 없음
-
-    반환:
-    - `repo/`의 상위 workspace 경로
-    """
-
-    return Path(__file__).resolve().parents[2]
-
-
 def default_profile_root() -> Path:
     """기능: 현재 예시 사용자 프로필 루트 기본 경로를 반환한다.
 
@@ -86,7 +74,7 @@ def default_profile_root() -> Path:
     - `secrets/사용자 설정/김정민`
     """
 
-    return workspace_root() / "secrets" / "사용자 설정" / "김정민"
+    return default_example_profile_root()
 
 
 def default_template_path() -> Path:
@@ -99,33 +87,36 @@ def default_template_path() -> Path:
     - 기대 산출물 workbook 경로
     """
 
-    return default_profile_root() / "기대되는 산출물" / "기업 신청서 모음.xlsx"
+    profile_paths = ProfilePaths(str(default_profile_root()))
+    return profile_paths.template_workbook_path()
 
 
-def default_analysis_results_dir() -> Path:
+def default_analysis_results_dir(profile_root: str) -> Path:
     """기능: 분석 smoke 산출물 기본 저장 경로를 반환한다.
 
     입력:
-    - 없음
+    - profile_root: 사용자 프로필 루트 경로
 
     반환:
-    - `results/analysis_smoke`
+    - `실행결과/로그/analysis_smoke`
     """
 
-    return workspace_root() / "results" / "analysis_smoke"
+    profile_paths = ProfilePaths(profile_root)
+    return profile_paths.runtime_analysis_logs_root()
 
 
-def default_exports_results_dir() -> Path:
-    """기능: export smoke 산출물 기본 저장 경로를 반환한다.
+def default_exports_results_dir(profile_root: str) -> Path:
+    """기능: export workbook 기본 저장 경로를 반환한다.
 
     입력:
-    - 없음
+    - profile_root: 사용자 프로필 루트 경로
 
     반환:
-    - `results/exports_smoke`
+    - `실행결과/엑셀 산출물`
     """
 
-    return workspace_root() / "results" / "exports_smoke"
+    profile_paths = ProfilePaths(profile_root)
+    return profile_paths.runtime_exports_root()
 
 
 def list_fixture_directories(profile_root: str) -> list[Path]:
@@ -138,7 +129,7 @@ def list_fixture_directories(profile_root: str) -> list[Path]:
     - `수신 이메일*` 디렉토리 목록
     """
 
-    root = Path(profile_root)
+    root = ProfilePaths(profile_root).fixture_examples_root()
     directories = [
         path
         for path in sorted(root.iterdir())
@@ -170,7 +161,13 @@ def run_fixture_pipeline_smoke(
     - fixture별 실행 결과 목록
     """
 
-    wrapper = wrapper or OpenAIResponsesWrapper()
+    profile_paths = ProfilePaths(profile_root)
+    profile_paths.ensure_runtime_dirs()
+    wrapper = wrapper or OpenAIResponsesWrapper(
+        OpenAIResponsesConfig(
+            usage_log_path=str(profile_paths.llm_usage_log_path()),
+        )
+    )
     template_profile = read_template_profile(
         workbook_path=template_path,
         profile_id=profile_id,
@@ -181,8 +178,8 @@ def run_fixture_pipeline_smoke(
         wrapper=wrapper,
     )
 
-    analysis_results_dir = default_analysis_results_dir()
-    exports_results_dir = default_exports_results_dir()
+    analysis_results_dir = default_analysis_results_dir(profile_root)
+    exports_results_dir = default_exports_results_dir(profile_root)
     analysis_results_dir.mkdir(parents=True, exist_ok=True)
     exports_results_dir.mkdir(parents=True, exist_ok=True)
 

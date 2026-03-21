@@ -17,7 +17,8 @@
 - Python 직접 실행과 Windows `exe` 패키징이 모두 가능한 방향으로 초기 구조를 잡는다.
 - GUI에서 사용자별 프로필을 만들고, 그 프로필 설정으로 자동화가 동작하는 흐름을 기본 사용 방식으로 잡는다.
 - 사용자는 이메일 주소와 인증 정보만 입력하고, 메일 서버/프로토콜 설정은 앱이 자동 탐지해 보정하는 흐름을 기본으로 잡는다.
-- `secrets/사용자 설정` 아래의 예시 이메일과 기대 산출물은 레퍼런스 fixture로만 사용하고 자동 수정 대상에서 제외한다.
+- `secrets/사용자 설정/<이름>/참고자료` 아래의 예시 이메일과 기대 산출물은 레퍼런스 fixture로만 사용하고 자동 수정 대상에서 제외한다.
+- 실제 런타임 메일/엑셀/로그는 같은 프로필 아래 `실행결과`로 분리해 관리하는 기준을 고정한다.
 - 프로필마다 레퍼런스 Excel 문서가 다를 수 있으므로, 출력 열 구조도 프로필별 템플릿 기준으로 해석하는 방향을 잡는다.
 - 현재 fixture 2건에 과적합하지 않고, 텍스트/HTML/이미지 캡처/이미지 안 표/스캔 PDF/ZIP 복합 첨부까지 포괄하는 입력 처리 방향을 잡는다.
 - reply draft / 자동 발송 / 외부 알림은 위 기본 경로가 실제로 선 뒤에 붙인다.
@@ -33,9 +34,12 @@
 - 프로필 저장 방식: 초기 버전은 실행 파일 인접 디렉토리의 로컬 `json` 파일 저장을 허용한다.
 - 메일 설정 탐지 방식: 이메일 주소와 인증 정보만 입력받고, protocol / host / port / security 후보는 자동 탐지 후 GUI에 표시한다.
 - 탐지 구현 기준: 도메인 규칙, provider 프리셋, autodiscover/autoconfig, 접속 테스트를 우선하고 LLM은 보조 fallback으로 제한한다.
-- 레퍼런스 데이터 기준: `secrets/사용자 설정/<이름>/...` 안의 예시 텍스트와 기대 산출물은 학습/비교용 reference로만 사용하고, 프로그램이 직접 덮어쓰지 않는다.
+- 레퍼런스 데이터 기준: `secrets/사용자 설정/<이름>/참고자료/...` 안의 예시 텍스트와 기대 산출물은 학습/비교용 reference로만 사용하고, 프로그램이 직접 덮어쓰지 않는다.
+- 프로필 디렉토리 기준: 사용자에게 보이는 상위 폴더는 `참고자료`, `실행결과`, `받은 메일`, `엑셀 산출물`, `로그`처럼 한국어로 두고, 기계가 관리하는 메일 번들 id는 ASCII 기반으로 만든다.
+- 런타임 산출물 기준: 프로필 기반 실제 산출물은 `secrets/사용자 설정/<이름>/실행결과/` 아래에 두고, 기본 하위 구조는 `받은 메일/`, `엑셀 산출물/`, `로그/`로 나눈다.
 - 수신 메일 보관 기준: canonical 원본은 `.eml`로 저장하고, 사용자가 편하게 열어볼 수 있는 파생본은 `.html` preview를 기본으로 둔다. PDF는 선택적 파생본으로만 본다.
 - 메일별 산출물 기준: 수신 메일마다 `raw email + preview + attachment 추출물 + 요약/분석 문서`를 하나의 관리 단위로 남긴다.
+- 메일 번들 id 기준: 메일 1건 폴더 이름은 `YYYYMMDD_HHMMSS_msg_<hash>` 같은 ASCII 규칙으로 만든다.
 - 내부 데이터 흐름 기준: `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계 계약으로 계층을 나눈다.
 - 템플릿 기준: `ExtractedRecord`의 공통 의미 필드는 유지하되, 실제 Excel 열 구조와 시트/헤더/스타일 규칙은 프로필별 레퍼런스 Excel 템플릿에서 읽어온다.
 - 템플릿 의미 해석 기준: 먼저 rule 기반 exact/partial match를 적용하고, unresolved header만 LLM fallback으로 보충한다.
@@ -59,10 +63,10 @@
 
 | 모듈 | 상태 | 메모 |
 |---|---|---|
-| Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
-| Analysis | schema + fixture analysis/export smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, structured output schema, end-to-end smoke 스크립트 정의 |
-| Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 결과 workbook append와 reference 대비 회귀 비교 검증 완료 |
-| LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 템플릿 헤더 fallback 호출 경로 정의 |
+| Mailbox | schema + 번들 저장 helper 있음 | `MailBundle`, `NormalizedMessage`, bundle id 규칙, 프로필별 번들 skeleton 생성 helper 정의 |
+| Analysis | schema + fixture analysis/export smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, structured output schema, 프로필 `실행결과` 기준 end-to-end smoke 스크립트 정의 |
+| Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 프로필 `실행결과/엑셀 산출물` 기준 workbook append와 회귀 비교 검증 완료 |
+| LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 프로필 `실행결과/로그/llm` 기준 호출 로그 경로 정의 |
 
 ## 핵심 메모
 
@@ -79,6 +83,7 @@
 - 보안 강화는 현재 최우선 범위가 아니지만, 실제 프로필 파일은 커밋 대상이 아닌 로컬 런타임 산출물로 취급한다.
 - 메일 설정 자동 탐지는 실제 접속 성공 여부가 중요하므로, LLM 단독 추론보다 룰베이스와 probe 기반 검증을 우선한다.
 - 예시 메일과 기대 산출물은 fixture이므로, 실제 구현 검증에 참고하되 원본 자체를 수정하는 방식으로 작업하지 않는다.
+- 현재 기준으로 프로필 폴더는 `참고자료`와 `실행결과`를 명확히 분리하고, 런타임 산출물은 더 이상 reference 옆에 바로 섞어 두지 않는다.
 - 수신 메일 열람성은 PDF보다 HTML preview가 유리하고, 원본 보존성은 `.eml`이 유리하므로 두 층을 분리한다.
 - 실제 신청 메일은 사용자가 AI를 전제로 작성하지 않은 경우가 많으므로, 비정형 이미지/캡처/표 기반 입력도 기본적으로 들어온다고 가정한다.
 - 현재 제품 요구는 아직 넓게 열려 있으므로, provider와 세부 taxonomy를 성급히 고정하지 않는다.
@@ -95,9 +100,12 @@
 6. 완료: fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만들고 실제 workbook까지 생성한다.
 7. 완료: unresolved template header만 대상으로 LLM fallback 매핑 절차를 구현하고 live smoke로 검증한다.
 8. 완료: generated workbook과 reference fixture workbook의 차이를 비교하는 회귀 확인 도구를 추가한다.
+9. 완료: 사용자 프로필 기준 `참고자료 / 실행결과` 디렉토리 구조와 artifact 저장 경로를 고정한다.
+10. 완료: `MailBundle` 디렉토리 구조와 ASCII 기반 bundle id/file naming 규칙을 정한다.
+11. 완료: `raw.eml / preview.html / attachments / normalized.json / summary.md` 번들의 최소 생성 helper를 만든다.
 
 ## 다음 작업
 
-1. fixture smoke 결과를 기반으로 실제 mailbox 연동 전에 어떤 artifact 저장 경로를 먼저 고정할지 정한다.
-2. 실제 mailbox 연동 전용 `MailBundle` 디렉토리 구조와 파일명 규칙을 정한다.
-3. `raw.eml / preview.html / attachments / normalized.json / summary.md` 번들의 최소 생성 흐름을 정한다.
+1. fixture 예시 입력을 실제 `받은 메일/<bundle-id>/` 구조로 materialize 하는 첫 smoke를 만든다.
+2. reference workbook 대비 차이가 큰 필드의 정규화/요약 품질을 개선한다.
+3. 그다음 실제 mailbox 연동과 메일 설정 자동 탐지 smoke로 넘어간다.

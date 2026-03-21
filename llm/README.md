@@ -24,7 +24,9 @@
 - 메일 연결 설정 탐지는 기본적으로 LLM 문제가 아니라 mailbox 계층의 룰베이스 / probe 문제로 본다.
 - LLM은 메일 설정 자동 탐지의 주수단이 아니라, 예외 케이스 설명과 보조 추론에만 제한적으로 사용한다.
 - 민감한 원문은 로그에 과도하게 남기지 않는다.
-- 모든 OpenAI 호출은 wrapper를 거치고, 기본 로그는 `../results/llm/openai_usage.jsonl`에 JSONL로 남긴다.
+- 모든 OpenAI 호출은 wrapper를 거친다.
+- 프로필 기반 실행의 기본 로그는 `../secrets/사용자 설정/<이름>/실행결과/로그/llm/openai_usage.jsonl`에 JSONL로 남긴다.
+- 프로필이 아직 없는 일회성 실험에서는 필요할 때만 `../results/llm/openai_usage.jsonl` fallback을 쓸 수 있다.
 - 예상 비용은 API 응답의 `usage` 토큰과 가격표 snapshot으로 계산한다.
 - 비용 로그는 관찰용으로 유지하되, 실제 설계 판단은 비용보다 성능과 정확도를 우선한다.
 - structured output이 필요한 호출은 Responses API 기준으로 설계한다.

@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from openpyxl import load_workbook
+from project_paths import ProfilePaths, default_example_profile_root
 
 from .rule_mapping import apply_rule_based_template_mapping
 from .schema import TemplateColumn, TemplateProfile, TemplateSheet
@@ -289,14 +290,8 @@ def default_reference_workbook_path() -> Path:
     - reference workbook 경로
     """
 
-    return (
-        Path(__file__).resolve().parents[2]
-        / "secrets"
-        / "사용자 설정"
-        / "김정민"
-        / "기대되는 산출물"
-        / "기업 신청서 모음.xlsx"
-    )
+    profile_paths = ProfilePaths(str(default_example_profile_root()))
+    return profile_paths.template_workbook_path()
 
 
 def default_generated_workbook_path() -> Path:
@@ -309,12 +304,8 @@ def default_generated_workbook_path() -> Path:
     - generated workbook 경로
     """
 
-    return (
-        Path(__file__).resolve().parents[2]
-        / "results"
-        / "exports_smoke"
-        / "기업 신청서 모음_fixture_pipeline.xlsx"
-    )
+    profile_paths = ProfilePaths(str(default_example_profile_root()))
+    return profile_paths.runtime_exports_root() / "기업 신청서 모음_fixture_pipeline.xlsx"
 
 
 def default_regression_report_path() -> Path:
@@ -327,12 +318,8 @@ def default_regression_report_path() -> Path:
     - JSON report 경로
     """
 
-    return (
-        Path(__file__).resolve().parents[2]
-        / "results"
-        / "exports_smoke"
-        / "fixture_regression_report.json"
-    )
+    profile_paths = ProfilePaths(str(default_example_profile_root()))
+    return profile_paths.runtime_exports_logs_root() / "fixture_regression_report.json"
 
 
 def main() -> None:

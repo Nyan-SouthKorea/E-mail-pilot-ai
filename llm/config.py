@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from project_paths import ProfilePaths, default_example_profile_root
+
 
 def workspace_root() -> Path:
     """기능: 워크스페이스 루트 경로를 반환한다.
@@ -43,6 +45,21 @@ def default_llm_usage_log_path() -> Path:
     """
 
     return default_results_root() / "llm" / "openai_usage.jsonl"
+
+
+def default_profile_llm_usage_log_path(profile_root: str | None = None) -> Path:
+    """기능: 프로필 기반 실행의 기본 LLM 사용 로그 파일 경로를 반환한다.
+
+    입력:
+    - profile_root: 사용자 프로필 루트 경로. 없으면 예시 프로필 기준
+
+    반환:
+    - `실행결과/로그/llm/openai_usage.jsonl` 경로
+    """
+
+    resolved_root = profile_root or str(default_example_profile_root())
+    profile_paths = ProfilePaths(resolved_root)
+    return profile_paths.llm_usage_log_path()
 
 
 def default_openai_api_key_file() -> Path:
