@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import zipfile
 from dataclasses import asdict, dataclass, field
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -15,29 +13,16 @@ from mailbox import (
     find_fixture_attachment_dir,
     read_fixture_email_text,
 )
-from openpyxl import load_workbook
 
 from llm import OpenAIResponsesWrapper
 
+from .artifact_summary import ArtifactSummary, summarize_attachment_directory
 from .llm_extraction import (
     build_extracted_record_text_config,
     build_extraction_instructions,
     parse_extracted_record_payload,
 )
 from .schema import ExtractedRecord
-
-
-@dataclass(slots=True)
-class FixtureArtifactSummary:
-    """기능: fixture 첨부 자산 1개 요약을 표현한다."""
-
-    evidence_id: str
-    artifact_name: str
-    artifact_kind: str
-    summary_text: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 @dataclass(slots=True)
@@ -49,7 +34,7 @@ class FixtureEmailInput:
     sender: str
     recipient: str
     body_text: str
-    artifacts: list[FixtureArtifactSummary] = field(default_factory=list)
+    artifacts: list[ArtifactSummary] = field(default_factory=list)
 
     def message_key(self) -> str:
         return self.fixture_id
@@ -79,25 +64,10 @@ def load_fixture_email_input(fixture_dir: str) -> FixtureEmailInput:
     body_text = extract_fixture_body(raw_text)
 
     attachment_dir = find_fixture_attachment_dir(root)
-    artifacts: list[FixtureArtifactSummary] = []
-    evidence_counter = 1
+    artifacts: list[ArtifactSummary] = []
 
     if attachment_dir is not None and attachment_dir.exists():
-        for path in sorted(attachment_dir.iterdir()):
-            if path.suffix.lower() == ".zip":
-                summaries = _summarize_zip_artifacts(path, start_index=evidence_counter)
-                artifacts.extend(summaries)
-                evidence_counter += len(summaries)
-            else:
-                artifacts.append(
-                    FixtureArtifactSummary(
-                        evidence_id=f"artifact_{evidence_counter}",
-                        artifact_name=path.name,
-                        artifact_kind=path.suffix.lower().lstrip(".") or "file",
-                        summary_text=f"첨부파일: {path.name}",
-                    )
-                )
-                evidence_counter += 1
+        artifacts = summarize_attachment_directory(attachment_dir)
 
     return FixtureEmailInput(
         fixture_id=root.name,
@@ -220,48 +190,3 @@ def run_fixture_analysis_smoke(
         message_key=fixture.message_key(),
         payload=payload,
     )
-def _summarize_zip_artifacts(path: Path, start_index: int) -> list[FixtureArtifactSummary]:
-    artifacts: list[FixtureArtifactSummary] = []
-    with zipfile.ZipFile(path) as archive:
-        artifact_index = start_index
-        for name in archive.namelist():
-            lower_name = name.lower()
-            if lower_name.endswith(".xlsx"):
-                summary_text = _summarize_xlsx_from_zip(archive, name)
-                artifact_kind = "xlsx"
-            elif lower_name.endswith(".pdf"):
-                summary_text = f"ZIP 내부 PDF 파일: {name}"
-                artifact_kind = "pdf"
-            else:
-                summary_text = f"ZIP 내부 파일: {name}"
-                artifact_kind = Path(name).suffix.lower().lstrip(".") or "file"
-
-            artifacts.append(
-                FixtureArtifactSummary(
-                    evidence_id=f"artifact_{artifact_index}",
-                    artifact_name=name,
-                    artifact_kind=artifact_kind,
-                    summary_text=summary_text,
-                )
-            )
-            artifact_index += 1
-
-    return artifacts
-
-
-def _summarize_xlsx_from_zip(archive: zipfile.ZipFile, name: str) -> str:
-    workbook = load_workbook(filename=BytesIO(archive.read(name)), data_only=True)
-    worksheet = workbook[workbook.sheetnames[0]]
-
-    lines = [f"ZIP 내부 XLSX 파일: {name}"]
-    captured_rows = 0
-    for row in worksheet.iter_rows(min_row=1, max_row=24, values_only=True):
-        values = [str(value).strip() for value in row if value not in (None, "")]
-        if not values:
-            continue
-        lines.append(" | ".join(values))
-        captured_rows += 1
-        if captured_rows >= 12:
-            break
-
-    return "\n".join(lines)

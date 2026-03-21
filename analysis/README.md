@@ -7,6 +7,7 @@
 - 기본 schema 클래스 골격 정의 완료
 - fixture 기반 첫 LLM 분석 smoke 입력 골격 추가
 - fixture 이메일에서 workbook append까지 이어지는 end-to-end smoke 진입점 추가
+- materialized bundle의 `normalized.json`을 직접 읽는 live 분석 smoke 추가
 
 현재 입력 계약:
 
@@ -42,6 +43,7 @@
 - 본문이 비어 있거나 약해도 inline 이미지, 첨부 이미지, 스캔 PDF, 이미지 속 표에서 근거를 끌어올 수 있게 설계한다.
 - 초기 smoke 단계에서는 fixture 디렉토리의 이메일 본문과 ZIP 내부 XLSX 요약을 합쳐 structured output 기반 첫 분석 호출을 준비한다.
 - extraction prompt와 structured output schema는 [`llm_extraction.py`](llm_extraction.py)에서 같이 관리한다.
+- runtime bundle을 다시 읽는 분석에서는 bundle 루트의 `normalized.json`을 canonical `NormalizedMessage` 입력으로 사용한다.
 
 현재 참고 기준:
 

@@ -23,6 +23,22 @@ class Address:
     email: str
     name: str | None = None
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "Address":
+        """기능: dict payload를 `Address`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 address dict
+
+        반환:
+        - `Address` 인스턴스
+        """
+
+        return cls(
+            email=str(payload.get("email") or ""),
+            name=payload.get("name"),
+        )
+
 
 @dataclass(slots=True)
 class BodyPart:
@@ -46,6 +62,26 @@ class BodyPart:
     charset: str | None = None
     content_path: str | None = None
     is_primary: bool = False
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "BodyPart":
+        """기능: dict payload를 `BodyPart`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 body part dict
+
+        반환:
+        - `BodyPart` 인스턴스
+        """
+
+        return cls(
+            part_id=str(payload["part_id"]),
+            mime_type=str(payload["mime_type"]),
+            content=str(payload.get("content") or ""),
+            charset=payload.get("charset"),
+            content_path=payload.get("content_path"),
+            is_primary=bool(payload.get("is_primary") or False),
+        )
 
 
 @dataclass(slots=True)
@@ -79,6 +115,30 @@ class StoredArtifact:
     archive_member_path: str | None = None
     derived_from_artifact_id: str | None = None
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "StoredArtifact":
+        """기능: dict payload를 `StoredArtifact`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 artifact dict
+
+        반환:
+        - `StoredArtifact` 인스턴스
+        """
+
+        return cls(
+            artifact_id=str(payload["artifact_id"]),
+            role=str(payload["role"]),
+            filename=str(payload["filename"]),
+            media_type=str(payload["media_type"]),
+            relative_path=str(payload["relative_path"]),
+            size_bytes=payload.get("size_bytes"),
+            sha256=payload.get("sha256"),
+            content_id=payload.get("content_id"),
+            archive_member_path=payload.get("archive_member_path"),
+            derived_from_artifact_id=payload.get("derived_from_artifact_id"),
+        )
+
 
 @dataclass(slots=True)
 class MailBundlePaths:
@@ -102,6 +162,28 @@ class MailBundlePaths:
     normalized_json_path: str = "normalized.json"
     summary_md_path: str = "summary.md"
     attachments_dir: str = "attachments"
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "MailBundlePaths":
+        """기능: dict payload를 `MailBundlePaths`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 paths dict
+
+        반환:
+        - `MailBundlePaths` 인스턴스
+        """
+
+        return cls(
+            root_dir=str(payload["root_dir"]),
+            raw_eml_path=str(payload.get("raw_eml_path") or "raw.eml"),
+            preview_html_path=str(payload.get("preview_html_path") or "preview.html"),
+            normalized_json_path=str(
+                payload.get("normalized_json_path") or "normalized.json"
+            ),
+            summary_md_path=str(payload.get("summary_md_path") or "summary.md"),
+            attachments_dir=str(payload.get("attachments_dir") or "attachments"),
+        )
 
 
 @dataclass(slots=True)
@@ -204,6 +286,49 @@ class MailBundle:
 
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "MailBundle":
+        """기능: dict payload를 `MailBundle`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 mail bundle dict
+
+        반환:
+        - `MailBundle` 인스턴스
+        """
+
+        return cls(
+            bundle_id=str(payload["bundle_id"]),
+            provider=str(payload["provider"]),
+            account_id=str(payload["account_id"]),
+            folder=str(payload["folder"]),
+            fetched_at=str(payload["fetched_at"]),
+            from_address=Address.from_dict(payload["from_address"]),
+            paths=MailBundlePaths.from_dict(payload["paths"]),
+            internet_message_id=str(payload.get("internet_message_id") or ""),
+            remote_message_id=payload.get("remote_message_id"),
+            remote_thread_id=payload.get("remote_thread_id"),
+            subject=str(payload.get("subject") or ""),
+            sent_at=payload.get("sent_at"),
+            received_at=payload.get("received_at"),
+            reply_to=[
+                Address.from_dict(item) for item in (payload.get("reply_to") or [])
+            ],
+            to=[Address.from_dict(item) for item in (payload.get("to") or [])],
+            cc=[Address.from_dict(item) for item in (payload.get("cc") or [])],
+            bcc=[Address.from_dict(item) for item in (payload.get("bcc") or [])],
+            body_parts=[
+                BodyPart.from_dict(item) for item in (payload.get("body_parts") or [])
+            ],
+            artifacts=[
+                StoredArtifact.from_dict(item)
+                for item in (payload.get("artifacts") or [])
+            ],
+            headers=dict(payload.get("headers") or {}),
+            labels=list(payload.get("labels") or []),
+            schema_version=str(payload.get("schema_version") or MAIL_BUNDLE_SCHEMA_VERSION),
+        )
+
 
 @dataclass(slots=True)
 class NormalizedMessage:
@@ -304,3 +429,41 @@ class NormalizedMessage:
         """
 
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "NormalizedMessage":
+        """기능: dict payload를 `NormalizedMessage`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 normalized message dict
+
+        반환:
+        - `NormalizedMessage` 인스턴스
+        """
+
+        return cls(
+            bundle_id=str(payload["bundle_id"]),
+            message_key=str(payload["message_key"]),
+            thread_key=str(payload["thread_key"]),
+            sender=Address.from_dict(payload["sender"]),
+            subject=str(payload.get("subject") or ""),
+            sent_at=payload.get("sent_at"),
+            received_at=payload.get("received_at"),
+            reply_to=[
+                Address.from_dict(item) for item in (payload.get("reply_to") or [])
+            ],
+            to=[Address.from_dict(item) for item in (payload.get("to") or [])],
+            cc=[Address.from_dict(item) for item in (payload.get("cc") or [])],
+            bcc=[Address.from_dict(item) for item in (payload.get("bcc") or [])],
+            body_text=str(payload.get("body_text") or ""),
+            body_html=str(payload.get("body_html") or ""),
+            attachment_artifact_ids=list(payload.get("attachment_artifact_ids") or []),
+            inline_artifact_ids=list(payload.get("inline_artifact_ids") or []),
+            other_artifact_ids=list(payload.get("other_artifact_ids") or []),
+            detected_languages=list(payload.get("detected_languages") or []),
+            dedup_keys=list(payload.get("dedup_keys") or []),
+            labels=list(payload.get("labels") or []),
+            schema_version=str(
+                payload.get("schema_version") or NORMALIZED_MESSAGE_SCHEMA_VERSION
+            ),
+        )

@@ -6,6 +6,7 @@
 
 - 기본 schema 클래스 골격 정의 완료
 - reference fixture를 실제 MailBundle 구조로 materialize 하는 smoke 추가
+- runtime bundle의 `normalized.json`을 다시 읽는 bundle reader helper 추가
 - provider 연결과 런타임 수집은 아직 시작 전
 
 현재 고정 출력 계약:

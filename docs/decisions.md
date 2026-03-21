@@ -137,6 +137,11 @@
 - 결정: 메일 원본 보관 단위는 `MailBundle`, 분석 공통 입력은 `NormalizedMessage`, 분석 산출물은 `ExtractedRecord`, Excel 직전 계약은 `ExportRow`로 나눈다.
 - 이유: 메일 provider 구현, 멀티모달 입력 해석, LLM 추출, Excel 출력이 서로 다른 책임을 갖고 움직이기 때문에, 중간 계약이 없으면 구현이 빠르게 서로 얽히고 fixture 기반 검증도 어려워진다.
 
+## 2026-03-21 | runtime bundle의 분석 시작점은 `normalized.json`으로 둔다
+
+- 결정: 실제 `받은 메일/<bundle-id>/`를 다시 읽어 분석할 때는 bundle 루트의 `normalized.json`을 canonical `NormalizedMessage` 입력으로 사용한다.
+- 이유: provider별 raw 원문 파싱을 analysis 단계가 다시 떠안지 않게 해야 하고, 같은 bundle을 반복 분석하거나 export에 재사용할 때도 가장 안정적인 공통 입력은 이미 저장된 `NormalizedMessage` snapshot이기 때문이다.
+
 ## 2026-03-21 | 주경로 코드는 객체지향과 재사용성을 허용하되 과한 추상화는 피한다
 
 - 결정: 주경로 구현에서 class와 객체지향 설계를 배제하지 않고, 상태와 동작을 함께 관리해야 하는 도메인에는 적극 사용한다. 단, 오버엔지니어링이 되지 않도록 추상화 깊이와 미사용 유연성은 제한한다.

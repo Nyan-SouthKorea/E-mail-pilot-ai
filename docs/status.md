@@ -41,6 +41,7 @@
 - 메일별 산출물 기준: 수신 메일마다 `raw email + preview + attachment 추출물 + 요약/분석 문서`를 하나의 관리 단위로 남긴다.
 - 메일 번들 id 기준: 메일 1건 폴더 이름은 `YYYYMMDD_HHMMSS_msg_<hash>` 같은 ASCII 규칙으로 만든다.
 - 내부 데이터 흐름 기준: `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계 계약으로 계층을 나눈다.
+- runtime 분석 입력 기준: 실제 bundle을 다시 읽을 때의 canonical 입력은 bundle 루트의 `normalized.json`이며, 분석 계층은 이 `NormalizedMessage`를 우선 입력으로 사용한다.
 - 템플릿 기준: `ExtractedRecord`의 공통 의미 필드는 유지하되, 실제 Excel 열 구조와 시트/헤더/스타일 규칙은 프로필별 레퍼런스 Excel 템플릿에서 읽어온다.
 - 템플릿 의미 해석 기준: 먼저 rule 기반 exact/partial match를 적용하고, unresolved header만 LLM fallback으로 보충한다.
 - LLM 사용 기준: 비용 절감보다 성능과 정확도를 우선하고, LLM이 더 잘하는 해석/요약/비정형 이해는 적극 사용한다. 비용 로그는 관찰용으로만 유지한다.
@@ -64,8 +65,8 @@
 
 | 모듈 | 상태 | 메모 |
 |---|---|---|
-| Mailbox | schema + 번들 저장 helper + fixture materialize smoke 있음 | `MailBundle`, `NormalizedMessage`, bundle id 규칙, 프로필별 번들 skeleton 생성 helper, fixture를 실제 `받은 메일/<bundle-id>/` 구조로 푸는 smoke 정의 |
-| Analysis | schema + fixture analysis/export smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, extraction prompt/schema, 프로필 `실행결과` 기준 end-to-end smoke 스크립트 정의 |
+| Mailbox | schema + 번들 저장 helper + fixture materialize smoke + bundle reader 있음 | `MailBundle`, `NormalizedMessage`, bundle id 규칙, 프로필별 번들 skeleton 생성 helper, fixture를 실제 `받은 메일/<bundle-id>/` 구조로 푸는 smoke, valid bundle/normalized.json loader 정의 |
+| Analysis | schema + fixture/materialized-bundle analysis smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, extraction prompt/schema, runtime bundle의 `normalized.json`을 직접 읽는 live 분석 smoke 정의 |
 | Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 프로필 `실행결과/엑셀 산출물` 기준 workbook append와 회귀 비교 검증 완료 |
 | LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 프로필 `실행결과/로그/llm` 기준 호출 로그 경로 정의 |
 
@@ -105,10 +106,11 @@
 10. 완료: `MailBundle` 디렉토리 구조와 ASCII 기반 bundle id/file naming 규칙을 정한다.
 11. 완료: `raw.eml / preview.html / attachments / normalized.json / summary.md` 번들의 최소 생성 helper를 만든다.
 12. 완료: fixture 예시 입력을 실제 `받은 메일/<bundle-id>/` 구조로 materialize 하는 첫 smoke를 만든다.
-13. 진행 중: reference workbook 대비 차이가 큰 필드의 정규화/요약 품질을 개선한다.
+13. 완료: materialized bundle을 직접 읽어 `NormalizedMessage -> analysis`로 이어지는 live smoke를 만든다.
+14. 진행 중: reference workbook 대비 차이가 큰 필드의 정규화/요약 품질을 개선한다.
 
 ## 다음 작업
 
-1. materialized bundle을 직접 읽어 `NormalizedMessage -> analysis`로 이어지는 smoke를 만든다.
+1. materialized bundle 분석 결과를 기존 export 파이프라인과 연결해 `bundle -> analysis -> exports` smoke를 만든다.
 2. regression diff에 남아 있는 `주요 제품/서비스`, `신청목적`, `사업내용 요약`, `상세 요청 사항` 품질을 계속 개선한다.
 3. 그다음 실제 mailbox 연동과 메일 설정 자동 탐지 smoke로 넘어간다.

@@ -2,6 +2,17 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | materialized bundle의 `normalized.json`을 직접 읽는 live 분석 smoke 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `mailbox/README.md`, `analysis/README.md`, `llm/README.md`였다.
+- 다음 계획은 방금 만든 `받은 메일/<bundle-id>/` 구조를 실제 분석 입력으로 재사용하는 것이었고, 이때 가장 중요한 기준은 fixture 전용 로더를 더 늘리지 않고 runtime bundle의 `normalized.json`을 canonical 입력으로 쓰는 것이었다.
+- 이에 따라 `mailbox/schema.py`에 `Address`, `BodyPart`, `StoredArtifact`, `MailBundlePaths`, `MailBundle`, `NormalizedMessage`의 `from_dict()` 복원 경로를 추가했다.
+- `mailbox/bundle_reader.py`를 추가해 유효한 runtime bundle 목록을 고르고, bundle의 `normalized.json`과 `attachments/`를 읽는 helper를 만들었다.
+- `analysis/artifact_summary.py`를 추가해 ZIP 안 XLSX/PDF까지 포함한 첨부 요약 공용 helper를 만들었고, 기존 `analysis/fixture_smoke.py`도 이 공용 helper를 쓰도록 정리했다.
+- `analysis/materialized_bundle_smoke.py`를 추가해 실제 runtime bundle의 `normalized.json`을 읽고 live OpenAI 분석을 실행한 뒤, 결과를 `실행결과/로그/analysis_smoke/<bundle-id>_extracted_record.json`에 저장하는 smoke를 만들었다.
+- 검증 결과 유효 bundle은 placeholder를 제외한 `20260321_050857_msg_a6850e1c`, `20260321_051425_msg_f80d23b8` 두 건만 잡혔고, 둘 다 live 분석이 성공했다.
+- 현재 usage log 누적 기준은 `entry_count=9`, `input_tokens=13175`, `output_tokens=8070`, `estimated_total_cost_usd=0.1539875`다.
+
 ## 2026-03-21 | Human + Codex | fixture 첨부 폴더 단순화와 MailBundle materialize smoke 추가
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `mailbox/README.md`, `analysis/README.md`, `llm/README.md`였다.
