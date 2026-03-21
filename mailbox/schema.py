@@ -1,37 +1,32 @@
-"""Mailbox 계층에서 공통으로 사용하는 데이터 계약 helper."""
+"""Mailbox 계층에서 공통으로 사용하는 데이터 계약."""
 
-import copy
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
 
 MAIL_BUNDLE_SCHEMA_VERSION = "mailbox.mail_bundle.v1"
 NORMALIZED_MESSAGE_SCHEMA_VERSION = "mailbox.normalized_message.v1"
 
 
-def make_address(email, name=""):
-    """기능: 이메일 주소 정보를 만든다.
+@dataclass(slots=True)
+class Address:
+    """기능: 이메일 주소 한 개를 표현한다.
 
     입력:
-    - email: 실제 이메일 주소
     - name: 표시 이름
+    - email: 실제 이메일 주소
 
     반환:
-    - 주소 dict
+    - dataclass 인스턴스
     """
 
-    return {
-        "email": email,
-        "name": name,
-    }
+    email: str
+    name: str | None = None
 
 
-def make_body_part(
-    part_id,
-    mime_type,
-    content="",
-    charset="",
-    content_path="",
-    is_primary=False,
-):
-    """기능: 정규화된 본문 파트 dict를 만든다.
+@dataclass(slots=True)
+class BodyPart:
+    """기능: 정규화된 본문 파트를 표현한다.
 
     입력:
     - part_id: MIME 파트 식별자
@@ -42,32 +37,20 @@ def make_body_part(
     - is_primary: 대표 본문 여부
 
     반환:
-    - 본문 파트 dict
+    - dataclass 인스턴스
     """
 
-    return {
-        "part_id": part_id,
-        "mime_type": mime_type,
-        "content": content,
-        "charset": charset,
-        "content_path": content_path,
-        "is_primary": is_primary,
-    }
+    part_id: str
+    mime_type: str
+    content: str = ""
+    charset: str | None = None
+    content_path: str | None = None
+    is_primary: bool = False
 
 
-def make_stored_artifact(
-    artifact_id,
-    role,
-    filename,
-    media_type,
-    relative_path,
-    size_bytes=None,
-    sha256="",
-    content_id="",
-    archive_member_path="",
-    derived_from_artifact_id="",
-):
-    """기능: 첨부 또는 파생 자산 dict를 만든다.
+@dataclass(slots=True)
+class StoredArtifact:
+    """기능: 메일 번들 안의 첨부 또는 파생 자산을 표현한다.
 
     입력:
     - artifact_id: bundle 내부 식별자
@@ -82,32 +65,24 @@ def make_stored_artifact(
     - derived_from_artifact_id: 파생 자산의 원본 artifact id
 
     반환:
-    - 자산 dict
+    - dataclass 인스턴스
     """
 
-    return {
-        "artifact_id": artifact_id,
-        "role": role,
-        "filename": filename,
-        "media_type": media_type,
-        "relative_path": relative_path,
-        "size_bytes": size_bytes,
-        "sha256": sha256,
-        "content_id": content_id,
-        "archive_member_path": archive_member_path,
-        "derived_from_artifact_id": derived_from_artifact_id,
-    }
+    artifact_id: str
+    role: str
+    filename: str
+    media_type: str
+    relative_path: str
+    size_bytes: int | None = None
+    sha256: str | None = None
+    content_id: str | None = None
+    archive_member_path: str | None = None
+    derived_from_artifact_id: str | None = None
 
 
-def make_mail_bundle_paths(
-    root_dir,
-    raw_eml_path="raw.eml",
-    preview_html_path="preview.html",
-    normalized_json_path="normalized.json",
-    summary_md_path="summary.md",
-    attachments_dir="attachments",
-):
-    """기능: 메일 번들의 표준 경로 dict를 만든다.
+@dataclass(slots=True)
+class MailBundlePaths:
+    """기능: 메일 번들의 표준 파일 레이아웃을 표현한다.
 
     입력:
     - root_dir: bundle 루트 경로
@@ -118,296 +93,214 @@ def make_mail_bundle_paths(
     - attachments_dir: 첨부 자산 디렉토리 상대경로
 
     반환:
-    - 경로 dict
+    - dataclass 인스턴스
     """
 
-    return {
-        "root_dir": root_dir,
-        "raw_eml_path": raw_eml_path,
-        "preview_html_path": preview_html_path,
-        "normalized_json_path": normalized_json_path,
-        "summary_md_path": summary_md_path,
-        "attachments_dir": attachments_dir,
-    }
+    root_dir: str
+    raw_eml_path: str = "raw.eml"
+    preview_html_path: str = "preview.html"
+    normalized_json_path: str = "normalized.json"
+    summary_md_path: str = "summary.md"
+    attachments_dir: str = "attachments"
 
 
-def make_mail_bundle(
-    bundle_id,
-    provider,
-    account_id,
-    folder,
-    fetched_at,
-    from_address,
-    paths,
-    internet_message_id="",
-    remote_message_id="",
-    remote_thread_id="",
-    subject="",
-    sent_at="",
-    received_at="",
-    reply_to=None,
-    to=None,
-    cc=None,
-    bcc=None,
-    body_parts=None,
-    artifacts=None,
-    headers=None,
-    labels=None,
-    schema_version=MAIL_BUNDLE_SCHEMA_VERSION,
-):
-    """기능: 메일 1건의 원본 보관 단위 dict를 만든다.
+@dataclass(slots=True)
+class MailBundle:
+    """기능: 메일 1건의 원본 보관 단위를 표현한다.
 
     입력:
     - 메일 메타데이터, 본문 파트, artifact inventory, 표준 경로 정보
 
     반환:
-    - 메일 번들 dict
+    - dataclass 인스턴스
     """
 
-    if reply_to is None:
-        reply_to = []
-    if to is None:
-        to = []
-    if cc is None:
-        cc = []
-    if bcc is None:
-        bcc = []
-    if body_parts is None:
-        body_parts = []
-    if artifacts is None:
-        artifacts = []
-    if headers is None:
-        headers = {}
-    if labels is None:
-        labels = []
+    bundle_id: str
+    provider: str
+    account_id: str
+    folder: str
+    fetched_at: str
+    from_address: Address
+    paths: MailBundlePaths
+    internet_message_id: str = ""
+    remote_message_id: str | None = None
+    remote_thread_id: str | None = None
+    subject: str = ""
+    sent_at: str | None = None
+    received_at: str | None = None
+    reply_to: list[Address] = field(default_factory=list)
+    to: list[Address] = field(default_factory=list)
+    cc: list[Address] = field(default_factory=list)
+    bcc: list[Address] = field(default_factory=list)
+    body_parts: list[BodyPart] = field(default_factory=list)
+    artifacts: list[StoredArtifact] = field(default_factory=list)
+    headers: dict[str, str] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    schema_version: str = MAIL_BUNDLE_SCHEMA_VERSION
 
-    return {
-        "bundle_id": bundle_id,
-        "provider": provider,
-        "account_id": account_id,
-        "folder": folder,
-        "fetched_at": fetched_at,
-        "from_address": copy.deepcopy(from_address),
-        "paths": copy.deepcopy(paths),
-        "internet_message_id": internet_message_id,
-        "remote_message_id": remote_message_id,
-        "remote_thread_id": remote_thread_id,
-        "subject": subject,
-        "sent_at": sent_at,
-        "received_at": received_at,
-        "reply_to": copy.deepcopy(reply_to),
-        "to": copy.deepcopy(to),
-        "cc": copy.deepcopy(cc),
-        "bcc": copy.deepcopy(bcc),
-        "body_parts": copy.deepcopy(body_parts),
-        "artifacts": copy.deepcopy(artifacts),
-        "headers": copy.deepcopy(headers),
-        "labels": copy.deepcopy(labels),
-        "schema_version": schema_version,
-    }
+    def primary_text(self) -> str:
+        """기능: 대표 plain text 본문을 반환한다.
+
+        입력:
+        - 없음
+
+        반환:
+        - 대표 text/plain 문자열
+        """
+
+        primary = next(
+            (
+                part
+                for part in self.body_parts
+                if part.mime_type == "text/plain" and part.is_primary
+            ),
+            None,
+        )
+        if primary is not None:
+            return primary.content
+
+        fallback = next(
+            (part for part in self.body_parts if part.mime_type == "text/plain"),
+            None,
+        )
+        return fallback.content if fallback is not None else ""
+
+    def primary_html(self) -> str:
+        """기능: 대표 HTML 본문을 반환한다.
+
+        입력:
+        - 없음
+
+        반환:
+        - 대표 text/html 문자열
+        """
+
+        primary = next(
+            (
+                part
+                for part in self.body_parts
+                if part.mime_type == "text/html" and part.is_primary
+            ),
+            None,
+        )
+        if primary is not None:
+            return primary.content
+
+        fallback = next(
+            (part for part in self.body_parts if part.mime_type == "text/html"),
+            None,
+        )
+        return fallback.content if fallback is not None else ""
+
+    def to_dict(self) -> dict[str, object]:
+        """기능: 메일 번들을 JSON 직렬화용 dict로 바꾼다.
+
+        입력:
+        - 없음
+
+        반환:
+        - 중첩 dataclass가 풀린 dict
+        """
+
+        return asdict(self)
 
 
-def get_primary_text(bundle):
-    """기능: 대표 plain text 본문을 반환한다.
-
-    입력:
-    - bundle: 메일 번들 dict
-
-    반환:
-    - 대표 text/plain 문자열
-    """
-
-    for part in bundle.get("body_parts", []):
-        if part.get("mime_type") == "text/plain" and part.get("is_primary"):
-            return part.get("content", "")
-
-    for part in bundle.get("body_parts", []):
-        if part.get("mime_type") == "text/plain":
-            return part.get("content", "")
-
-    return ""
-
-
-def get_primary_html(bundle):
-    """기능: 대표 HTML 본문을 반환한다.
-
-    입력:
-    - bundle: 메일 번들 dict
-
-    반환:
-    - 대표 text/html 문자열
-    """
-
-    for part in bundle.get("body_parts", []):
-        if part.get("mime_type") == "text/html" and part.get("is_primary"):
-            return part.get("content", "")
-
-    for part in bundle.get("body_parts", []):
-        if part.get("mime_type") == "text/html":
-            return part.get("content", "")
-
-    return ""
-
-
-def make_normalized_message(
-    bundle_id,
-    message_key,
-    thread_key,
-    sender,
-    subject="",
-    sent_at="",
-    received_at="",
-    reply_to=None,
-    to=None,
-    cc=None,
-    bcc=None,
-    body_text="",
-    body_html="",
-    attachment_artifact_ids=None,
-    inline_artifact_ids=None,
-    other_artifact_ids=None,
-    detected_languages=None,
-    dedup_keys=None,
-    labels=None,
-    schema_version=NORMALIZED_MESSAGE_SCHEMA_VERSION,
-):
-    """기능: 분석 계층에 넘길 공통 메일 입력 dict를 만든다.
+@dataclass(slots=True)
+class NormalizedMessage:
+    """기능: 분석 계층에 넘기는 공통 메일 입력을 표현한다.
 
     입력:
     - 공통 키, 본문 텍스트/HTML, 참여자, artifact id 목록, dedup 정보
 
     반환:
-    - 정규화된 메일 dict
+    - dataclass 인스턴스
     """
 
-    if reply_to is None:
-        reply_to = []
-    if to is None:
-        to = []
-    if cc is None:
-        cc = []
-    if bcc is None:
-        bcc = []
-    if attachment_artifact_ids is None:
-        attachment_artifact_ids = []
-    if inline_artifact_ids is None:
-        inline_artifact_ids = []
-    if other_artifact_ids is None:
-        other_artifact_ids = []
-    if detected_languages is None:
-        detected_languages = []
-    if dedup_keys is None:
-        dedup_keys = []
-    if labels is None:
-        labels = []
+    bundle_id: str
+    message_key: str
+    thread_key: str
+    sender: Address
+    subject: str = ""
+    sent_at: str | None = None
+    received_at: str | None = None
+    reply_to: list[Address] = field(default_factory=list)
+    to: list[Address] = field(default_factory=list)
+    cc: list[Address] = field(default_factory=list)
+    bcc: list[Address] = field(default_factory=list)
+    body_text: str = ""
+    body_html: str = ""
+    attachment_artifact_ids: list[str] = field(default_factory=list)
+    inline_artifact_ids: list[str] = field(default_factory=list)
+    other_artifact_ids: list[str] = field(default_factory=list)
+    detected_languages: list[str] = field(default_factory=list)
+    dedup_keys: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    schema_version: str = NORMALIZED_MESSAGE_SCHEMA_VERSION
 
-    return {
-        "bundle_id": bundle_id,
-        "message_key": message_key,
-        "thread_key": thread_key,
-        "sender": copy.deepcopy(sender),
-        "subject": subject,
-        "sent_at": sent_at,
-        "received_at": received_at,
-        "reply_to": copy.deepcopy(reply_to),
-        "to": copy.deepcopy(to),
-        "cc": copy.deepcopy(cc),
-        "bcc": copy.deepcopy(bcc),
-        "body_text": body_text,
-        "body_html": body_html,
-        "attachment_artifact_ids": list(attachment_artifact_ids),
-        "inline_artifact_ids": list(inline_artifact_ids),
-        "other_artifact_ids": list(other_artifact_ids),
-        "detected_languages": list(detected_languages),
-        "dedup_keys": list(dedup_keys),
-        "labels": list(labels),
-        "schema_version": schema_version,
-    }
+    @classmethod
+    def from_bundle(cls, bundle: MailBundle) -> "NormalizedMessage":
+        """기능: `MailBundle`에서 분석 입력용 공통 메일을 만든다.
 
+        입력:
+        - bundle: 원본 보관 단위
 
-def mail_bundle_to_normalized_message(bundle):
-    """기능: 메일 번들에서 분석 입력용 공통 메일 dict를 만든다.
+        반환:
+        - `NormalizedMessage` 인스턴스
+        """
 
-    입력:
-    - bundle: 메일 번들 dict
+        message_key = bundle.remote_message_id or bundle.internet_message_id or bundle.bundle_id
+        thread_key = bundle.remote_thread_id or bundle.internet_message_id or message_key
 
-    반환:
-    - 정규화된 메일 dict
-    """
+        attachment_ids = [
+            artifact.artifact_id
+            for artifact in bundle.artifacts
+            if artifact.role == "attachment"
+        ]
+        inline_ids = [
+            artifact.artifact_id
+            for artifact in bundle.artifacts
+            if artifact.role == "inline"
+        ]
+        other_ids = [
+            artifact.artifact_id
+            for artifact in bundle.artifacts
+            if artifact.role not in {"attachment", "inline"}
+        ]
 
-    message_key = bundle.get("remote_message_id")
-    if not message_key:
-        message_key = bundle.get("internet_message_id")
-    if not message_key:
-        message_key = bundle.get("bundle_id", "")
+        dedup_keys: list[str] = []
+        for value in [message_key, bundle.internet_message_id]:
+            if value and value not in dedup_keys:
+                dedup_keys.append(value)
 
-    thread_key = bundle.get("remote_thread_id")
-    if not thread_key:
-        thread_key = bundle.get("internet_message_id")
-    if not thread_key:
-        thread_key = message_key
+        return cls(
+            bundle_id=bundle.bundle_id,
+            message_key=message_key,
+            thread_key=thread_key,
+            sender=bundle.from_address,
+            subject=bundle.subject,
+            sent_at=bundle.sent_at,
+            received_at=bundle.received_at,
+            reply_to=list(bundle.reply_to),
+            to=list(bundle.to),
+            cc=list(bundle.cc),
+            bcc=list(bundle.bcc),
+            body_text=bundle.primary_text(),
+            body_html=bundle.primary_html(),
+            attachment_artifact_ids=attachment_ids,
+            inline_artifact_ids=inline_ids,
+            other_artifact_ids=other_ids,
+            dedup_keys=dedup_keys,
+            labels=list(bundle.labels),
+        )
 
-    attachment_artifact_ids = []
-    inline_artifact_ids = []
-    other_artifact_ids = []
-    for artifact in bundle.get("artifacts", []):
-        artifact_id = artifact.get("artifact_id", "")
-        role = artifact.get("role", "")
-        if role == "attachment":
-            attachment_artifact_ids.append(artifact_id)
-        elif role == "inline":
-            inline_artifact_ids.append(artifact_id)
-        else:
-            other_artifact_ids.append(artifact_id)
+    def to_dict(self) -> dict[str, object]:
+        """기능: 공통 메일 입력을 JSON 직렬화용 dict로 바꾼다.
 
-    dedup_keys = []
-    for value in [message_key, bundle.get("internet_message_id", "")]:
-        if value and value not in dedup_keys:
-            dedup_keys.append(value)
+        입력:
+        - 없음
 
-    return make_normalized_message(
-        bundle_id=bundle.get("bundle_id", ""),
-        message_key=message_key,
-        thread_key=thread_key,
-        sender=bundle.get("from_address", make_address("")),
-        subject=bundle.get("subject", ""),
-        sent_at=bundle.get("sent_at", ""),
-        received_at=bundle.get("received_at", ""),
-        reply_to=bundle.get("reply_to", []),
-        to=bundle.get("to", []),
-        cc=bundle.get("cc", []),
-        bcc=bundle.get("bcc", []),
-        body_text=get_primary_text(bundle),
-        body_html=get_primary_html(bundle),
-        attachment_artifact_ids=attachment_artifact_ids,
-        inline_artifact_ids=inline_artifact_ids,
-        other_artifact_ids=other_artifact_ids,
-        dedup_keys=dedup_keys,
-        labels=bundle.get("labels", []),
-    )
+        반환:
+        - 중첩 dataclass가 풀린 dict
+        """
 
-
-def copy_mail_bundle(bundle):
-    """기능: 메일 번들 dict의 깊은 복사본을 만든다.
-
-    입력:
-    - bundle: 메일 번들 dict
-
-    반환:
-    - 복사된 메일 번들 dict
-    """
-
-    return copy.deepcopy(bundle)
-
-
-def copy_normalized_message(message):
-    """기능: 정규화된 메일 dict의 깊은 복사본을 만든다.
-
-    입력:
-    - message: 정규화된 메일 dict
-
-    반환:
-    - 복사된 정규화 메일 dict
-    """
-
-    return copy.deepcopy(message)
+        return asdict(self)

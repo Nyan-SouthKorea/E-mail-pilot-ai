@@ -2,6 +2,14 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.
+- 사용자는 `오버엔지니어링 금지` 규칙이 문서에 있는지 다시 확인해달라고 했고, 자신은 객체지향 프로그래밍의 중요성을 높게 보는 사람이라고 설명했다.
+- 확인 결과 `오버엔지니어링 금지`는 이미 문서에 있었지만, 직전 턴의 `class보다 함수 중심` 해석은 사용자의 의도보다 과하게 좁혀진 상태였다.
+- 이에 따라 코드 스타일 규칙을 `객체지향 허용`, `재사용성과 유지보수성 우선`, `표준 Python 문법 허용`, `과한 추상화만 제한` 방향으로 다시 정리했다.
+- `mailbox/schema.py`, `analysis/schema.py`와 각 `__init__.py`는 helper dict 중심 구조에서 다시 class 기반 schema 구조로 되돌렸다.
+
 ## 2026-03-21 | Human + Codex | 코드 스타일 단순화 기준 추가와 schema 함수형 리팩토링
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.
