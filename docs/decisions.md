@@ -116,3 +116,8 @@
 
 - 결정: 작업 결과가 안정된 마일스톤에 도달하면 local commit을 기본적으로 남기고, 원격에 남길 가치가 있는 마일스톤이면 push까지 같은 흐름에서 점검한다.
 - 이유: 긴 세션에서 변경을 오래 작업 트리에만 쌓아두면 회귀 지점과 설명 책임이 흐려지므로, 마일스톤 단위 기록을 더 적극적으로 남기는 편이 협업에 유리하다.
+
+## 2026-03-21 | 기본 데이터 흐름은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow`로 둔다
+
+- 결정: 메일 원본 보관 단위는 `MailBundle`, 분석 공통 입력은 `NormalizedMessage`, 분석 산출물은 `ExtractedRecord`, Excel 직전 계약은 `ExportRow`로 나눈다.
+- 이유: 메일 provider 구현, 멀티모달 입력 해석, LLM 추출, Excel 출력이 서로 다른 책임을 갖고 움직이기 때문에, 중간 계약이 없으면 구현이 빠르게 서로 얽히고 fixture 기반 검증도 어려워진다.

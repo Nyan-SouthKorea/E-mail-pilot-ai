@@ -35,6 +35,7 @@
 - 레퍼런스 데이터 기준: `secrets/사용자 설정/<이름>/...` 안의 예시 텍스트와 기대 산출물은 학습/비교용 reference로만 사용하고, 프로그램이 직접 덮어쓰지 않는다.
 - 수신 메일 보관 기준: canonical 원본은 `.eml`로 저장하고, 사용자가 편하게 열어볼 수 있는 파생본은 `.html` preview를 기본으로 둔다. PDF는 선택적 파생본으로만 본다.
 - 메일별 산출물 기준: 수신 메일마다 `raw email + preview + attachment 추출물 + 요약/분석 문서`를 하나의 관리 단위로 남긴다.
+- 내부 데이터 흐름 기준: `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계 계약으로 계층을 나눈다.
 - Excel 갱신 기준: 사용자가 직접 수정할 수 있는 문서를 기본으로 보고, AI는 기존 사람이 작성한 내용 뒤에 append하며 기존 스타일과 수식을 최대한 보존한다.
 - 요약 기준: 신청서 내용을 기초로 하되, 중복 표현을 줄이고 사람이 읽기 쉬운 한줄/짧은 문단 요약을 생성한다.
 - 입력 해석 기준: 본문 텍스트가 없어도 inline 이미지, 첨부 이미지, 스캔 PDF, 이미지 속 표에서 필요한 정보를 추출할 수 있는 방향을 기본값으로 둔다.
@@ -48,14 +49,15 @@
 
 | 모듈 | 상태 | 메모 |
 |---|---|---|
-| Mailbox | 설계 전 | inbox sync, thread fetch, attachment ingestion 담당 |
-| Analysis | 설계 전 | 분류, 추출, 요약, schema 정규화 담당 |
-| Exports | 설계 전 | Excel row mapping, workbook update 담당 |
+| Mailbox | 기본 schema 골격 있음 | `MailBundle`, `NormalizedMessage` 계약 정의 |
+| Analysis | 기본 schema 골격 있음 | `EvidenceRef`, `ExtractedRecord` 계약 정의 |
+| Exports | 설계 전 | `ExtractedRecord -> ExportRow` mapping next |
 | LLM | 설계 전 | OpenAI client, prompt, structured response 담당 |
 
 ## 핵심 메모
 
 - 현재 리포는 코드보다 운영 틀을 먼저 고정하는 초기 단계다.
+- 현재는 메일 provider 연동보다 먼저 메일 보관 번들과 중간 schema를 고정하는 단계다.
 - 레퍼런스 레포에서 가져온 핵심 철학은 아래다.
   - 문서 역할 분리
   - 시작 게이트 고정
@@ -75,8 +77,8 @@
 
 ## 다음 작업
 
-1. 레퍼런스 fixture를 읽어 `이메일 보관 번들` 형식과 `중간 JSON schema`를 먼저 정리한다.
-2. 텍스트/HTML/이미지/OCR/표 추출을 포괄하는 입력 해석 전략을 정한다.
-3. Excel 출력의 canonical row schema, append 정책, 스타일/수식 보존 전략을 정한다.
+1. `ExtractedRecord -> ExportRow` canonical row schema와 workbook 스타일 상속 규칙을 정한다.
+2. fixture 기반 `raw bundle -> NormalizedMessage` 첫 smoke를 만든다.
+3. 필드별 evidence 연결 전략과 요약 생성 기준을 더 구체화한다.
 4. GUI 프로필 생성 흐름과 프로필 JSON schema를 정리한다.
 5. fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만든다.

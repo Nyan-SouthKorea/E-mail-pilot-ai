@@ -2,6 +2,15 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 메일 번들과 중간 schema 기본 골격 정의
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`, `exports/README.md`였다.
+- 다음 구현 우선순위는 메일 연동 자체보다 `이메일 보관 번들`, `중간 JSON schema`, `분석 산출물 계약`을 먼저 고정하는 편이 재작업을 줄인다고 판단했다.
+- 이에 따라 내부 데이터 흐름을 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계로 고정했다.
+- `mailbox/`에는 메일 번들 보관 단위와 분석 공통 입력 단위를 나타내는 기본 dataclass 골격을 추가했다.
+- `analysis/`에는 evidence 기반 추출 결과를 표현하는 기본 dataclass 골격을 추가했다.
+- `status`, `개발방침`, `decisions`, 각 모듈 `README`도 이 기준에 맞게 갱신했다.
+
 ## 2026-03-21 | Human + Codex | 협업 모드 전환과 마일스톤 커밋 정책 강화
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`였다.
