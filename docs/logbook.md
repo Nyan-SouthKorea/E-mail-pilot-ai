@@ -2,6 +2,14 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 프로필별 Excel 템플릿 해석 중심 계획 반영
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `exports/README.md`, `analysis/README.md`였다.
+- 사용자는 엑셀 칸이 프로젝트 전체에서 고정되는 것이 아니라, 각 사용자 프로필 폴더의 레퍼런스 Excel 문서에 따라 달라질 것이라고 설명했다.
+- 이에 따라 다음 계획을 `전역 고정 ExportRow` 설계에서 `프로필별 템플릿 해석 -> 공통 의미 필드 매핑 -> workbook 쓰기` 순서로 조정했다.
+- 문서에는 `공통 의미 필드`와 `프로필별 템플릿 규칙`을 분리하는 기준, LLM이 맡는 부분과 코드가 맡는 부분, 다음 작업 순서를 반영했다.
+- 이후에는 계획이 대화에서만 사라지지 않도록, 방향이 바뀔 때마다 `status`, `decisions`, `logbook`을 함께 읽고 갱신하는 흐름으로 계속 진행한다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.

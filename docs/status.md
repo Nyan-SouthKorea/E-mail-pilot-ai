@@ -18,6 +18,7 @@
 - GUI에서 사용자별 프로필을 만들고, 그 프로필 설정으로 자동화가 동작하는 흐름을 기본 사용 방식으로 잡는다.
 - 사용자는 이메일 주소와 인증 정보만 입력하고, 메일 서버/프로토콜 설정은 앱이 자동 탐지해 보정하는 흐름을 기본으로 잡는다.
 - `secrets/사용자 설정` 아래의 예시 이메일과 기대 산출물은 레퍼런스 fixture로만 사용하고 자동 수정 대상에서 제외한다.
+- 프로필마다 레퍼런스 Excel 문서가 다를 수 있으므로, 출력 열 구조도 프로필별 템플릿 기준으로 해석하는 방향을 잡는다.
 - 현재 fixture 2건에 과적합하지 않고, 텍스트/HTML/이미지 캡처/이미지 안 표/스캔 PDF/ZIP 복합 첨부까지 포괄하는 입력 처리 방향을 잡는다.
 - reply draft / 자동 발송 / 외부 알림은 위 기본 경로가 실제로 선 뒤에 붙인다.
 - mailbox provider, 내부 데이터 계약, Excel row schema, action policy를 순서대로 설계할 준비를 한다.
@@ -36,6 +37,9 @@
 - 수신 메일 보관 기준: canonical 원본은 `.eml`로 저장하고, 사용자가 편하게 열어볼 수 있는 파생본은 `.html` preview를 기본으로 둔다. PDF는 선택적 파생본으로만 본다.
 - 메일별 산출물 기준: 수신 메일마다 `raw email + preview + attachment 추출물 + 요약/분석 문서`를 하나의 관리 단위로 남긴다.
 - 내부 데이터 흐름 기준: `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계 계약으로 계층을 나눈다.
+- 템플릿 기준: `ExtractedRecord`의 공통 의미 필드는 유지하되, 실제 Excel 열 구조와 시트/헤더/스타일 규칙은 프로필별 레퍼런스 Excel 템플릿에서 읽어온다.
+- LLM 역할 기준: 프로필 템플릿의 열 의미 해석, 필드 매핑 보조, 요약/정리 문장 생성에 사용한다.
+- 코드 역할 기준: 실제 workbook의 행 위치, 셀 쓰기, 스타일 복사, 수식 보존, append 순서를 결정적으로 처리한다.
 - 코드 스타일 기준: 가독성만을 이유로 class를 피하지 않고, 재사용성과 유지보수성이 좋아지면 객체지향 설계와 표준 Python 문법을 사용한다. 단, 과한 추상화는 피한다.
 - Excel 갱신 기준: 사용자가 직접 수정할 수 있는 문서를 기본으로 보고, AI는 기존 사람이 작성한 내용 뒤에 append하며 기존 스타일과 수식을 최대한 보존한다.
 - 요약 기준: 신청서 내용을 기초로 하되, 중복 표현을 줄이고 사람이 읽기 쉬운 한줄/짧은 문단 요약을 생성한다.
@@ -52,13 +56,13 @@
 |---|---|---|
 | Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
 | Analysis | 기본 schema 클래스 골격 있음 | `EvidenceRef`, `ExtractedRecord` 객체 계약 정의 |
-| Exports | 설계 전 | `ExtractedRecord -> ExportRow` mapping next |
+| Exports | 설계 전 | 프로필별 템플릿 해석과 `ExtractedRecord -> ExportRow` mapping next |
 | LLM | 설계 전 | OpenAI client, prompt, structured response 담당 |
 
 ## 핵심 메모
 
 - 현재 리포는 코드보다 운영 틀을 먼저 고정하는 초기 단계다.
-- 현재는 메일 provider 연동보다 먼저 메일 보관 번들과 중간 schema를 고정하는 단계다.
+- 현재는 메일 provider 연동보다 먼저 메일 보관 번들, 중간 schema, 프로필별 Excel 템플릿 해석 기준을 고정하는 단계다.
 - 레퍼런스 레포에서 가져온 핵심 철학은 아래다.
   - 문서 역할 분리
   - 시작 게이트 고정
@@ -78,8 +82,8 @@
 
 ## 다음 작업
 
-1. `ExtractedRecord -> ExportRow` canonical row schema와 workbook 스타일 상속 규칙을 정한다.
-2. fixture 기반 `raw bundle -> NormalizedMessage` 첫 smoke를 만든다.
-3. 필드별 evidence 연결 전략과 요약 생성 기준을 더 구체화한다.
-4. GUI 프로필 생성 흐름과 프로필 JSON schema를 정리한다.
+1. 프로필별 레퍼런스 Excel을 읽어 `TemplateProfile` 같은 내부 템플릿 규칙으로 바꾸는 기준을 정한다.
+2. 공통 의미 필드와 프로필별 Excel 열을 어떻게 연결할지 매핑 규칙을 정한다.
+3. fixture 기반 `raw bundle -> NormalizedMessage -> ExtractedRecord` 첫 smoke를 만든다.
+4. 템플릿 해석 결과를 이용해 workbook append와 스타일 상속 규칙을 구체화한다.
 5. fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만든다.
