@@ -141,3 +141,8 @@
 
 - 결정: exports 계층은 레퍼런스 Excel을 바로 `ExportRow`로 쓰는 대신, 먼저 `TemplateProfile`과 시트/열 객체로 템플릿 구조를 해석한 뒤 그 위에 semantic mapping을 얹는다.
 - 이유: 템플릿 해석과 실제 값 배치를 분리해야 프로필별 양식 차이를 흡수하기 쉽고, 이후 LLM 기반 열 의미 매핑도 별도 단계로 안정적으로 붙일 수 있다.
+
+## 2026-03-21 | 템플릿 열 의미 해석은 공통 의미 키 catalog와 별도 mapping 결과로 관리한다
+
+- 결정: 템플릿 열 의미 해석은 `TemplateColumn.semantic_key`만 즉석에서 채우는 수준으로 끝내지 않고, 먼저 프로필과 무관한 공통 의미 키 catalog를 정의하고 별도의 `TemplateSemanticMapping` 결과 객체로 관리한다.
+- 이유: 공통 의미 키 목록과 실제 템플릿별 해석 결과를 분리해야, 이후 rule 기반 매핑과 LLM 매핑, 수동 수정 결과를 같은 형태로 저장하고 비교하기 쉽다.

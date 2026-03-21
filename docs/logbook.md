@@ -33,6 +33,13 @@
 - 이에 따라 `docs/개발방침.md`에 권한/비밀번호/자격 증명 관련 정보가 필요할 때의 기본 행동 기준을 추가했다.
 - 앞으로는 가능한 표준 경로가 권한 제공에 달려 있으면 먼저 그 사실을 설명하고 사용자 선택을 받은 뒤 진행한다.
 
+## 2026-03-21 | Human + Codex | 체크포인트 1 - 템플릿 의미 키 catalog와 mapping schema 추가
+
+- 사용자는 이후 계획을 체크포인트로 명시하고 하나씩 수행하길 원했다.
+- 이에 따라 `docs/status.md`에 현재 체크포인트 목록을 추가하고, 먼저 1번 작업으로 템플릿 열 의미 해석에 필요한 공통 의미 키 catalog와 mapping schema를 구현했다.
+- `exports/semantic_mapping.py`에 `SemanticFieldDefinition`, `TemplateColumnSemanticMapping`, `TemplateSemanticMapping`, `apply_template_semantic_mapping`를 추가했다.
+- v1 기준 공통 의미 키는 기업명, 담당자명, 연락처, 이메일, 홈페이지/SNS, 산업군, 제품/서비스, 신청목적, 요약 필드, 내부 관리 필드 등을 포함하도록 시작했다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.

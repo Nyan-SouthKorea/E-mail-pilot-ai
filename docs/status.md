@@ -58,7 +58,7 @@
 |---|---|---|
 | Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
 | Analysis | 기본 schema 클래스 골격 있음 | `EvidenceRef`, `ExtractedRecord` 객체 계약 정의 |
-| Exports | template schema/reader 골격 있음 | `TemplateProfile`과 템플릿 reader 초안 정의 |
+| Exports | template schema/reader + semantic mapping schema 있음 | `TemplateProfile`과 템플릿 reader, 의미 키 매핑 계약 정의 |
 | LLM | 설계 전 | OpenAI client, prompt, structured response 담당 |
 
 ## 핵심 메모
@@ -82,9 +82,17 @@
 - workflow, reply, notification 같은 후속 계층은 실제 구현이 시작될 때 디렉토리와 문서를 추가한다.
 - 단, 답장 자동화는 안전성 때문에 기본적으로 `draft 우선` 기준을 유지한다.
 
+## 진행 체크포인트
+
+1. 완료: `TemplateProfile` 공통 의미 키 목록과 템플릿 열 의미 매핑 schema를 정의한다.
+2. 다음: `ExtractedRecord` 공통 필드와 프로필별 Excel 열을 연결하는 규칙을 정한다.
+3. 대기: fixture 기반 `raw bundle -> NormalizedMessage -> ExtractedRecord` 첫 smoke를 만든다.
+4. 대기: workbook append와 스타일 상속 규칙을 구현한다.
+5. 대기: fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만든다.
+
 ## 다음 작업
 
-1. `TemplateProfile`에 의미 키를 부여하는 LLM 매핑 단계와 내부 schema를 정한다.
+1. `TemplateProfile`에 의미 키를 부여하는 실제 rule/LLM 매핑 절차를 설계한다.
 2. 공통 의미 필드와 프로필별 Excel 열을 어떻게 연결할지 매핑 규칙을 정한다.
 3. fixture 기반 `raw bundle -> NormalizedMessage -> ExtractedRecord` 첫 smoke를 만든다.
 4. 템플릿 해석 결과를 이용해 workbook append와 스타일 상속 규칙을 구체화한다.
