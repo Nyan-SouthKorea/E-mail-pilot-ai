@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import time
 import uuid
 from dataclasses import dataclass
@@ -343,8 +344,12 @@ class OpenAIResponsesWrapper:
 
             api_key = getenv(self.config.api_key_env)
             if not api_key:
+                key_file = Path(self.config.api_key_file)
+                if key_file.exists():
+                    api_key = key_file.read_text(encoding="utf-8").strip()
+            if not api_key:
                 raise RuntimeError(
-                    f"환경 변수 `{self.config.api_key_env}`가 없어 OpenAI API를 호출할 수 없습니다."
+                    f"환경 변수 `{self.config.api_key_env}` 또는 키 파일 `{self.config.api_key_file}`가 없어 OpenAI API를 호출할 수 없습니다."
                 )
             self._client = OpenAI(api_key=api_key)
         return self._client

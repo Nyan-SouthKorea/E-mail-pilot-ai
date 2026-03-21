@@ -55,6 +55,13 @@
 - 동시에 `analysis/fixture_smoke.py`와 `analysis/llm_extraction.py`를 추가해, fixture 이메일 본문 + ZIP 내부 파일 목록 + ZIP 안 XLSX 텍스트 요약을 LLM 입력으로 묶는 첫 smoke 진입점을 만들었다.
 - 현재 환경에는 `OPENAI_API_KEY`가 없어서 실제 live 호출까지는 아직 실행하지 않았고, dry-run으로 입력 조립과 wrapper 집계 동작만 먼저 확인했다.
 
+## 2026-03-21 | Human + Codex | 체크포인트 3 완료 - fixture 2건 live 분석 smoke 실행
+
+- 사용자가 `secrets/chatgpt_api_key.txt`에 API 키를 두었다고 알려주어, wrapper가 환경 변수 우선 후 로컬 키 파일을 fallback으로 읽게 했다.
+- 이후 fixture 2건에 대해 실제 OpenAI live 호출을 실행했고, `ExtractedRecord` JSON 결과를 `results/analysis_smoke/` 아래에 남겼다.
+- usage log는 `results/llm/openai_usage.jsonl`에 2건이 누적되었고, 현재 두 호출 합산 기준 `input_tokens=2692`, `output_tokens=1970`, `estimated_total_cost_usd=0.03628`로 집계됐다.
+- 이제 체크포인트 3은 완료로 보고, 다음 단계는 템플릿 열 의미 키의 실제 rule/LLM 매핑 절차로 넘어간다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.

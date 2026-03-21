@@ -45,6 +45,19 @@ def default_llm_usage_log_path() -> Path:
     return default_results_root() / "llm" / "openai_usage.jsonl"
 
 
+def default_openai_api_key_file() -> Path:
+    """기능: 로컬 OpenAI API 키 파일 기본 경로를 반환한다.
+
+    입력:
+    - 없음
+
+    반환:
+    - `../secrets/chatgpt_api_key.txt`
+    """
+
+    return workspace_root() / "secrets" / "chatgpt_api_key.txt"
+
+
 @dataclass(slots=True)
 class OpenAIResponsesConfig:
     """기능: OpenAI Responses API 래퍼 설정을 표현한다.
@@ -68,6 +81,7 @@ class OpenAIResponsesConfig:
 
     model: str = "gpt-5.4-mini"
     api_key_env: str = "OPENAI_API_KEY"
+    api_key_file: str = field(default_factory=lambda: str(default_openai_api_key_file()))
     usage_log_path: str = field(default_factory=lambda: str(default_llm_usage_log_path()))
     store: bool = False
     timeout_seconds: float = 120.0
