@@ -256,7 +256,7 @@ def default_semantic_field_definitions() -> list[SemanticFieldDefinition]:
             display_name="요청사항 요약",
             description="상세 요청사항을 보고용 문장으로 정리한 필드",
             field_role="generate",
-            example_headers=["요청사항", "요청사항 요약", "상세 요청사항"],
+            example_headers=["요청사항", "요청사항 요약", "상세 요청사항", "상세 요청 사항"],
             preferred_sources=["attachment_table", "body_text", "vision"],
             required_for_v1=True,
         ),

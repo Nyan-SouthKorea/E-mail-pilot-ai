@@ -6,6 +6,16 @@ from .schema import (
     TemplateProfile,
     TemplateSheet,
 )
+from .record_projection import (
+    RECORD_TEMPLATE_PROJECTION_SCHEMA_VERSION,
+    ProjectedTemplateRow,
+    ProjectedTemplateValue,
+    ResolvedRecordProjection,
+    ResolvedSemanticValue,
+    default_extracted_record_aliases,
+    project_record_to_template,
+    resolve_record_semantic_values,
+)
 from .semantic_mapping import (
     TEMPLATE_SEMANTIC_MAPPING_SCHEMA_VERSION,
     SemanticFieldDefinition,
@@ -19,7 +29,12 @@ from .template_profile import TemplateWorkbookReader, read_template_profile
 
 __all__ = [
     "TEMPLATE_PROFILE_SCHEMA_VERSION",
+    "RECORD_TEMPLATE_PROJECTION_SCHEMA_VERSION",
     "TEMPLATE_SEMANTIC_MAPPING_SCHEMA_VERSION",
+    "ProjectedTemplateRow",
+    "ProjectedTemplateValue",
+    "ResolvedRecordProjection",
+    "ResolvedSemanticValue",
     "SemanticFieldDefinition",
     "TemplateColumn",
     "TemplateColumnSemanticMapping",
@@ -28,7 +43,10 @@ __all__ = [
     "TemplateSheet",
     "TemplateWorkbookReader",
     "apply_template_semantic_mapping",
+    "default_extracted_record_aliases",
     "default_semantic_field_definitions",
+    "project_record_to_template",
     "read_template_profile",
+    "resolve_record_semantic_values",
     "semantic_field_definition_map",
 ]

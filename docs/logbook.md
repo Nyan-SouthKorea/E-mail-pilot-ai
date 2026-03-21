@@ -40,6 +40,13 @@
 - `exports/semantic_mapping.py`에 `SemanticFieldDefinition`, `TemplateColumnSemanticMapping`, `TemplateSemanticMapping`, `apply_template_semantic_mapping`를 추가했다.
 - v1 기준 공통 의미 키는 기업명, 담당자명, 연락처, 이메일, 홈페이지/SNS, 산업군, 제품/서비스, 신청목적, 요약 필드, 내부 관리 필드 등을 포함하도록 시작했다.
 
+## 2026-03-21 | Human + Codex | 체크포인트 2 - `ExtractedRecord -> 템플릿 열` projection 규칙 추가
+
+- 체크포인트 2의 목표는 분석 결과 공통 필드를 프로필별 Excel 열과 연결하는 규칙을 코드로 고정하는 것이었다.
+- `exports/record_projection.py`에 `ResolvedSemanticValue`, `ResolvedRecordProjection`, `ProjectedTemplateValue`, `ProjectedTemplateRow`와 관련 helper를 추가했다.
+- 기본 전략은 `analysis` 계층 필드명이 의미 키와 정확히 같으면 그대로 쓰고, 그렇지 않아도 alias 목록과 요약 fallback으로 최대한 같은 공통 의미 키에 연결하는 방식이다.
+- 이후 실제 템플릿 열에는 `semantic_key`가 붙어 있으면 `project_record_to_template()`가 순서대로 workbook 쓰기 직전 값 목록을 만들 수 있게 했다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.

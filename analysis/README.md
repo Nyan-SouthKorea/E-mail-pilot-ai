@@ -18,6 +18,7 @@
 - `ExtractedField`: 필드 값과 근거 id 묶음
 - `ExtractedRecord`: 분류, 요약, confidence, action hint, unresolved question을 담는 분석 결과
 - `ExtractedRecord`는 프로필 템플릿과 무관한 공통 의미 필드를 유지하는 기준 계약이다.
+- 가능하면 `ExtractedField.field_name`은 `company_name`, `business_summary` 같은 공통 의미 키와 가깝게 유지하고, 초기 변형은 export 계층 alias 규칙이 흡수한다.
 
 예상 역할:
 

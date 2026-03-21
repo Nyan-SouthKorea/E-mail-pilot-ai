@@ -146,3 +146,8 @@
 
 - 결정: 템플릿 열 의미 해석은 `TemplateColumn.semantic_key`만 즉석에서 채우는 수준으로 끝내지 않고, 먼저 프로필과 무관한 공통 의미 키 catalog를 정의하고 별도의 `TemplateSemanticMapping` 결과 객체로 관리한다.
 - 이유: 공통 의미 키 목록과 실제 템플릿별 해석 결과를 분리해야, 이후 rule 기반 매핑과 LLM 매핑, 수동 수정 결과를 같은 형태로 저장하고 비교하기 쉽다.
+
+## 2026-03-21 | `ExtractedRecord`에서 템플릿 열로 가는 projection 계층을 별도로 둔다
+
+- 결정: `ExtractedRecord`의 필드 값은 바로 workbook 쓰기 단계로 보내지 않고, 먼저 공통 의미 키 기준 값으로 해석한 뒤 `ProjectedTemplateRow`로 한 번 더 투영한다.
+- 이유: 분석 필드명은 초기 단계에서 조금씩 바뀔 수 있으므로 alias와 fallback을 흡수하는 중간 projection 계층이 있어야 template mapping과 workbook 쓰기 계층을 안정적으로 유지하기 쉽다.
