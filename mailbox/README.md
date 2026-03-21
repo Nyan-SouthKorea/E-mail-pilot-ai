@@ -4,13 +4,14 @@
 
 현재 상태:
 
-- 기본 schema 골격 정의 완료
+- 기본 schema/helper 골격 정의 완료
 - provider 연결과 런타임 수집은 아직 시작 전
 
 현재 고정 출력 계약:
 
 - `MailBundle`: 메일별 원본/미리보기/첨부/메타데이터를 한 묶음으로 보관하는 단위
 - `NormalizedMessage`: 분석 계층에 넘기는 공통 JSON 단위
+- 현재 구현 형태는 dataclass가 아니라 plain dict와 helper function 기준이다.
 
 메일 번들 기본 레이아웃:
 
@@ -46,6 +47,7 @@
 - provider별 구현은 갈아끼울 수 있게 분리한다.
 - 상위 계층에는 `새 메시지 묶음`, `정규화된 thread`, `attachment inventory` 같은 공통 계약만 노출한다.
 - `MailBundle`은 원본 보존과 artifact inventory 책임을 가지고, `NormalizedMessage`는 분석 공통 입력 책임만 가진다.
+- 현재 단계에서는 class abstraction보다 읽기 쉬운 helper function을 우선한다.
 - 메일 설정 자동 탐지는 mailbox 계층의 1차 책임으로 두고, 성공한 설정값을 GUI와 프로필 저장 계층에 함께 전달한다.
 - 자동 설정은 도메인 규칙 -> provider 프리셋 -> autodiscover/autoconfig -> 접속 테스트 순으로 시도한다.
 - 실제 수신 메일은 reference fixture와 섞지 않고 별도 런타임 경로에 저장한다.

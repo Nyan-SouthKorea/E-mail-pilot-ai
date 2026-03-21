@@ -2,6 +2,15 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 코드 스타일 단순화 기준 추가와 schema 함수형 리팩토링
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.
+- 사용자는 함수 설명/인자/반환 설명 같은 코드 스타일 규칙과, `@decorator`처럼 친숙하지 않은 Python 문법 제한이 문서에 있는지 확인해달라고 요청했다.
+- 확인 결과 `모든 함수는 한국어 docstring으로 기능 / 입력 / 반환을 적는다`는 규칙은 이미 있었지만, 낯선 문법 제한은 아직 없었다.
+- 이에 따라 `개발방침`, `status`, `decisions`에 `함수 중심`, `dict/list + helper function 우선`, `decorator와 복잡한 Python 문법은 필요할 때만 사용` 기준을 추가했다.
+- 기존 `mailbox/schema.py`, `analysis/schema.py`는 dataclass 기반 구조에서 plain dict와 helper function 기반 구조로 리팩토링했다.
+- `__init__.py` 노출 API와 모듈 README도 새 스타일에 맞게 정리했다.
+
 ## 2026-03-21 | Human + Codex | 메일 번들과 중간 schema 기본 골격 정의
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`, `exports/README.md`였다.

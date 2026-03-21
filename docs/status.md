@@ -36,6 +36,7 @@
 - 수신 메일 보관 기준: canonical 원본은 `.eml`로 저장하고, 사용자가 편하게 열어볼 수 있는 파생본은 `.html` preview를 기본으로 둔다. PDF는 선택적 파생본으로만 본다.
 - 메일별 산출물 기준: 수신 메일마다 `raw email + preview + attachment 추출물 + 요약/분석 문서`를 하나의 관리 단위로 남긴다.
 - 내부 데이터 흐름 기준: `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계 계약으로 계층을 나눈다.
+- 코드 스타일 기준: 초기 주경로는 함수 중심으로 작성하고, 낯선 Python 문법보다 `dict / list + helper function`을 우선한다.
 - Excel 갱신 기준: 사용자가 직접 수정할 수 있는 문서를 기본으로 보고, AI는 기존 사람이 작성한 내용 뒤에 append하며 기존 스타일과 수식을 최대한 보존한다.
 - 요약 기준: 신청서 내용을 기초로 하되, 중복 표현을 줄이고 사람이 읽기 쉬운 한줄/짧은 문단 요약을 생성한다.
 - 입력 해석 기준: 본문 텍스트가 없어도 inline 이미지, 첨부 이미지, 스캔 PDF, 이미지 속 표에서 필요한 정보를 추출할 수 있는 방향을 기본값으로 둔다.
@@ -49,8 +50,8 @@
 
 | 모듈 | 상태 | 메모 |
 |---|---|---|
-| Mailbox | 기본 schema 골격 있음 | `MailBundle`, `NormalizedMessage` 계약 정의 |
-| Analysis | 기본 schema 골격 있음 | `EvidenceRef`, `ExtractedRecord` 계약 정의 |
+| Mailbox | 기본 schema/helper 골격 있음 | `MailBundle`, `NormalizedMessage` dict 계약 정의 |
+| Analysis | 기본 schema/helper 골격 있음 | `EvidenceRef`, `ExtractedRecord` dict 계약 정의 |
 | Exports | 설계 전 | `ExtractedRecord -> ExportRow` mapping next |
 | LLM | 설계 전 | OpenAI client, prompt, structured response 담당 |
 

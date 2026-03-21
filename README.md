@@ -19,8 +19,8 @@
 
 | 디렉토리 | 역할 | 상태 |
 |---|---|---|
-| [mailbox](mailbox/README.md) | 메일 수집, 번들 보관, 정규화 입력 생성 | 기본 schema 골격 있음 |
-| [analysis](analysis/README.md) | 분류, 정보 추출, 요약, schema 정규화 | 기본 schema 골격 있음 |
+| [mailbox](mailbox/README.md) | 메일 수집, 번들 보관, 정규화 입력 생성 | 기본 schema/helper 골격 있음 |
+| [analysis](analysis/README.md) | 분류, 정보 추출, 요약, schema 정규화 | 기본 schema/helper 골격 있음 |
 | [exports](exports/README.md) | Excel 출력, row schema, workbook 반영 | 구조만 정의 |
 | [llm](llm/README.md) | OpenAI 호출, prompt, structured response | 구조만 정의 |
 
