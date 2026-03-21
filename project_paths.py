@@ -192,6 +192,18 @@ class ProfilePaths:
 
         return self.runtime_logs_root() / "llm"
 
+    def runtime_mailbox_logs_root(self) -> Path:
+        """기능: mailbox 관련 로그 경로를 반환한다.
+
+        입력:
+        - 없음
+
+        반환:
+        - `실행결과/로그/mailbox` 경로
+        """
+
+        return self.runtime_logs_root() / "mailbox"
+
     def llm_usage_log_path(self) -> Path:
         """기능: 현재 프로필의 기본 LLM usage log 파일 경로를 반환한다.
 
@@ -222,6 +234,7 @@ class ProfilePaths:
             self.runtime_analysis_logs_root(),
             self.runtime_exports_logs_root(),
             self.runtime_llm_logs_root(),
+            self.runtime_mailbox_logs_root(),
         ]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)

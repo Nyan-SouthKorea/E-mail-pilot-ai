@@ -2,6 +2,17 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | mailbox 자동 설정 후보 생성과 connect/auth probe smoke 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `mailbox/README.md`였다.
+- 현재 단계에서 GUI를 먼저 만드는 것보다, 실제 메일 엔진의 자동 설정 탐지와 연결 검증을 텍스트 기반 smoke로 먼저 확인하는 편이 더 낫다고 판단했다.
+- 이에 따라 `mailbox/autoconfig.py`를 추가해 provider preset, generic domain pattern, Mozilla autoconfig, 실제 probe를 묶은 자동 설정 엔진을 만들었다.
+- 현재 provider preset은 Gmail, Outlook.com을 우선 넣었고, 나머지 도메인은 `imap.<domain>`, `smtp.<domain>` 같은 generic pattern과 autoconfig를 함께 사용한다.
+- probe는 비밀번호가 없을 때 `connect-only`, 비밀번호나 앱 비밀번호가 있으면 `auth` 모드로 동작하게 만들었다.
+- `mailbox/autoconfig_smoke.py`를 추가해 CLI에서 이메일 주소 하나만으로 dry-run 후보 계획 또는 실제 probe 결과를 바로 확인할 수 있게 했다.
+- 검증으로 `test@gmail.com` dry-run과 connect-only smoke를 실행했고, Gmail preset 후보와 실제 `imap.gmail.com:993`, `pop.gmail.com:995`, `smtp.gmail.com:587/465` 연결 성공을 확인했다.
+- smoke report는 `실행결과/로그/mailbox/test_at_gmail_com_autoconfig_smoke.json`에 저장된다.
+
 ## 2026-03-21 | Human + Codex | 멀티모달 입력, timestamped export workbook, GUI 선후순위 기준 반영
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `analysis/README.md`, `exports/README.md`, `llm/README.md`, `README.md`였다.

@@ -69,7 +69,7 @@
 
 | 모듈 | 상태 | 메모 |
 |---|---|---|
-| Mailbox | schema + 번들 저장 helper + fixture materialize smoke + bundle reader 있음 | `MailBundle`, `NormalizedMessage`, bundle id 규칙, 프로필별 번들 skeleton 생성 helper, fixture를 실제 `받은 메일/<bundle-id>/` 구조로 푸는 smoke, valid bundle/normalized.json loader 정의 |
+| Mailbox | schema + 번들 저장 helper + fixture materialize smoke + bundle reader + autoconfig smoke 있음 | `MailBundle`, `NormalizedMessage`, bundle id 규칙, 프로필별 번들 skeleton 생성 helper, fixture를 실제 `받은 메일/<bundle-id>/` 구조로 푸는 smoke, valid bundle/normalized.json loader, 메일 설정 후보 생성과 connect/auth probe smoke 정의 |
 | Analysis | schema + fixture/materialized-bundle analysis/pipeline smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, extraction prompt/schema, runtime bundle의 `normalized.json`을 직접 읽는 live 분석 smoke와 `bundle -> analysis -> exports` smoke 정의, direct image attachment 입력 경로 추가 |
 | Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 최신 workbook 기준 timestamped export 생성과 fixture/runtime bundle smoke 연결 완료 |
 | LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 프로필 `실행결과/로그/llm` 기준 호출 로그 경로 정의, 기본 분석 모델 `gpt-5.4` 사용 |
@@ -114,9 +114,10 @@
 13. 완료: materialized bundle을 직접 읽어 `NormalizedMessage -> analysis`로 이어지는 live smoke를 만든다.
 14. 완료: materialized bundle 분석 결과를 export 파이프라인과 연결해 `bundle -> analysis -> exports` smoke를 만든다.
 15. 진행 중: reference workbook 대비 차이가 큰 필드의 정규화/요약 품질을 개선한다.
+16. 완료: 메일 자동 설정 후보 생성과 connect-only/auth probe용 mailbox smoke 뼈대를 만든다.
 
 ## 다음 작업
 
-1. 운영자 관점 기준으로 `주요 제품/서비스`, `신청목적`, `사업내용 요약`, `상세 요청 사항` 프롬프트와 후처리를 계속 다듬는다.
-2. 변경 후에는 reference workbook 회귀 비교를 guardrail 용도로만 다시 확인한다.
-3. 그다음 실제 mailbox 연동과 메일 설정 자동 탐지 smoke를 텍스트 기반으로 먼저 검증하고, 이후 GUI로 감싼다.
+1. 실제 이메일 계정 정보로 mailbox auth probe를 실행해 자동 설정 추천이 로그인까지 맞는지 검증한다.
+2. 그다음 IMAP inbox fetch smoke를 만들어 최신 메일 1건을 `MailBundle`로 저장하는 경로를 붙인다.
+3. 이후 GUI가 위 엔진을 감싸는 순서로 진행한다.

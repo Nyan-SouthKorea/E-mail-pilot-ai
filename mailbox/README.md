@@ -7,7 +7,8 @@
 - 기본 schema 클래스 골격 정의 완료
 - reference fixture를 실제 MailBundle 구조로 materialize 하는 smoke 추가
 - runtime bundle의 `normalized.json`을 다시 읽는 bundle reader helper 추가
-- provider 연결과 런타임 수집은 아직 시작 전
+- provider 자동 설정 후보 생성과 connect/auth probe smoke 추가
+- 실제 inbox fetch와 MailBundle 생성은 아직 시작 전
 
 현재 고정 출력 계약:
 
@@ -54,6 +55,7 @@ secrets/사용자 설정/<이름>/실행결과/받은 메일/
 - 현재 단계에서는 과한 추상화는 피하되, 반복해서 쓰일 도메인 계약은 class로 명확히 표현한다.
 - 메일 설정 자동 탐지는 mailbox 계층의 1차 책임으로 두고, 성공한 설정값을 GUI와 프로필 저장 계층에 함께 전달한다.
 - 자동 설정은 도메인 규칙 -> provider 프리셋 -> autodiscover/autoconfig -> 접속 테스트 순으로 시도한다.
+- 지금은 GUI보다 먼저 `dry-run 후보 생성 -> connect-only probe -> auth probe` 순서의 텍스트 기반 smoke를 먼저 검증한다.
 - 실제 수신 메일은 reference fixture와 섞지 않고 별도 런타임 경로에 저장한다.
 - 실제 기본 런타임 경로는 `secrets/사용자 설정/<이름>/실행결과/받은 메일/`이다.
 - 메일 원본 보존은 `.eml`, 빠른 열람은 `.html` preview를 기본 조합으로 둔다.
