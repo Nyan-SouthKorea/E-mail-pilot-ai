@@ -22,6 +22,7 @@ from .llm_extraction import (
     build_extraction_instructions,
     parse_extracted_record_payload,
 )
+from .multimodal_input import build_email_analysis_input_payload
 from .schema import ExtractedRecord
 
 
@@ -35,6 +36,7 @@ class FixtureEmailInput:
     recipient: str
     body_text: str
     artifacts: list[ArtifactSummary] = field(default_factory=list)
+    attachment_paths: list[str] = field(default_factory=list)
 
     def message_key(self) -> str:
         return self.fixture_id
@@ -66,8 +68,14 @@ def load_fixture_email_input(fixture_dir: str) -> FixtureEmailInput:
     attachment_dir = find_fixture_attachment_dir(root)
     artifacts: list[ArtifactSummary] = []
 
+    attachment_paths: list[str] = []
     if attachment_dir is not None and attachment_dir.exists():
         artifacts = summarize_attachment_directory(attachment_dir)
+        attachment_paths = [
+            str(path)
+            for path in sorted(attachment_dir.iterdir())
+            if path.is_file()
+        ]
 
     return FixtureEmailInput(
         fixture_id=root.name,
@@ -76,46 +84,28 @@ def load_fixture_email_input(fixture_dir: str) -> FixtureEmailInput:
         recipient=recipient,
         body_text=body_text,
         artifacts=artifacts,
+        attachment_paths=attachment_paths,
     )
 
 
-def build_fixture_analysis_input_payload(fixture: FixtureEmailInput) -> str:
-    """기능: fixture 이메일 입력을 LLM용 텍스트 payload로 만든다.
+def build_fixture_analysis_input_payload(fixture: FixtureEmailInput) -> list[dict[str, object]]:
+    """기능: fixture 이메일 입력을 LLM용 멀티모달 payload로 만든다.
 
     입력:
     - fixture: fixture 이메일 입력
 
     반환:
-    - LLM 입력 문자열
+    - Responses API `input` payload
     """
 
-    lines = [
-        "[email_metadata]",
-        f"evidence_id: header_subject",
-        f"subject: {fixture.subject}",
-        f"evidence_id: header_sender",
-        f"sender: {fixture.sender}",
-        f"evidence_id: header_recipient",
-        f"recipient: {fixture.recipient}",
-        "",
-        "[email_body]",
-        "evidence_id: body_text",
-        fixture.body_text.strip(),
-        "",
-        "[attachment_artifacts]",
-    ]
-
-    if not fixture.artifacts:
-        lines.append("첨부 없음")
-    else:
-        for artifact in fixture.artifacts:
-            lines.append(f"evidence_id: {artifact.evidence_id}")
-            lines.append(f"name: {artifact.artifact_name}")
-            lines.append(f"kind: {artifact.artifact_kind}")
-            lines.append(artifact.summary_text)
-            lines.append("")
-
-    return "\n".join(lines).strip()
+    return build_email_analysis_input_payload(
+        subject=fixture.subject,
+        sender=fixture.sender,
+        recipient=fixture.recipient,
+        body_text=fixture.body_text,
+        artifact_summaries=fixture.artifacts,
+        attachment_paths=fixture.attachment_paths,
+    )
 
 
 def build_fixture_analysis_request(fixture_dir: str) -> dict[str, Any]:

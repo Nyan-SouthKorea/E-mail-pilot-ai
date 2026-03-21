@@ -10,6 +10,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from project_paths import ProfilePaths, default_example_profile_root
 
+from .output_paths import find_latest_runtime_export_workbook
 from .rule_mapping import apply_rule_based_template_mapping
 from .schema import TemplateColumn, TemplateProfile, TemplateSheet
 from .template_profile import read_template_profile
@@ -305,7 +306,12 @@ def default_generated_workbook_path() -> Path:
     """
 
     profile_paths = ProfilePaths(str(default_example_profile_root()))
-    return profile_paths.runtime_exports_root() / "기업 신청서 모음_fixture_pipeline.xlsx"
+    latest_workbook = find_latest_runtime_export_workbook(
+        profile_root=str(default_example_profile_root())
+    )
+    if latest_workbook is not None:
+        return latest_workbook
+    return profile_paths.runtime_exports_root() / "generated_workbook_missing.xlsx"
 
 
 def default_regression_report_path() -> Path:

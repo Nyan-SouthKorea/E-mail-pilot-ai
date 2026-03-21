@@ -42,6 +42,7 @@
 - 템플릿별 열 구조가 달라도, analysis 계층은 가능한 한 공통 의미 필드를 안정적으로 뽑아내는 데 집중한다.
 - 요약은 신청서와 이메일 본문 기준으로 중복 표현을 줄이고, 보고용 가독성을 높이는 방향을 기본으로 둔다.
 - 본문이 비어 있거나 약해도 inline 이미지, 첨부 이미지, 스캔 PDF, 이미지 속 표에서 근거를 끌어올 수 있게 설계한다.
+- 이미지 첨부가 실제로 있으면 텍스트 요약만 보내지 않고 가능한 범위에서 LLM에 실제 이미지도 함께 전달한다.
 - 초기 smoke 단계에서는 fixture 디렉토리의 이메일 본문과 ZIP 내부 XLSX 요약을 합쳐 structured output 기반 첫 분석 호출을 준비한다.
 - extraction prompt와 structured output schema는 [`llm_extraction.py`](llm_extraction.py)에서 같이 관리한다.
 - runtime bundle을 다시 읽는 분석에서는 bundle 루트의 `normalized.json`을 canonical `NormalizedMessage` 입력으로 사용한다.

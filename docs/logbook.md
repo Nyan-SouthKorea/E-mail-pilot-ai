@@ -2,6 +2,19 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 멀티모달 입력, timestamped export workbook, GUI 선후순위 기준 반영
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `analysis/README.md`, `exports/README.md`, `llm/README.md`, `README.md`였다.
+- 사용자는 LLM 활용 시 텍스트만이 아니라 이미지까지 직접 분석하는 성능 우선 방향, `YYMMDD_HHMM_<template>.xlsx` 형식의 새 export 파일명 규칙, legacy 산출물 정리, 그리고 GUI보다 실연동 엔진 검증이 먼저라는 순서를 문서와 코드에 반영하길 원했다.
+- 동시에 reference workbook diff를 품질 목표처럼 숫자 맞추기에 쓰는 것은 과적합 위험이 있으니, Codex가 실제 운영 기준으로 프롬프트를 판단해 수정하고 회귀 비교는 guardrail로만 쓰는 방향이 더 낫다고 의견을 주었다.
+- 이에 따라 `analysis/multimodal_input.py`를 추가해 direct image attachment가 있으면 Responses API에 `input_text + input_image` 형태로 함께 넣는 경로를 만들었다. synthetic PNG smoke에서 `input_text`, `input_image` part가 정상 생성되는 것도 확인했다.
+- `analysis/fixture_smoke.py`, `analysis/materialized_bundle_smoke.py`는 새 멀티모달 입력 builder를 사용하도록 바꿨고, `analysis/llm_extraction.py`는 신청서 우선, 시각 입력 직접 해석, 운영자 가독성 중심 요약 지시를 더 분명하게 다듬었다.
+- `llm/config.py`의 기본 분석 모델은 성능 우선 기준에 맞춰 `gpt-5.4`로 올렸다.
+- `exports/output_paths.py`를 추가해 최신 runtime workbook 선택, timestamped workbook 파일명 생성, legacy workbook 정리 규칙을 모듈화했고, fixture/runtime pipeline smoke와 regression check 기본 경로도 새 규칙에 맞췄다.
+- 실제 live 실행 결과 새 workbook은 `실행결과/엑셀 산출물/260321_1701_기업_신청서_모음.xlsx`로 생성됐고, 기존 규칙과 맞지 않던 `기업 신청서 모음_fixture_pipeline.xlsx`, `기업 신청서 모음_materialized_bundle_pipeline.xlsx`, `기업_신청서_모음_fixture_smoke.xlsx`는 정리했다.
+- 이후 guardrail 용도로 `exports.regression_check`를 다시 돌렸고, 현재 latest report 기준은 `10/22 = 0.4545`였다. 이 숫자는 품질 목표가 아니라 큰 방향이 망가지지 않았는지 확인하는 안전장치로만 유지한다.
+- live 재실행 후 usage log 누적 기준은 `entry_count=11`, `input_tokens=16935`, `output_tokens=10326`, `estimated_total_cost_usd=0.1972275`다.
+
 ## 2026-03-21 | Human + Codex | materialized bundle 분석 결과를 workbook append까지 잇는 end-to-end smoke 추가
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `analysis/README.md`, `exports/README.md`였다.

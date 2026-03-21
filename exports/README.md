@@ -33,10 +33,11 @@
 - 템플릿 열 이름이 비정형이면 LLM으로 의미를 해석하고, 실제 셀 위치 계산과 쓰기는 코드가 담당한다.
 - unresolved template header용 LLM prompt와 응답 schema는 [`llm_mapping.py`](llm_mapping.py)에서 관리한다.
 - 사용자가 직접 수정한 workbook을 전제로, AI는 마지막 사용 행 다음으로 append하는 정책을 기본으로 둔다.
+- export 실행 때는 현재 가장 최신 runtime workbook을 source로 삼아 새 사본을 만들고, 파일명은 `YYMMDD_HHMM_<template>.xlsx` 형식을 기본으로 한다.
 - 새로 쓰는 셀은 기존 폰트, 정렬, 줄바꿈, 수식, 셀 너비를 최대한 이어받아 사람이 이어서 작성한 것처럼 보이게 한다.
 - 결과 workbook은 원본 템플릿을 덮어쓰지 않고 기본적으로 `secrets/사용자 설정/<이름>/실행결과/엑셀 산출물/` 경로에 생성 또는 누적한다.
 - generated 로그와 회귀 보고서는 기본적으로 `secrets/사용자 설정/<이름>/실행결과/로그/exports/`에 둔다.
-- generated workbook과 reference fixture의 차이는 deterministic workbook diff로 회귀 확인한다.
+- generated workbook과 reference fixture의 차이는 deterministic workbook diff로 회귀 확인하되, 이 비교는 최적화 목표가 아니라 guardrail로 사용한다.
 
 현재 참고 기준:
 

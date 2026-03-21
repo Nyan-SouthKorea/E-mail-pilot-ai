@@ -25,6 +25,7 @@ from .llm_extraction import (
     build_extraction_instructions,
     parse_extracted_record_payload,
 )
+from .multimodal_input import build_email_analysis_input_payload
 
 
 @dataclass(slots=True)
@@ -152,6 +153,7 @@ def _analyze_single_bundle(
         input_payload=build_materialized_bundle_analysis_input_payload(
             normalized_message=normalized,
             artifact_summaries=artifact_summaries,
+            attachment_paths=list_bundle_attachment_files(bundle_root),
         ),
         text=build_extracted_record_text_config(),
         metadata={
@@ -195,47 +197,30 @@ def build_materialized_bundle_analysis_input_payload(
     *,
     normalized_message,
     artifact_summaries: list[ArtifactSummary],
-) -> str:
-    """기능: `NormalizedMessage` 기반 분석용 LLM 입력 문자열을 만든다.
+    attachment_paths: list[Path],
+) -> list[dict[str, object]]:
+    """기능: `NormalizedMessage` 기반 분석용 멀티모달 LLM 입력 payload를 만든다.
 
     입력:
     - normalized_message: 공통 메일 입력
     - artifact_summaries: 첨부 자산 요약 목록
+    - attachment_paths: 실제 첨부 파일 경로 목록
 
     반환:
-    - LLM 입력 문자열
+    - Responses API `input` payload
     """
 
     sender_text = _format_address(normalized_message.sender)
     recipient_text = ", ".join(_format_address(item) for item in normalized_message.to) or ""
-
-    lines = [
-        "[email_metadata]",
-        "evidence_id: header_subject",
-        f"subject: {normalized_message.subject}",
-        "evidence_id: header_sender",
-        f"sender: {sender_text}",
-        "evidence_id: header_recipient",
-        f"recipient: {recipient_text}",
-        "",
-        "[email_body]",
-        "evidence_id: body_text",
-        normalized_message.body_text.strip(),
-        "",
-        "[attachment_artifacts]",
-    ]
-
-    if not artifact_summaries:
-        lines.append("첨부 없음")
-    else:
-        for artifact in artifact_summaries:
-            lines.append(f"evidence_id: {artifact.evidence_id}")
-            lines.append(f"name: {artifact.artifact_name}")
-            lines.append(f"kind: {artifact.artifact_kind}")
-            lines.append(artifact.summary_text)
-            lines.append("")
-
-    return "\n".join(lines).strip()
+    return build_email_analysis_input_payload(
+        subject=normalized_message.subject,
+        sender=sender_text,
+        recipient=recipient_text,
+        body_text=normalized_message.body_text,
+        artifact_summaries=artifact_summaries,
+        attachment_paths=attachment_paths,
+        artifact_ids=normalized_message.attachment_artifact_ids,
+    )
 
 
 def _format_address(address) -> str:

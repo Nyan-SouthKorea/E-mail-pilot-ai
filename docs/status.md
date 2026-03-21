@@ -45,15 +45,19 @@
 - 템플릿 기준: `ExtractedRecord`의 공통 의미 필드는 유지하되, 실제 Excel 열 구조와 시트/헤더/스타일 규칙은 프로필별 레퍼런스 Excel 템플릿에서 읽어온다.
 - 템플릿 의미 해석 기준: 먼저 rule 기반 exact/partial match를 적용하고, unresolved header만 LLM fallback으로 보충한다.
 - LLM 사용 기준: 비용 절감보다 성능과 정확도를 우선하고, LLM이 더 잘하는 해석/요약/비정형 이해는 적극 사용한다. 비용 로그는 관찰용으로만 유지한다.
+- LLM 멀티모달 기준: 이미지나 캡처가 실제 첨부로 있으면 텍스트 요약만 보내지 않고, 가능한 한 실제 이미지도 함께 넣어 직접 읽게 한다.
 - LLM 프롬프트 관리 기준: 작업별 instructions/schema는 해당 도메인 모듈 옆에서 관리하고, `llm/` 계층은 호출/로그/비용 집계 공용 래퍼 역할에 집중한다.
 - LLM 역할 기준: 프로필 템플릿의 열 의미 해석, 필드 매핑 보조, 요약/정리 문장 생성에 사용한다.
 - 코드 역할 기준: 실제 workbook의 행 위치, 셀 쓰기, 스타일 복사, 수식 보존, append 순서를 결정적으로 처리한다.
 - 시스템 필드 기준: `번호` 같은 system 필드는 `ExtractedRecord`에서 직접 뽑지 않고, workbook append 단계에서 코드가 자동 생성한다.
 - 코드 스타일 기준: 가독성만을 이유로 class를 피하지 않고, 재사용성과 유지보수성이 좋아지면 객체지향 설계와 표준 Python 문법을 사용한다. 단, 과한 추상화는 피한다.
 - Excel 갱신 기준: 사용자가 직접 수정할 수 있는 문서를 기본으로 보고, AI는 기존 사람이 작성한 내용 뒤에 append하며 기존 스타일과 수식을 최대한 보존한다.
+- Excel 파일명 기준: 새 산출물은 항상 최신 workbook을 source로 삼아 새 사본을 만들고, 파일명은 `YYMMDD_HHMM_<template>.xlsx` 형식을 사용한다. 예: `260321_1521_기업_신청서_모음.xlsx`
 - 요약 기준: 신청서 내용을 기초로 하되, 중복 표현을 줄이고 사람이 읽기 쉬운 한줄/짧은 문단 요약을 생성한다.
 - 입력 해석 기준: 본문 텍스트가 없어도 inline 이미지, 첨부 이미지, 스캔 PDF, 이미지 속 표에서 필요한 정보를 추출할 수 있는 방향을 기본값으로 둔다.
+- 품질 검증 기준: reference workbook 비교는 품질 목표 그 자체가 아니라, 프롬프트/후처리 변경 후 결과가 크게 망가지지 않았는지 보는 guardrail로 사용한다.
 - 구현 우선순위: 현재 샘플 2건을 smoke fixture로만 쓰고, 설계는 더 일반적인 메일 입력 변형을 커버하도록 잡는다.
+- 연동 순서 기준: GUI는 메일 설정/수신/분석 엔진이 텍스트 기반 smoke에서 먼저 검증된 뒤 감싸는 단계로 둔다.
 - 커밋 정책: 안정된 마일스톤마다 local commit을 기본으로 남기고, 원격에 남길 가치가 있는 마일스톤이면 push까지 같은 흐름에서 점검한다.
 - LLM 기본 방향: ChatGPT API 기반 structured output 우선
 - 워크스페이스 기준: `repo / envs / results / secrets` sibling 구조를 지향
@@ -66,9 +70,9 @@
 | 모듈 | 상태 | 메모 |
 |---|---|---|
 | Mailbox | schema + 번들 저장 helper + fixture materialize smoke + bundle reader 있음 | `MailBundle`, `NormalizedMessage`, bundle id 규칙, 프로필별 번들 skeleton 생성 helper, fixture를 실제 `받은 메일/<bundle-id>/` 구조로 푸는 smoke, valid bundle/normalized.json loader 정의 |
-| Analysis | schema + fixture/materialized-bundle analysis/pipeline smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, extraction prompt/schema, runtime bundle의 `normalized.json`을 직접 읽는 live 분석 smoke와 `bundle -> analysis -> exports` smoke 정의 |
-| Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 프로필 `실행결과/엑셀 산출물` 기준 workbook append와 fixture/runtime bundle smoke 연결 완료 |
-| LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 프로필 `실행결과/로그/llm` 기준 호출 로그 경로 정의 |
+| Analysis | schema + fixture/materialized-bundle analysis/pipeline smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, extraction prompt/schema, runtime bundle의 `normalized.json`을 직접 읽는 live 분석 smoke와 `bundle -> analysis -> exports` smoke 정의, direct image attachment 입력 경로 추가 |
+| Exports | template schema/reader + semantic mapping + record projection + workbook append + regression check 있음 | rule 기반 열 의미 매핑, unresolved header용 LLM fallback, `ExtractedRecord -> 템플릿 열` 연결, 최신 workbook 기준 timestamped export 생성과 fixture/runtime bundle smoke 연결 완료 |
+| LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계, 프로필 `실행결과/로그/llm` 기준 호출 로그 경로 정의, 기본 분석 모델 `gpt-5.4` 사용 |
 
 ## 핵심 메모
 
@@ -82,6 +86,7 @@
   - 과도한 추상화보다 주경로 우선
 - 배포 형태는 Python 실행형과 Windows `exe`를 함께 고려하므로, 초기부터 OS 종속성이 강한 주경로 설계를 피한다.
 - 사용 형태는 개인용 PC의 GUI 앱을 우선하므로, 초반부터 CLI-only 흐름보다 `프로필 생성 -> 저장 -> 실행` 경로를 기준으로 설계한다.
+- 단, 구현 순서는 GUI 화면부터 붙이기보다 메일 설정/수신/분석 엔진을 먼저 텍스트 기반 smoke로 검증한 뒤 GUI를 감싸는 쪽을 우선한다.
 - 보안 강화는 현재 최우선 범위가 아니지만, 실제 프로필 파일은 커밋 대상이 아닌 로컬 런타임 산출물로 취급한다.
 - 메일 설정 자동 탐지는 실제 접속 성공 여부가 중요하므로, LLM 단독 추론보다 룰베이스와 probe 기반 검증을 우선한다.
 - 예시 메일과 기대 산출물은 fixture이므로, 실제 구현 검증에 참고하되 원본 자체를 수정하는 방식으로 작업하지 않는다.
@@ -112,6 +117,6 @@
 
 ## 다음 작업
 
-1. regression diff에 남아 있는 `주요 제품/서비스`, `신청목적`, `사업내용 요약`, `상세 요청 사항` 품질을 계속 개선한다.
-2. 개선 결과를 reference workbook 회귀 비교로 다시 검증한다.
-3. 그다음 실제 mailbox 연동과 메일 설정 자동 탐지 smoke로 넘어간다.
+1. 운영자 관점 기준으로 `주요 제품/서비스`, `신청목적`, `사업내용 요약`, `상세 요청 사항` 프롬프트와 후처리를 계속 다듬는다.
+2. 변경 후에는 reference workbook 회귀 비교를 guardrail 용도로만 다시 확인한다.
+3. 그다음 실제 mailbox 연동과 메일 설정 자동 탐지 smoke를 텍스트 기반으로 먼저 검증하고, 이후 GUI로 감싼다.

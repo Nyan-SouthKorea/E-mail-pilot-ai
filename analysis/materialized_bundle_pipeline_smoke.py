@@ -14,6 +14,9 @@ if __package__ in (None, ""):
 from exports import (
     append_projected_row_to_workbook,
     apply_hybrid_template_mapping,
+    build_timestamped_export_workbook_path,
+    cleanup_legacy_export_workbooks,
+    find_latest_runtime_export_workbook,
     project_record_to_template,
     read_template_profile,
 )
@@ -152,8 +155,14 @@ def run_materialized_bundle_pipeline_smoke(
     )
 
     workbook_output = Path(output_workbook_path) if output_workbook_path else (
-        profile_paths.runtime_exports_root()
-        / f"{Path(template_path).stem}_materialized_bundle_pipeline.xlsx"
+        build_timestamped_export_workbook_path(
+            profile_root=profile_root,
+            template_workbook_path=template_path,
+        )
+    )
+    source_workbook_path = find_latest_runtime_export_workbook(
+        profile_root=profile_root,
+        exclude_paths=[workbook_output],
     )
     if workbook_output.exists():
         workbook_output.unlink()
@@ -204,6 +213,7 @@ def run_materialized_bundle_pipeline_smoke(
             profile=mapped_profile,
             projected_row=projected_row,
             output_workbook_path=str(workbook_output),
+            source_workbook_path=str(source_workbook_path or template_path),
         )
 
         if mapping.unresolved_headers:
@@ -220,6 +230,18 @@ def run_materialized_bundle_pipeline_smoke(
                 notes=notes,
             )
         )
+
+    removed_legacy_files = cleanup_legacy_export_workbooks(
+        profile_root=profile_root,
+        keep_paths=[workbook_output],
+    )
+    if removed_legacy_files:
+        cleanup_note = (
+            "기존 파일명 규칙과 맞지 않는 legacy 엑셀 산출물을 정리했다: "
+            + ", ".join(path.name for path in removed_legacy_files)
+        )
+        for result in results:
+            result.notes.append(cleanup_note)
 
     return results
 

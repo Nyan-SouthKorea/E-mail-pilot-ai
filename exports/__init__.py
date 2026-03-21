@@ -29,6 +29,13 @@ from .rule_mapping import (
     apply_rule_based_template_mapping,
     build_rule_based_template_mapping,
 )
+from .output_paths import (
+    build_timestamped_export_workbook_filename,
+    build_timestamped_export_workbook_path,
+    cleanup_legacy_export_workbooks,
+    find_latest_runtime_export_workbook,
+    sanitize_export_workbook_stem,
+)
 from .semantic_mapping import (
     TEMPLATE_SEMANTIC_MAPPING_SCHEMA_VERSION,
     SemanticFieldDefinition,
@@ -69,11 +76,16 @@ __all__ = [
     "build_llm_fallback_template_mapping",
     "build_llm_template_mapping_input",
     "build_rule_based_template_mapping",
+    "build_timestamped_export_workbook_filename",
+    "build_timestamped_export_workbook_path",
+    "cleanup_legacy_export_workbooks",
     "default_extracted_record_aliases",
     "default_semantic_field_definitions",
+    "find_latest_runtime_export_workbook",
     "merge_template_semantic_mappings",
     "project_record_to_template",
     "read_template_profile",
     "resolve_record_semantic_values",
+    "sanitize_export_workbook_stem",
     "semantic_field_definition_map",
 ]

@@ -101,7 +101,12 @@ def append_projected_row_to_workbook(
     if output_path.exists() and workbook_path == output_path:
         notes.append("기존 결과 workbook에 새 행을 이어서 append했다.")
     else:
-        notes.append("원본 템플릿을 읽어 결과 workbook을 새로 생성했다.")
+        if source_path.resolve() == Path(profile.source_workbook_path).resolve():
+            notes.append("reference 템플릿을 기준으로 새 결과 workbook을 생성했다.")
+        else:
+            notes.append(
+                f"최신 결과 workbook `{source_path.name}`을 기준으로 새 결과 workbook을 생성했다."
+            )
 
     return WorkbookAppendResult(
         output_workbook_path=str(output_path),
