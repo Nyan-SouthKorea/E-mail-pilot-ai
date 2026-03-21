@@ -2,6 +2,16 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | materialized bundle 분석 결과를 workbook append까지 잇는 end-to-end smoke 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `analysis/README.md`, `exports/README.md`였다.
+- 다음 계획은 이미 만들어 둔 runtime bundle 분석 결과를 기존 export 파이프라인에 연결해, fixture 전용 흐름이 아니라 실제 `받은 메일/<bundle-id>/` 구조에서 바로 엑셀 산출물까지 이어지는 smoke를 만드는 것이었다.
+- 이에 따라 `analysis/materialized_bundle_pipeline_smoke.py`를 추가해 `runtime bundle -> extracted_record -> projected_row -> workbook append` 순서의 얇은 end-to-end 진입점을 만들었다.
+- 이 smoke는 기존 `analysis/materialized_bundle_smoke.py`와 `exports` 계층 helper를 재사용하고, 결과 workbook은 `실행결과/엑셀 산출물/<template>_materialized_bundle_pipeline.xlsx`, projection JSON은 `실행결과/로그/exports/<bundle-id>_projected_row.json`에 남긴다.
+- 검증은 `--reuse-existing-analysis` 기준으로 진행했고, 두 bundle이 결과 workbook 4행과 5행에 정상 append되는 것을 확인했다.
+- 이어서 `exports.regression_check`로 reference workbook과 비교한 결과는 `10/22 = 0.4545`였다.
+- `analysis/README.md`, `exports/README.md`, `docs/status.md`도 현재 상태에 맞게 갱신했다.
+
 ## 2026-03-21 | Human + Codex | materialized bundle의 `normalized.json`을 직접 읽는 live 분석 smoke 추가
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `mailbox/README.md`, `analysis/README.md`, `llm/README.md`였다.

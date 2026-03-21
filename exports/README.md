@@ -6,6 +6,7 @@
 
 - template schema/reader, semantic mapping, record projection, workbook append 규칙 정의 완료
 - unresolved header 대상 rule-first + LLM fallback 절차 추가
+- materialized bundle 분석 결과를 workbook append까지 잇는 end-to-end smoke 연결 완료
 
 예상 역할:
 

@@ -8,6 +8,7 @@
 - fixture 기반 첫 LLM 분석 smoke 입력 골격 추가
 - fixture 이메일에서 workbook append까지 이어지는 end-to-end smoke 진입점 추가
 - materialized bundle의 `normalized.json`을 직접 읽는 live 분석 smoke 추가
+- materialized bundle에서 workbook append까지 이어지는 end-to-end smoke 진입점 추가
 
 현재 입력 계약:
 
