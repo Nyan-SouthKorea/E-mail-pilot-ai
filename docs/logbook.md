@@ -8,7 +8,8 @@
 - 사용자는 `.git` 디렉토리가 반드시 `repo/` 안에 생성되길 원했다.
 - 이에 따라 `repo/`에서 `git init -b main`을 수행해 로컬 Git 저장소를 초기화했다.
 - 현재 로컬 커밋 작성용 `user.name`, `user.email`도 `repo/.git/config`에 최소 범위로 설정했다.
-- 다음 단계는 현재 작업 트리를 초기 커밋으로 묶고, GitHub 원격을 연결하는 것이다.
+- 현재 작업 트리를 초기 커밋으로 묶었고, GitHub 원격 `origin`도 연결했다.
+- 첫 푸시는 일회성 인증 URL로 수행한 뒤, branch tracking은 다시 plain `origin/main`으로 되돌려 토큰이 `.git/config`에 남지 않게 정리했다.
 
 ## 2026-03-21 | Human + Codex | 초기 리포 구조의 오버엔지니어링과 중복 문서 정리
 
