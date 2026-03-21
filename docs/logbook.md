@@ -2,6 +2,25 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | fixture 첨부 폴더 단순화와 MailBundle materialize smoke 추가
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `mailbox/README.md`, `analysis/README.md`, `llm/README.md`였다.
+- 사용자는 LLM 프롬프트가 어디서 관리되는지 물었고, 동시에 reference 예시 이메일을 실제 `받은 메일/<bundle-id>/` 구조로 풀어놓는 다음 계획을 실행하길 원했다.
+- 이에 따라 프롬프트 관리 기준을 다시 확인했고, 현재 extraction prompt/schema는 `analysis/llm_extraction.py`, template header prompt/schema는 `exports/llm_mapping.py`, 실제 호출/로그는 `llm/openai_wrapper.py`가 담당하는 구조임을 정리했다.
+- `mailbox/fixture_reference.py`를 추가해 fixture 이메일 본문 읽기, 헤더/본문 분리, 주소 파싱, 첨부 디렉토리 탐색, preview/raw.eml 생성 helper를 공용화했다.
+- 기존 reference 폴더의 `첨부파일(파일들일지 zip일지 모름)`은 실제로 `첨부파일`로 이름을 바꿨고, 코드는 옛 이름과 새 이름 둘 다 읽을 수 있게 만들었다.
+- `mailbox/fixture_materialize.py`를 추가해 예시 이메일 2건을 실제 `실행결과/받은 메일/<bundle-id>/raw.eml, preview.html, normalized.json, summary.md, attachments/` 구조로 materialize 하는 첫 smoke를 구현했다.
+- 현재 생성된 bundle은 `20260321_050857_msg_a6850e1c`, `20260321_051425_msg_f80d23b8` 두 건이다.
+
+## 2026-03-21 | Human + Codex | extraction prompt와 projection 정규화 개선으로 회귀 일치율 향상
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `analysis/README.md`, `exports/README.md`, `llm/README.md`였다.
+- regression diff를 확인한 결과, 차이의 상당수는 신청서 값을 우선하는 규칙과 운영용 표시 형식이 부족해서 생기는 문제였다.
+- 이에 따라 `analysis/llm_extraction.py` 지시문에 `신청서 첨부 우선`, `회사명/전화/웹사이트 표시 방식`, `산업군/제품/신청목적/요약 필드 압축 기준`을 더 명확히 추가했다.
+- `exports/record_projection.py`에는 회사명 법인격 제거, 한국 전화번호 표시 정리, 웹사이트 trailing slash 제거, 산업군 구분자 정리 같은 projection 단계 정규화를 넣었다.
+- 그 결과 fixture pipeline을 다시 live 실행했을 때 regression match가 `6/22 = 0.2727`에서 `10/22 = 0.4545`로 개선됐다.
+- 현재 usage log 누적 기준은 `entry_count=7`, `input_tokens=9905`, `output_tokens=6088`, `estimated_total_cost_usd=0.1160825`다.
+
 ## 2026-03-21 | Human + Codex | 프로필 폴더 구조를 `참고자료 / 실행결과`로 정리하고 MailBundle 저장 helper 추가
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `exports/README.md`, `llm/README.md`였다.

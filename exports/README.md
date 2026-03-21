@@ -30,6 +30,7 @@
 - 공통 의미 필드는 `ExtractedRecord`에 유지하고, 실제 workbook 열 순서와 헤더 이름은 프로필별 템플릿에서 가져온다.
 - `번호` 같은 system field는 분석 결과에서 직접 채우지 않고 workbook append 단계에서 코드가 자동 생성한다.
 - 템플릿 열 이름이 비정형이면 LLM으로 의미를 해석하고, 실제 셀 위치 계산과 쓰기는 코드가 담당한다.
+- unresolved template header용 LLM prompt와 응답 schema는 [`llm_mapping.py`](llm_mapping.py)에서 관리한다.
 - 사용자가 직접 수정한 workbook을 전제로, AI는 마지막 사용 행 다음으로 append하는 정책을 기본으로 둔다.
 - 새로 쓰는 셀은 기존 폰트, 정렬, 줄바꿈, 수식, 셀 너비를 최대한 이어받아 사람이 이어서 작성한 것처럼 보이게 한다.
 - 결과 workbook은 원본 템플릿을 덮어쓰지 않고 기본적으로 `secrets/사용자 설정/<이름>/실행결과/엑셀 산출물/` 경로에 생성 또는 누적한다.

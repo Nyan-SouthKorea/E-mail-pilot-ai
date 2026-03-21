@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import re
 
 from analysis.schema import ExtractedField, ExtractedRecord
 
@@ -437,7 +438,10 @@ def project_record_to_template(
                 column_letter=column.column_letter,
                 header_text=column.header_text,
                 semantic_key=column.semantic_key,
-                value=resolved_value.preferred_value(),
+                value=_normalize_projected_value(
+                    semantic_key=column.semantic_key,
+                    value=resolved_value.preferred_value(),
+                ),
                 source_field_name=resolved_value.source_field_name,
                 source_kind=resolved_value.source_kind,
                 confidence=resolved_value.confidence,
@@ -510,6 +514,73 @@ def _fallback_semantic_value(
         )
 
     return None
+
+
+def _normalize_projected_value(semantic_key: str, value: str) -> str:
+    normalized = _collapse_whitespace(value)
+    if semantic_key == "company_name":
+        return _normalize_company_name(normalized)
+    if semantic_key == "phone_number":
+        return _normalize_phone_number(normalized)
+    if semantic_key == "website_or_social":
+        return _normalize_website(normalized)
+    if semantic_key == "industry":
+        return _normalize_industry(normalized)
+    return normalized
+
+
+def _collapse_whitespace(text: str) -> str:
+    return " ".join(str(text).strip().split())
+
+
+def _normalize_company_name(text: str) -> str:
+    candidates = [item.strip() for item in text.split("/") if item.strip()]
+    if candidates:
+        hangul_candidate = next(
+            (item for item in reversed(candidates) if re.search(r"[가-힣]", item)),
+            None,
+        )
+        if hangul_candidate is not None:
+            text = hangul_candidate
+        else:
+            text = candidates[0]
+
+    text = re.sub(r"^\(주\)\s*", "", text)
+    text = re.sub(r"^주식회사\s*", "", text)
+    return text.strip()
+
+
+def _normalize_phone_number(text: str) -> str:
+    digits = re.sub(r"\D", "", text)
+    if digits.startswith("82") and len(digits) >= 11:
+        digits = "0" + digits[2:]
+
+    if len(digits) == 11 and digits.startswith("010"):
+        return f"{digits[:3]}-{digits[3:7]}-{digits[7:]}"
+    if len(digits) == 11 and digits.startswith("070"):
+        return f"{digits[:3]}-{digits[3:7]}-{digits[7:]}"
+    if len(digits) == 10 and digits.startswith("02"):
+        return f"{digits[:2]}-{digits[2:6]}-{digits[6:]}"
+    if len(digits) == 10:
+        return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+    return text
+
+
+def _normalize_website(text: str) -> str:
+    collapsed = text.strip()
+    if collapsed.endswith("/") and collapsed.count("/") <= 3:
+        return collapsed[:-1]
+    return collapsed
+
+
+def _normalize_industry(text: str) -> str:
+    if text.startswith("http://") or text.startswith("https://"):
+        return text
+    if " / " in text:
+        return text.replace(" / ", "·")
+    if "/" in text:
+        return text.replace("/", "·")
+    return text
 
 
 def _select_sheet(profile: TemplateProfile, sheet_name: str | None) -> TemplateSheet | None:

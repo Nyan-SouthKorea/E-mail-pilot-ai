@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import json
-import re
 import zipfile
 from dataclasses import asdict, dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from mailbox import (
+    extract_fixture_body,
+    extract_fixture_header,
+    find_fixture_attachment_dir,
+    read_fixture_email_text,
+)
 from openpyxl import load_workbook
 
 from llm import OpenAIResponsesWrapper
@@ -67,17 +72,17 @@ def load_fixture_email_input(fixture_dir: str) -> FixtureEmailInput:
     """
 
     root = Path(fixture_dir)
-    raw_text = (root / "이메일 내용.txt").read_text(encoding="utf-8")
-    subject = _extract_header(raw_text, "제목")
-    sender = _extract_header(raw_text, "보낸사람")
-    recipient = _extract_header(raw_text, "받는사람")
-    body_text = _extract_body(raw_text)
+    raw_text = read_fixture_email_text(root)
+    subject = extract_fixture_header(raw_text, "제목")
+    sender = extract_fixture_header(raw_text, "보낸사람")
+    recipient = extract_fixture_header(raw_text, "받는사람")
+    body_text = extract_fixture_body(raw_text)
 
-    attachment_dir = root / "첨부파일(파일들일지 zip일지 모름)"
+    attachment_dir = find_fixture_attachment_dir(root)
     artifacts: list[FixtureArtifactSummary] = []
     evidence_counter = 1
 
-    if attachment_dir.exists():
+    if attachment_dir is not None and attachment_dir.exists():
         for path in sorted(attachment_dir.iterdir()):
             if path.suffix.lower() == ".zip":
                 summaries = _summarize_zip_artifacts(path, start_index=evidence_counter)
@@ -215,21 +220,6 @@ def run_fixture_analysis_smoke(
         message_key=fixture.message_key(),
         payload=payload,
     )
-
-
-def _extract_header(raw_text: str, key: str) -> str:
-    pattern = rf"^{re.escape(key)}\s*:\s*(.+)$"
-    match = re.search(pattern, raw_text, flags=re.MULTILINE)
-    return match.group(1).strip() if match else ""
-
-
-def _extract_body(raw_text: str) -> str:
-    marker = "내용:"
-    if marker not in raw_text:
-        return raw_text.strip()
-    return raw_text.split(marker, 1)[1].strip()
-
-
 def _summarize_zip_artifacts(path: Path, start_index: int) -> list[FixtureArtifactSummary]:
     artifacts: list[FixtureArtifactSummary] = []
     with zipfile.ZipFile(path) as archive:
