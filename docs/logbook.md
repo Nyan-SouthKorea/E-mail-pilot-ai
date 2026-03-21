@@ -18,6 +18,21 @@
 - `exports/template_profile.py`에는 레퍼런스 Excel을 읽어 템플릿 초안을 만드는 `TemplateWorkbookReader` 골격과 `read_template_profile` helper를 추가했다.
 - 실제 열 의미 해석과 semantic key 부여는 다음 단계에서 LLM 매핑 계층으로 이어가기로 했다.
 
+## 2026-03-21 | Human + Codex | Python 개발 환경을 envs/venv 기준으로 고정
+
+- 사용자는 시스템 Python 대신 워크스페이스 `envs` 아래 venv를 써서 의존성을 관리하길 원했다.
+- 확인 결과 현재 시스템 `python3`에는 `pip`가 없고, `envs/`는 비어 있었다.
+- 이에 따라 Python 의존성은 시스템에 직접 설치하지 않고 `envs/venv`를 기본 개발 환경으로 두는 기준을 문서에 반영했다.
+- `python3.10-venv`를 시스템에 설치할 sudo 권한은 없어 `venv --without-pip` + `get-pip.py` 방식으로 `envs/venv`를 부트스트랩했다.
+- 이후 `envs/venv` 안에 `openpyxl`을 설치했고, 현재 리포의 Python 패키지 목록은 `requirements.txt`로 관리하기 시작했다.
+- 이후 사용자가 sudo 비밀번호를 제공해 주어 `python3.10-venv`를 설치했고, 현재 이 머신은 표준 `python3 -m venv` 경로도 정상 동작한다.
+
+## 2026-03-21 | Human + Codex | 권한이 필요한 정석 경로는 먼저 사용자에게 묻는 기준 추가
+
+- 사용자는 권한이나 비밀번호가 필요한 더 좋은 경로가 있으면, 우회 전에 먼저 사용자에게 물어서 정석 경로로 진행하길 원했다.
+- 이에 따라 `docs/개발방침.md`에 권한/비밀번호/자격 증명 관련 정보가 필요할 때의 기본 행동 기준을 추가했다.
+- 앞으로는 가능한 표준 경로가 권한 제공에 달려 있으면 먼저 그 사실을 설명하고 사용자 선택을 받은 뒤 진행한다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.
