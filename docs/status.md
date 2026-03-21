@@ -40,6 +40,7 @@
 - 템플릿 기준: `ExtractedRecord`의 공통 의미 필드는 유지하되, 실제 Excel 열 구조와 시트/헤더/스타일 규칙은 프로필별 레퍼런스 Excel 템플릿에서 읽어온다.
 - LLM 역할 기준: 프로필 템플릿의 열 의미 해석, 필드 매핑 보조, 요약/정리 문장 생성에 사용한다.
 - 코드 역할 기준: 실제 workbook의 행 위치, 셀 쓰기, 스타일 복사, 수식 보존, append 순서를 결정적으로 처리한다.
+- 시스템 필드 기준: `번호` 같은 system 필드는 `ExtractedRecord`에서 직접 뽑지 않고, workbook append 단계에서 코드가 자동 생성한다.
 - 코드 스타일 기준: 가독성만을 이유로 class를 피하지 않고, 재사용성과 유지보수성이 좋아지면 객체지향 설계와 표준 Python 문법을 사용한다. 단, 과한 추상화는 피한다.
 - Excel 갱신 기준: 사용자가 직접 수정할 수 있는 문서를 기본으로 보고, AI는 기존 사람이 작성한 내용 뒤에 append하며 기존 스타일과 수식을 최대한 보존한다.
 - 요약 기준: 신청서 내용을 기초로 하되, 중복 표현을 줄이고 사람이 읽기 쉬운 한줄/짧은 문단 요약을 생성한다.
@@ -57,8 +58,8 @@
 | 모듈 | 상태 | 메모 |
 |---|---|---|
 | Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
-| Analysis | schema + fixture smoke 입력 골격 있음 | `ExtractedRecord` 계약, fixture loader, structured output schema 정의 |
-| Exports | template schema/reader + semantic mapping + record projection 있음 | 템플릿 reader, 의미 키 매핑, `ExtractedRecord -> 템플릿 열` 연결 계약 정의 |
+| Analysis | schema + fixture analysis/export smoke 진입점 있음 | `ExtractedRecord` 계약, fixture loader, structured output schema, end-to-end smoke 스크립트 정의 |
+| Exports | template schema/reader + semantic mapping + record projection + workbook append 있음 | rule 기반 열 의미 매핑, `ExtractedRecord -> 템플릿 열` 연결, 결과 workbook append와 스타일 상속 검증 완료 |
 | LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계 정의 |
 
 ## 핵심 메모
@@ -87,13 +88,12 @@
 1. 완료: `TemplateProfile` 공통 의미 키 목록과 템플릿 열 의미 매핑 schema를 정의한다.
 2. 완료: `ExtractedRecord` 공통 필드와 프로필별 Excel 열을 연결하는 규칙을 정한다.
 3. 완료: fixture 2건에 대해 첫 live 분석 smoke를 실행해 `ExtractedRecord` JSON 결과와 usage/cost log를 남긴다.
-4. 다음: 템플릿 의미 키 부여를 위한 실제 rule/LLM 매핑 절차 초안을 정한다.
-5. 대기: workbook append와 스타일 상속 규칙을 구현한다.
-6. 대기: fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만든다.
+4. 완료: 템플릿 의미 키 부여를 위한 실제 rule 기반 매핑 절차와 system field 처리 기준을 정한다.
+5. 완료: workbook append와 스타일 상속 규칙을 구현하고 fixture 결과 workbook을 생성한다.
+6. 완료: fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만들고 실제 workbook까지 생성한다.
 
 ## 다음 작업
 
-1. 템플릿 의미 키 부여를 위한 실제 rule/LLM 매핑 절차 초안을 정한다.
-2. `ExtractedRecord -> 템플릿 열 -> workbook 값` 흐름으로 첫 projection smoke를 보강한다.
-3. 템플릿 해석 결과를 이용해 workbook append와 스타일 상속 규칙을 구체화한다.
-4. fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만든다.
+1. 현재 rule 기반 템플릿 의미 매핑을 LLM fallback과 함께 어떻게 섞을지 최소 절차를 정한다.
+2. generated workbook 결과와 reference fixture의 차이를 비교하는 회귀 확인 방식을 정한다.
+3. fixture smoke 결과를 기반으로 실제 mailbox 연동 전에 어떤 artifact 저장 경로를 먼저 고정할지 정한다.

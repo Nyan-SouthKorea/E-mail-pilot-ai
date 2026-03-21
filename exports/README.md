@@ -4,7 +4,7 @@
 
 현재 상태:
 
-- template schema/reader, semantic mapping, record projection schema 정의 완료
+- template schema/reader, semantic mapping, record projection, workbook append 규칙 정의 완료
 
 예상 역할:
 
@@ -25,9 +25,11 @@
 - 입력 계약은 우선 `ExtractedRecord`를 기준으로 받는다.
 - `ExtractedRecord`의 필드명이 바로 의미 키와 같지 않아도 alias와 summary fallback으로 공통 의미 키를 먼저 해석한 뒤, 템플릿 열 순서로 projection 한다.
 - 공통 의미 필드는 `ExtractedRecord`에 유지하고, 실제 workbook 열 순서와 헤더 이름은 프로필별 템플릿에서 가져온다.
+- `번호` 같은 system field는 분석 결과에서 직접 채우지 않고 workbook append 단계에서 코드가 자동 생성한다.
 - 템플릿 열 이름이 비정형이면 LLM으로 의미를 해석하고, 실제 셀 위치 계산과 쓰기는 코드가 담당한다.
 - 사용자가 직접 수정한 workbook을 전제로, AI는 마지막 사용 행 다음으로 append하는 정책을 기본으로 둔다.
 - 새로 쓰는 셀은 기존 폰트, 정렬, 줄바꿈, 수식, 셀 너비를 최대한 이어받아 사람이 이어서 작성한 것처럼 보이게 한다.
+- 결과 workbook은 원본 템플릿을 덮어쓰지 않고 기본적으로 로컬 `results/` 경로에 생성 또는 누적한다.
 - generated 파일은 리포 안이 아니라 로컬 `results/` 계층을 기본 출력으로 본다.
 
 현재 참고 기준:

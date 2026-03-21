@@ -403,6 +403,22 @@ def project_record_to_template(
             continue
 
         definition = definition_map.get(column.semantic_key)
+        if definition is not None and definition.field_role == "system":
+            values.append(
+                ProjectedTemplateValue(
+                    sheet_name=sheet.sheet_name,
+                    column_index=column.column_index,
+                    column_letter=column.column_letter,
+                    header_text=column.header_text,
+                    semantic_key=column.semantic_key,
+                    value="",
+                    source_field_name=f"system:{column.semantic_key}",
+                    source_kind="system_generated",
+                    notes=["workbook append 단계에서 자동 생성"],
+                )
+            )
+            continue
+
         if definition is not None and definition.field_role == "human_only" and not include_human_only:
             skipped_columns.append(f"{column.header_text} | human_only")
             continue

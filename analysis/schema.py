@@ -36,6 +36,29 @@ class EvidenceRef:
     snippet: str | None = None
     confidence: float | None = None
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "EvidenceRef":
+        """기능: dict payload를 `EvidenceRef`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 evidence dict
+
+        반환:
+        - `EvidenceRef` 인스턴스
+        """
+
+        return cls(
+            evidence_id=str(payload["evidence_id"]),
+            kind=str(payload["kind"]),
+            source=str(payload["source"]),
+            body_part_id=payload.get("body_part_id"),
+            artifact_id=payload.get("artifact_id"),
+            page_number=payload.get("page_number"),
+            locator=payload.get("locator"),
+            snippet=payload.get("snippet"),
+            confidence=payload.get("confidence"),
+        )
+
 
 @dataclass(slots=True)
 class ExtractedField:
@@ -59,6 +82,26 @@ class ExtractedField:
     confidence: float | None = None
     evidence_ids: list[str] = field(default_factory=list)
     notes: str | None = None
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "ExtractedField":
+        """기능: dict payload를 `ExtractedField`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 field dict
+
+        반환:
+        - `ExtractedField` 인스턴스
+        """
+
+        return cls(
+            field_name=str(payload["field_name"]),
+            value=str(payload["value"]),
+            normalized_value=payload.get("normalized_value"),
+            confidence=payload.get("confidence"),
+            evidence_ids=list(payload.get("evidence_ids") or []),
+            notes=payload.get("notes"),
+        )
 
 
 @dataclass(slots=True)
@@ -109,3 +152,38 @@ class ExtractedRecord:
         """
 
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "ExtractedRecord":
+        """기능: dict payload를 `ExtractedRecord`로 복원한다.
+
+        입력:
+        - payload: 직렬화된 record dict
+
+        반환:
+        - `ExtractedRecord` 인스턴스
+        """
+
+        return cls(
+            bundle_id=str(payload["bundle_id"]),
+            message_key=str(payload["message_key"]),
+            record_type=str(payload["record_type"]),
+            category=str(payload["category"]),
+            fields=[
+                ExtractedField.from_dict(item)
+                for item in (payload.get("fields") or [])
+            ],
+            evidence=[
+                EvidenceRef.from_dict(item)
+                for item in (payload.get("evidence") or [])
+            ],
+            summary_one_line=str(payload.get("summary_one_line") or ""),
+            summary_short=str(payload.get("summary_short") or ""),
+            overall_confidence=payload.get("overall_confidence"),
+            action_hints=list(payload.get("action_hints") or []),
+            unresolved_questions=list(payload.get("unresolved_questions") or []),
+            source_artifact_ids=list(payload.get("source_artifact_ids") or []),
+            schema_version=str(
+                payload.get("schema_version") or EXTRACTED_RECORD_SCHEMA_VERSION
+            ),
+        )

@@ -16,6 +16,11 @@ from .record_projection import (
     project_record_to_template,
     resolve_record_semantic_values,
 )
+from .rule_mapping import (
+    RuleSemanticMatch,
+    apply_rule_based_template_mapping,
+    build_rule_based_template_mapping,
+)
 from .semantic_mapping import (
     TEMPLATE_SEMANTIC_MAPPING_SCHEMA_VERSION,
     SemanticFieldDefinition,
@@ -26,6 +31,7 @@ from .semantic_mapping import (
     semantic_field_definition_map,
 )
 from .template_profile import TemplateWorkbookReader, read_template_profile
+from .workbook_writer import WorkbookAppendResult, append_projected_row_to_workbook
 
 __all__ = [
     "TEMPLATE_PROFILE_SCHEMA_VERSION",
@@ -35,6 +41,7 @@ __all__ = [
     "ProjectedTemplateValue",
     "ResolvedRecordProjection",
     "ResolvedSemanticValue",
+    "RuleSemanticMatch",
     "SemanticFieldDefinition",
     "TemplateColumn",
     "TemplateColumnSemanticMapping",
@@ -42,7 +49,11 @@ __all__ = [
     "TemplateSemanticMapping",
     "TemplateSheet",
     "TemplateWorkbookReader",
+    "WorkbookAppendResult",
     "apply_template_semantic_mapping",
+    "apply_rule_based_template_mapping",
+    "append_projected_row_to_workbook",
+    "build_rule_based_template_mapping",
     "default_extracted_record_aliases",
     "default_semantic_field_definitions",
     "project_record_to_template",

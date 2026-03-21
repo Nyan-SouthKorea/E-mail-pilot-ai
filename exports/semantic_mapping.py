@@ -17,7 +17,7 @@ class SemanticFieldDefinition:
     - semantic_key: 내부 공통 의미 키
     - display_name: 사용자 친화적인 필드 이름
     - description: 필드 의미 설명
-    - field_role: `extract`, `generate`, `meta`, `human_only` 중 하나
+    - field_role: `extract`, `generate`, `meta`, `system`, `human_only` 중 하나
     - example_headers: 템플릿에서 자주 보이는 헤더 예시
     - preferred_sources: 추출 우선 source 힌트
     - required_for_v1: v1에서 특히 중요한 필드 여부
@@ -155,6 +155,14 @@ def default_semantic_field_definitions() -> list[SemanticFieldDefinition]:
     """
 
     return [
+        SemanticFieldDefinition(
+            semantic_key="row_number",
+            display_name="번호",
+            description="워크북 append 시 자동으로 채우는 순번",
+            field_role="system",
+            example_headers=["번호", "순번", "No", "No."],
+            preferred_sources=[],
+        ),
         SemanticFieldDefinition(
             semantic_key="company_name",
             display_name="기업명",

@@ -2,6 +2,25 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 체크포인트 6 완료 - fixture end-to-end pipeline smoke 실행
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `analysis/README.md`, `exports/README.md`였다.
+- 수동 명령으로만 검증하던 흐름을 `analysis/fixture_pipeline_smoke.py`로 묶어, fixture 이메일 로딩 -> live LLM 분석 -> projection -> workbook append까지 한 번에 실행할 수 있게 했다.
+- direct script 실행과 `python -m` 실행 둘 다 가능하도록 import 경로를 정리했고, `reuse_existing_analysis` 옵션도 추가했다.
+- 실제로 스크립트를 실행해 `results/exports_smoke/기업 신청서 모음_fixture_pipeline.xlsx`를 생성했고, 두 fixture가 row 4, row 5에 순서대로 append되는 것을 확인했다.
+- 현재 usage log 누적 기준은 `entry_count=4`, `input_tokens=5384`, `output_tokens=4021`, `estimated_total_cost_usd=0.073775`다.
+
+## 2026-03-21 | Human + Codex | 체크포인트 4, 5 완료 - rule 기반 템플릿 매핑과 workbook append 검증
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/decisions.md`, `exports/README.md`였다.
+- `exports/rule_mapping.py`를 추가해 템플릿 헤더를 공통 의미 키와 rule 기반 exact/partial match로 연결하는 첫 절차를 구현했다.
+- 이 과정에서 `번호` 헤더가 `연락처` 계열로 잘못 붙을 수 있는 문제를 발견했고, 공통 의미 키에 `row_number` system field를 추가해 workbook 단계에서 자동 생성하도록 수정했다.
+- `analysis/schema.py`에는 저장된 `ExtractedRecord` JSON을 다시 불러오기 위한 `from_dict()` 복원 경로를 추가했다.
+- `exports/workbook_writer.py`를 추가해 원본 템플릿을 건드리지 않고 `results/` 아래 결과 workbook에 append하는 writer를 구현했다.
+- writer는 마지막 실데이터 다음 행을 찾고, 직전 데이터 행의 서식과 수식을 최대한 이어받은 뒤 projection 값을 기록하도록 만들었다.
+- fixture 2건의 live 분석 결과 JSON을 사용해 실제 workbook append smoke를 실행했고, 결과 파일 `results/exports_smoke/기업_신청서_모음_fixture_smoke.xlsx`가 생성되었다.
+- smoke 결과 기준으로 row 4, row 5에 새 행이 정상 추가되었고, `번호`는 각각 `3`, `4`로 자동 생성되었다.
+
 ## 2026-03-21 | Human + Codex | 프로필별 Excel 템플릿 해석 중심 계획 반영
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `exports/README.md`, `analysis/README.md`였다.

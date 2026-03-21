@@ -6,6 +6,7 @@
 
 - 기본 schema 클래스 골격 정의 완료
 - fixture 기반 첫 LLM 분석 smoke 입력 골격 추가
+- fixture 이메일에서 workbook append까지 이어지는 end-to-end smoke 진입점 추가
 
 현재 입력 계약:
 
