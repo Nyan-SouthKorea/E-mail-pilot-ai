@@ -47,6 +47,14 @@
 - 기본 전략은 `analysis` 계층 필드명이 의미 키와 정확히 같으면 그대로 쓰고, 그렇지 않아도 alias 목록과 요약 fallback으로 최대한 같은 공통 의미 키에 연결하는 방식이다.
 - 이후 실제 템플릿 열에는 `semantic_key`가 붙어 있으면 `project_record_to_template()`가 순서대로 workbook 쓰기 직전 값 목록을 만들 수 있게 했다.
 
+## 2026-03-21 | Human + Codex | 체크포인트 3 준비 - OpenAI wrapper와 fixture smoke 골격 추가
+
+- 사용자는 ChatGPT API를 쓸 때 반드시 공용 wrapper를 거치고, 사용 로그를 바탕으로 토큰량과 예상 비용을 계산할 수 있길 원했다.
+- 이에 따라 `llm/` 계층에 OpenAI Responses wrapper, JSONL usage logger, 가격표 snapshot 기반 비용 계산기를 추가했다.
+- 사용 로그 기본 경로는 `../results/llm/openai_usage.jsonl`로 두었고, 기본 가격표는 `2026-03-21` 기준 OpenAI 공식 가격 페이지 snapshot으로 시작했다.
+- 동시에 `analysis/fixture_smoke.py`와 `analysis/llm_extraction.py`를 추가해, fixture 이메일 본문 + ZIP 내부 파일 목록 + ZIP 안 XLSX 텍스트 요약을 LLM 입력으로 묶는 첫 smoke 진입점을 만들었다.
+- 현재 환경에는 `OPENAI_API_KEY`가 없어서 실제 live 호출까지는 아직 실행하지 않았고, dry-run으로 입력 조립과 wrapper 집계 동작만 먼저 확인했다.
+
 ## 2026-03-21 | Human + Codex | 객체지향 허용 기준 복원과 schema 클래스 구조 복귀
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `README.md`, `mailbox/README.md`, `analysis/README.md`였다.

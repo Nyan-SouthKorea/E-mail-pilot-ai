@@ -1,0 +1,277 @@
+"""Fixture 기반 첫 분석 smoke를 위한 입력 loader와 실행기."""
+
+from __future__ import annotations
+
+import json
+import re
+import zipfile
+from dataclasses import asdict, dataclass, field
+from io import BytesIO
+from pathlib import Path
+from typing import Any
+
+from openpyxl import load_workbook
+
+from llm import OpenAIResponsesWrapper
+
+from .llm_extraction import (
+    build_extracted_record_text_config,
+    build_extraction_instructions,
+    parse_extracted_record_payload,
+)
+from .schema import ExtractedRecord
+
+
+@dataclass(slots=True)
+class FixtureArtifactSummary:
+    """기능: fixture 첨부 자산 1개 요약을 표현한다."""
+
+    evidence_id: str
+    artifact_name: str
+    artifact_kind: str
+    summary_text: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class FixtureEmailInput:
+    """기능: fixture 이메일 1건의 분석 입력을 표현한다."""
+
+    fixture_id: str
+    subject: str
+    sender: str
+    recipient: str
+    body_text: str
+    artifacts: list[FixtureArtifactSummary] = field(default_factory=list)
+
+    def message_key(self) -> str:
+        return self.fixture_id
+
+    def bundle_id(self) -> str:
+        return f"fixture:{self.fixture_id}"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def load_fixture_email_input(fixture_dir: str) -> FixtureEmailInput:
+    """기능: profile fixture 디렉토리에서 이메일 분석 입력을 만든다.
+
+    입력:
+    - fixture_dir: `수신 이메일 1` 같은 fixture 디렉토리 경로
+
+    반환:
+    - `FixtureEmailInput`
+    """
+
+    root = Path(fixture_dir)
+    raw_text = (root / "이메일 내용.txt").read_text(encoding="utf-8")
+    subject = _extract_header(raw_text, "제목")
+    sender = _extract_header(raw_text, "보낸사람")
+    recipient = _extract_header(raw_text, "받는사람")
+    body_text = _extract_body(raw_text)
+
+    attachment_dir = root / "첨부파일(파일들일지 zip일지 모름)"
+    artifacts: list[FixtureArtifactSummary] = []
+    evidence_counter = 1
+
+    if attachment_dir.exists():
+        for path in sorted(attachment_dir.iterdir()):
+            if path.suffix.lower() == ".zip":
+                summaries = _summarize_zip_artifacts(path, start_index=evidence_counter)
+                artifacts.extend(summaries)
+                evidence_counter += len(summaries)
+            else:
+                artifacts.append(
+                    FixtureArtifactSummary(
+                        evidence_id=f"artifact_{evidence_counter}",
+                        artifact_name=path.name,
+                        artifact_kind=path.suffix.lower().lstrip(".") or "file",
+                        summary_text=f"첨부파일: {path.name}",
+                    )
+                )
+                evidence_counter += 1
+
+    return FixtureEmailInput(
+        fixture_id=root.name,
+        subject=subject,
+        sender=sender,
+        recipient=recipient,
+        body_text=body_text,
+        artifacts=artifacts,
+    )
+
+
+def build_fixture_analysis_input_payload(fixture: FixtureEmailInput) -> str:
+    """기능: fixture 이메일 입력을 LLM용 텍스트 payload로 만든다.
+
+    입력:
+    - fixture: fixture 이메일 입력
+
+    반환:
+    - LLM 입력 문자열
+    """
+
+    lines = [
+        "[email_metadata]",
+        f"evidence_id: header_subject",
+        f"subject: {fixture.subject}",
+        f"evidence_id: header_sender",
+        f"sender: {fixture.sender}",
+        f"evidence_id: header_recipient",
+        f"recipient: {fixture.recipient}",
+        "",
+        "[email_body]",
+        "evidence_id: body_text",
+        fixture.body_text.strip(),
+        "",
+        "[attachment_artifacts]",
+    ]
+
+    if not fixture.artifacts:
+        lines.append("첨부 없음")
+    else:
+        for artifact in fixture.artifacts:
+            lines.append(f"evidence_id: {artifact.evidence_id}")
+            lines.append(f"name: {artifact.artifact_name}")
+            lines.append(f"kind: {artifact.artifact_kind}")
+            lines.append(artifact.summary_text)
+            lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def build_fixture_analysis_request(fixture_dir: str) -> dict[str, Any]:
+    """기능: fixture 분석용 OpenAI 래퍼 요청 dict를 만든다.
+
+    입력:
+    - fixture_dir: fixture 디렉토리 경로
+
+    반환:
+    - wrapper에 넘길 요청 dict
+    """
+
+    fixture = load_fixture_email_input(fixture_dir)
+    return {
+        "fixture": fixture,
+        "wrapper_request": {
+            "operation": "fixture_analysis_smoke",
+            "instructions": build_extraction_instructions(),
+            "input_payload": build_fixture_analysis_input_payload(fixture),
+            "text": build_extracted_record_text_config(),
+            "metadata": {
+                "fixture_id": fixture.fixture_id,
+                "bundle_id": fixture.bundle_id(),
+                "message_key": fixture.message_key(),
+            },
+        },
+    }
+
+
+def run_fixture_analysis_smoke(
+    fixture_dir: str,
+    wrapper: OpenAIResponsesWrapper,
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any] | ExtractedRecord:
+    """기능: fixture 이메일 1건에 대한 첫 분석 smoke를 실행한다.
+
+    입력:
+    - fixture_dir: fixture 디렉토리 경로
+    - wrapper: OpenAI 공용 래퍼
+    - dry_run: True면 실제 호출 없이 요청 payload만 반환
+
+    반환:
+    - dry_run이면 요청 dict, 아니면 `ExtractedRecord`
+    """
+
+    request = build_fixture_analysis_request(fixture_dir)
+    if dry_run:
+        return {
+            "fixture": request["fixture"].to_dict(),
+            "wrapper_request": request["wrapper_request"],
+        }
+
+    fixture: FixtureEmailInput = request["fixture"]
+    envelope = wrapper.create_response(**request["wrapper_request"])
+    parsed = envelope.parsed_output
+    if parsed is not None:
+        if hasattr(parsed, "model_dump"):
+            payload = parsed.model_dump()
+        elif hasattr(parsed, "to_dict"):
+            payload = parsed.to_dict()
+        else:
+            payload = dict(parsed)
+    else:
+        try:
+            payload = json.loads(envelope.output_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("structured output JSON을 파싱하지 못했습니다.") from exc
+
+    return parse_extracted_record_payload(
+        bundle_id=fixture.bundle_id(),
+        message_key=fixture.message_key(),
+        payload=payload,
+    )
+
+
+def _extract_header(raw_text: str, key: str) -> str:
+    pattern = rf"^{re.escape(key)}\s*:\s*(.+)$"
+    match = re.search(pattern, raw_text, flags=re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def _extract_body(raw_text: str) -> str:
+    marker = "내용:"
+    if marker not in raw_text:
+        return raw_text.strip()
+    return raw_text.split(marker, 1)[1].strip()
+
+
+def _summarize_zip_artifacts(path: Path, start_index: int) -> list[FixtureArtifactSummary]:
+    artifacts: list[FixtureArtifactSummary] = []
+    with zipfile.ZipFile(path) as archive:
+        artifact_index = start_index
+        for name in archive.namelist():
+            lower_name = name.lower()
+            if lower_name.endswith(".xlsx"):
+                summary_text = _summarize_xlsx_from_zip(archive, name)
+                artifact_kind = "xlsx"
+            elif lower_name.endswith(".pdf"):
+                summary_text = f"ZIP 내부 PDF 파일: {name}"
+                artifact_kind = "pdf"
+            else:
+                summary_text = f"ZIP 내부 파일: {name}"
+                artifact_kind = Path(name).suffix.lower().lstrip(".") or "file"
+
+            artifacts.append(
+                FixtureArtifactSummary(
+                    evidence_id=f"artifact_{artifact_index}",
+                    artifact_name=name,
+                    artifact_kind=artifact_kind,
+                    summary_text=summary_text,
+                )
+            )
+            artifact_index += 1
+
+    return artifacts
+
+
+def _summarize_xlsx_from_zip(archive: zipfile.ZipFile, name: str) -> str:
+    workbook = load_workbook(filename=BytesIO(archive.read(name)), data_only=True)
+    worksheet = workbook[workbook.sheetnames[0]]
+
+    lines = [f"ZIP 내부 XLSX 파일: {name}"]
+    captured_rows = 0
+    for row in worksheet.iter_rows(min_row=1, max_row=24, values_only=True):
+        values = [str(value).strip() for value in row if value not in (None, "")]
+        if not values:
+            continue
+        lines.append(" | ".join(values))
+        captured_rows += 1
+        if captured_rows >= 12:
+            break
+
+    return "\n".join(lines)

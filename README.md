@@ -21,9 +21,9 @@
 | 디렉토리 | 역할 | 상태 |
 |---|---|---|
 | [mailbox](mailbox/README.md) | 메일 수집, 번들 보관, 정규화 입력 생성 | 기본 schema 클래스 골격 있음 |
-| [analysis](analysis/README.md) | 분류, 정보 추출, 요약, schema 정규화 | 기본 schema 클래스 골격 있음 |
+| [analysis](analysis/README.md) | 분류, 정보 추출, 요약, schema 정규화 | schema + fixture smoke 입력 골격 있음 |
 | [exports](exports/README.md) | Excel 출력, 템플릿 해석, workbook 반영 | template schema/reader 골격 있음 |
-| [llm](llm/README.md) | OpenAI 호출, prompt, structured response | 구조만 정의 |
+| [llm](llm/README.md) | OpenAI 호출, prompt, structured response | wrapper + usage log + cost estimate 골격 있음 |
 
 workflow routing, reply draft, notification은 실제 구현이 시작될 때 디렉토리를 추가한다.
 

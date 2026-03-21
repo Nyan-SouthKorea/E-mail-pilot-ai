@@ -57,9 +57,9 @@
 | 모듈 | 상태 | 메모 |
 |---|---|---|
 | Mailbox | 기본 schema 클래스 골격 있음 | `MailBundle`, `NormalizedMessage` 객체 계약 정의 |
-| Analysis | 기본 schema 클래스 골격 있음 | `EvidenceRef`, `ExtractedRecord` 객체 계약 정의 |
+| Analysis | schema + fixture smoke 입력 골격 있음 | `ExtractedRecord` 계약, fixture loader, structured output schema 정의 |
 | Exports | template schema/reader + semantic mapping + record projection 있음 | 템플릿 reader, 의미 키 매핑, `ExtractedRecord -> 템플릿 열` 연결 계약 정의 |
-| LLM | 설계 전 | OpenAI client, prompt, structured response 담당 |
+| LLM | wrapper + usage logging 골격 있음 | OpenAI Responses wrapper, JSONL usage log, 비용 추정 집계 정의 |
 
 ## 핵심 메모
 
@@ -86,13 +86,13 @@
 
 1. 완료: `TemplateProfile` 공통 의미 키 목록과 템플릿 열 의미 매핑 schema를 정의한다.
 2. 완료: `ExtractedRecord` 공통 필드와 프로필별 Excel 열을 연결하는 규칙을 정한다.
-3. 다음: fixture 기반 `raw bundle -> NormalizedMessage -> ExtractedRecord` 첫 smoke를 만든다.
+3. 진행중: fixture 기반 첫 분석 smoke의 입력 loader와 LLM wrapper를 만들고, 실제 live 호출은 API 키가 준비되면 실행한다.
 4. 대기: workbook append와 스타일 상속 규칙을 구현한다.
 5. 대기: fixture 기반 `mailbox -> analysis -> exports` 첫 runnable smoke를 만든다.
 
 ## 다음 작업
 
-1. fixture 기반 `raw bundle -> NormalizedMessage -> ExtractedRecord` 첫 smoke를 만든다.
+1. API 키가 준비되면 fixture 기반 첫 live 분석 smoke를 실행한다.
 2. 템플릿 의미 키 부여를 위한 실제 rule/LLM 매핑 절차 초안을 정한다.
 3. `ExtractedRecord -> 템플릿 열 -> workbook 값` 흐름으로 첫 projection smoke를 보강한다.
 4. 템플릿 해석 결과를 이용해 workbook append와 스타일 상속 규칙을 구체화한다.
