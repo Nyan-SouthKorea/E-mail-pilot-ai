@@ -2,6 +2,14 @@
 
 > 최근 작업만 유지한다. 오래된 상세 로그는 필요해지면 `docs/archive/`로 옮긴다.
 
+## 2026-03-21 | Human + Codex | 쉬운 설명 우선 원칙 반영
+
+- 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`였다.
+- 사용자는 다음 작업과 계획 설명이 어렵게 들린다고 했고, 앞으로는 항상 알아듣기 쉽게 설명하는 기준을 문서에 반영하길 원했다.
+- 이에 따라 `AGENT.md` 보고 규칙에는 계획/상태/다음 작업을 먼저 쉬운 말로 설명한다는 기준을 추가했다.
+- `docs/개발방침.md`에는 쉬운 말 우선, 기술 용어는 나중에 덧붙이기, 이해가 어려우면 같은 내용을 더 쉽게 다시 설명하기를 기본 행동으로 반영했다.
+- `docs/decisions.md`에는 계획과 상태 설명을 항상 쉬운 말부터 쓴다는 결정을 추가했다.
+
 ## 2026-03-21 | Human + Codex | 성능 우선 LLM 기준 반영과 workbook regression check 추가
 
 - 기준 문서는 `docs/AGENT.md`, `docs/README.md`, `docs/status.md`, `docs/개발방침.md`, `docs/decisions.md`, `exports/README.md`, `llm/README.md`였다.
