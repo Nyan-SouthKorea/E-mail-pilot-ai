@@ -44,7 +44,7 @@
   - repo 내부 `<module>/results/`는 재현 가능한 smoke 결과와 소형 비교 자료만 둔다.
   - root `results/`는 현재 canonical 위치가 아니다.
 - 현재 모듈 상태:
-  - `mailbox`: bundle schema, fixture materialize, bundle reader, provider 자동 설정 후보 생성, connect/auth probe smoke가 있다. 실제 inbox fetch는 다음 단계다.
+  - `mailbox`: bundle schema, fixture materialize, bundle reader, provider 자동 설정 후보 생성, connect/auth probe, local-only credential loader, real account latest IMAP fetch smoke가 있다.
   - `analysis`: `NormalizedMessage -> ExtractedRecord` structured output 경로와 multimodal 입력 builder, fixture/runtime bundle smoke가 있다.
   - `exports`: 템플릿 reader, semantic mapping, projection, workbook append, 회귀 guardrail이 있다.
   - `llm`: OpenAI wrapper, usage logging, 가격표 snapshot 기반 비용 추정, structured output transport가 있다.
@@ -77,11 +77,21 @@
     - [x] starter template 운영 팩 추가
     - [x] sibling `../secrets/README.local.md` 시작 문서 추가
 - 다음 제품 작업:
-  - [ ] 실제 이메일 계정 기준 mailbox auth probe 실행
-  - [ ] 최신 inbox 1건 fetch smoke로 `MailBundle` 저장 경로 연결
+  - [x] 실제 이메일 계정 기준 mailbox auth probe 실행
+  - [x] 최신 inbox 1건 fetch smoke로 `MailBundle` 저장 경로 연결
+  - [ ] 저장된 최신 bundle 1건을 materialized analysis smoke와 handoff 기준으로 연결
   - [ ] `app/`과 `runtime/`의 실제 디렉토리 도입 시점과 경계 구체화
 
 ## 최근 로그
+
+### 2026-04-08 | Human + Codex | 실제 이메일 연동 1단계 완료
+
+- `mailbox`에 local-only 계정 정보 loader를 추가해 sibling `secrets` 아래의 로컬 계정 문서에서 이메일 주소, 로그인 id, 비밀번호, 프로필 루트를 읽게 했다.
+- mailbox auth probe는 명시된 로그인 id를 먼저 시도하고, 실패하면 이메일 주소로 자동 fallback 하도록 확장했다.
+- generic host 패턴만으로 잡히지 않는 계정을 위해 MX 레코드 기반 mail host 후보 생성 경로를 추가했다.
+- 실제 최신 메일 1건 fetch는 IMAP read-only `BODY.PEEK[]` 기준으로 구현했고, 결과를 로컬 runtime bundle 아래 `raw.eml`, `preview.html`, `normalized.json`, `summary.md`, `attachments/` 구조로 저장했다.
+- tracked 문서에는 실제 주소, 비밀번호, 메일 원문을 남기지 않고, 성공 bundle과 report는 모두 sibling `../secrets/사용자 설정/<이름>/실행결과/` 아래 로컬 경로에만 남겼다.
+- 성공한 bundle 1건에 대해 `normalized.json` 재읽기까지 확인해 다음 analysis smoke로 넘길 준비를 마쳤다.
 
 ### 2026-04-08 | Human + Codex | 골든 레퍼런스 기반 운영 문서 체계로 재편
 

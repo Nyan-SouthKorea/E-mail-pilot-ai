@@ -18,7 +18,7 @@
 
 | 모듈 | 역할 | 현재 상태 |
 |---|---|---|
-| [mailbox](./mailbox/README.md) | 메일 번들 보관, 자동 설정 후보 생성, probe, 정규화 입력 준비 | fixture materialize, bundle reader, connect/auth probe smoke까지 구현 |
+| [mailbox](./mailbox/README.md) | 메일 번들 보관, 자동 설정 후보 생성, probe, 정규화 입력 준비 | fixture materialize, bundle reader, connect/auth probe, real account latest IMAP fetch smoke 구현 |
 | [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke와 structured output 경로 구현 |
 | [exports](./exports/README.md) | 템플릿 해석, 열 의미 매핑, projection, workbook append | rule-first mapping, LLM fallback, workbook append, 회귀 guardrail 구현 |
 | [llm](./llm/README.md) | OpenAI wrapper, usage logging, 비용 추정, structured output transport | 공용 wrapper와 usage log 골격 구현 |

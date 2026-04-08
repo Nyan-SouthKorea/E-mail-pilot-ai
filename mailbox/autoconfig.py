@@ -114,6 +114,7 @@ class MailServerProbeResult:
     latency_ms: int
     source: str
     message: str = ""
+    login_username_kind: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """기능: probe 결과를 dict로 바꾼다.
@@ -135,6 +136,7 @@ class MailboxAutoConfigSmokeReport:
     email_address: str
     mode: str
     plan: MailboxAutoConfigPlan
+    login_username_kind: str = "email_address_fallback"
     probe_results: list[MailServerProbeResult] = field(default_factory=list)
     recommended_incoming: MailServerCandidate | None = None
     recommended_outgoing: MailServerCandidate | None = None
@@ -153,6 +155,7 @@ class MailboxAutoConfigSmokeReport:
         return {
             "email_address": self.email_address,
             "mode": self.mode,
+            "login_username_kind": self.login_username_kind,
             "plan": self.plan.to_dict(),
             "probe_results": [item.to_dict() for item in self.probe_results],
             "recommended_incoming": (
@@ -302,7 +305,16 @@ def build_mailbox_autoconfig_plan(
     generic_incoming, generic_outgoing = build_generic_domain_candidates(domain)
     incoming_candidates.extend(generic_incoming)
     outgoing_candidates.extend(generic_outgoing)
+
+    mx_incoming, mx_outgoing, mx_notes = fetch_mx_domain_candidates(
+        domain=domain,
+        timeout_seconds=timeout_seconds,
+    )
+    incoming_candidates.extend(mx_incoming)
+    outgoing_candidates.extend(mx_outgoing)
+
     notes.extend(preset_notes)
+    notes.extend(mx_notes)
 
     imap_candidates = [
         item
@@ -416,6 +428,108 @@ def build_generic_domain_candidates(
         ),
     ]
     return incoming_candidates, outgoing_candidates
+
+
+def fetch_mx_domain_candidates(
+    *,
+    domain: str,
+    timeout_seconds: float = 5.0,
+) -> tuple[list[MailServerCandidate], list[MailServerCandidate], list[str]]:
+    """기능: MX 레코드 기반으로 incoming/outgoing 후보를 만든다.
+
+    입력:
+    - domain: 이메일 도메인
+    - timeout_seconds: DNS over HTTPS timeout
+
+    반환:
+    - `(incoming 후보 목록, outgoing 후보 목록, notes)`
+    """
+
+    url = f"https://dns.google/resolve?name={urllib.parse.quote(domain)}&type=MX"
+    request = urllib.request.Request(
+        url,
+        headers={"Accept": "application/dns-json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8", errors="replace"))
+    except Exception:
+        return [], [], ["MX 레코드 기반 후보를 찾지 못했다."]
+
+    answers = payload.get("Answer") or []
+    hosts: list[str] = []
+    for answer in answers:
+        data = str(answer.get("data") or "").strip()
+        if not data:
+            continue
+        parts = data.split()
+        host = parts[-1].rstrip(".")
+        if host and host not in hosts:
+            hosts.append(host)
+
+    if not hosts:
+        return [], [], ["MX 레코드 기반 후보를 찾지 못했다."]
+
+    incoming_candidates: list[MailServerCandidate] = []
+    outgoing_candidates: list[MailServerCandidate] = []
+    for host in hosts:
+        incoming_candidates.extend(
+            [
+                MailServerCandidate(
+                    protocol="imap",
+                    host=host,
+                    port=993,
+                    security="ssl",
+                    source="mx_record",
+                    score=85,
+                    notes=["MX 레코드 호스트를 IMAP SSL 후보로 추가했다."],
+                ),
+                MailServerCandidate(
+                    protocol="imap",
+                    host=host,
+                    port=143,
+                    security="starttls",
+                    source="mx_record",
+                    score=82,
+                    notes=["MX 레코드 호스트를 IMAP STARTTLS 후보로 추가했다."],
+                ),
+                MailServerCandidate(
+                    protocol="pop3",
+                    host=host,
+                    port=995,
+                    security="ssl",
+                    source="mx_record",
+                    score=75,
+                    notes=["MX 레코드 호스트를 POP3 SSL 후보로 추가했다."],
+                ),
+            ]
+        )
+        outgoing_candidates.extend(
+            [
+                MailServerCandidate(
+                    protocol="smtp",
+                    host=host,
+                    port=587,
+                    security="starttls",
+                    source="mx_record",
+                    score=85,
+                    notes=["MX 레코드 호스트를 SMTP STARTTLS 후보로 추가했다."],
+                ),
+                MailServerCandidate(
+                    protocol="smtp",
+                    host=host,
+                    port=465,
+                    security="ssl",
+                    source="mx_record",
+                    score=82,
+                    notes=["MX 레코드 호스트를 SMTP SSL 후보로 추가했다."],
+                ),
+            ]
+        )
+
+    return incoming_candidates, outgoing_candidates, [
+        f"MX 레코드에서 `{', '.join(hosts)}` 후보를 읽었다."
+    ]
 
 
 def fetch_mozilla_autoconfig_candidates(
@@ -533,6 +647,7 @@ def dedupe_and_sort_candidates(
 def run_mailbox_autoconfig_smoke(
     *,
     email_address: str,
+    login_username: str = "",
     password: str = "",
     timeout_seconds: float = 8.0,
     max_probes_per_protocol: int = 2,
@@ -541,6 +656,7 @@ def run_mailbox_autoconfig_smoke(
 
     입력:
     - email_address: 테스트할 이메일 주소
+    - login_username: 실제 로그인에 쓸 계정 id. 비어 있으면 이메일 주소 사용
     - password: 비밀번호 또는 앱 비밀번호
     - timeout_seconds: probe timeout
     - max_probes_per_protocol: 프로토콜별 probe 최대 개수
@@ -554,6 +670,10 @@ def run_mailbox_autoconfig_smoke(
         timeout_seconds=timeout_seconds,
     )
     mode = "auth" if password else "connect"
+    resolved_login_username, login_username_kind = resolve_login_username(
+        email_address=email_address,
+        login_username=login_username,
+    )
     probe_results: list[MailServerProbeResult] = []
 
     candidates_by_protocol = {
@@ -567,6 +687,7 @@ def run_mailbox_autoconfig_smoke(
             probe_results.append(
                 probe_mail_server_candidate(
                     email_address=email_address,
+                    login_username=resolved_login_username,
                     password=password,
                     candidate=candidate,
                     timeout_seconds=timeout_seconds,
@@ -584,12 +705,22 @@ def run_mailbox_autoconfig_smoke(
     )
 
     notes = list(plan.notes)
+    effective_login_username_kind = summarize_login_username_kind(
+        email_address=email_address,
+        login_username=login_username,
+        probe_results=probe_results,
+    )
+    if login_username_kind == "explicit_login_username":
+        notes.append("로그인 시도에는 명시된 전용 로그인 id를 먼저 쓰고, 실패하면 이메일 주소도 대체 후보로 시도한다.")
+    else:
+        notes.append("로그인 시도에는 이메일 주소를 그대로 사용했다.")
     if not password:
         notes.append("비밀번호가 없어 연결 가능 여부만 확인했다. 실제 로그인 성공 여부는 아직 미검증 상태다.")
 
     return MailboxAutoConfigSmokeReport(
         email_address=email_address,
         mode=mode,
+        login_username_kind=effective_login_username_kind,
         plan=plan,
         probe_results=probe_results,
         recommended_incoming=recommended_incoming,
@@ -601,6 +732,7 @@ def run_mailbox_autoconfig_smoke(
 def probe_mail_server_candidate(
     *,
     email_address: str,
+    login_username: str,
     password: str,
     candidate: MailServerCandidate,
     timeout_seconds: float,
@@ -610,6 +742,7 @@ def probe_mail_server_candidate(
 
     입력:
     - email_address: 로그인 이메일 주소
+    - login_username: 실제 로그인에 사용할 사용자 id
     - password: 비밀번호 또는 앱 비밀번호
     - candidate: probe 대상 후보
     - timeout_seconds: timeout
@@ -622,14 +755,40 @@ def probe_mail_server_candidate(
     started = time.perf_counter()
     try:
         if mode == "auth":
-            _probe_with_auth(
-                candidate=candidate,
+            attempt_messages: list[str] = []
+            for attempted_username, attempted_kind in build_login_username_attempts(
                 email_address=email_address,
-                password=password,
-                timeout_seconds=timeout_seconds,
-            )
-            stage = "login"
-            message = "로그인 성공"
+                login_username=login_username,
+            ):
+                try:
+                    _probe_with_auth(
+                        candidate=candidate,
+                        email_address=email_address,
+                        login_username=attempted_username,
+                        password=password,
+                        timeout_seconds=timeout_seconds,
+                    )
+                    stage = "login"
+                    message = "로그인 성공"
+                    latency_ms = int((time.perf_counter() - started) * 1000)
+                    return MailServerProbeResult(
+                        protocol=candidate.protocol,
+                        host=candidate.host,
+                        port=candidate.port,
+                        security=candidate.security,
+                        mode=mode,
+                        success=True,
+                        stage=stage,
+                        latency_ms=latency_ms,
+                        source=candidate.source,
+                        message=message,
+                        login_username_kind=attempted_kind,
+                    )
+                except Exception as exc:
+                    attempt_messages.append(
+                        f"{attempted_kind}: {exc.__class__.__name__}: {exc}"
+                    )
+            raise RuntimeError(" | ".join(attempt_messages))
         else:
             _probe_connect_only(
                 host=candidate.host,
@@ -728,13 +887,14 @@ def _probe_with_auth(
     *,
     candidate: MailServerCandidate,
     email_address: str,
+    login_username: str,
     password: str,
     timeout_seconds: float,
 ) -> None:
     if candidate.protocol == "imap":
         _probe_imap_auth(
             candidate=candidate,
-            email_address=email_address,
+            login_username=login_username,
             password=password,
             timeout_seconds=timeout_seconds,
         )
@@ -742,7 +902,7 @@ def _probe_with_auth(
     if candidate.protocol == "pop3":
         _probe_pop3_auth(
             candidate=candidate,
-            email_address=email_address,
+            login_username=login_username,
             password=password,
             timeout_seconds=timeout_seconds,
         )
@@ -750,7 +910,7 @@ def _probe_with_auth(
     if candidate.protocol == "smtp":
         _probe_smtp_auth(
             candidate=candidate,
-            email_address=email_address,
+            login_username=login_username,
             password=password,
             timeout_seconds=timeout_seconds,
         )
@@ -761,7 +921,7 @@ def _probe_with_auth(
 def _probe_imap_auth(
     *,
     candidate: MailServerCandidate,
-    email_address: str,
+    login_username: str,
     password: str,
     timeout_seconds: float,
 ) -> None:
@@ -772,7 +932,7 @@ def _probe_imap_auth(
         if candidate.security == "starttls":
             client.starttls(ssl_context=ssl.create_default_context())
     try:
-        client.login(email_address, password)
+        client.login(login_username, password)
     finally:
         try:
             client.logout()
@@ -783,7 +943,7 @@ def _probe_imap_auth(
 def _probe_pop3_auth(
     *,
     candidate: MailServerCandidate,
-    email_address: str,
+    login_username: str,
     password: str,
     timeout_seconds: float,
 ) -> None:
@@ -794,7 +954,7 @@ def _probe_pop3_auth(
         if candidate.security == "starttls":
             client.stls(ssl.create_default_context())
     try:
-        client.user(email_address)
+        client.user(login_username)
         client.pass_(password)
     finally:
         try:
@@ -806,7 +966,7 @@ def _probe_pop3_auth(
 def _probe_smtp_auth(
     *,
     candidate: MailServerCandidate,
-    email_address: str,
+    login_username: str,
     password: str,
     timeout_seconds: float,
 ) -> None:
@@ -819,12 +979,81 @@ def _probe_smtp_auth(
         if candidate.security == "starttls":
             client.starttls(context=ssl.create_default_context())
             client.ehlo()
-        client.login(email_address, password)
+        client.login(login_username, password)
     finally:
         try:
             client.quit()
         except Exception:
             pass
+
+
+def resolve_login_username(*, email_address: str, login_username: str = "") -> tuple[str, str]:
+    """기능: 로그인에 사용할 username과 사용 종류를 정한다.
+
+    입력:
+    - email_address: 이메일 주소
+    - login_username: 별도 로그인 id
+
+    반환:
+    - `(실제 로그인 username, 사용 종류)`
+    """
+
+    normalized_login_username = login_username.strip()
+    if normalized_login_username:
+        return normalized_login_username, "explicit_login_username"
+    return email_address.strip(), "email_address_fallback"
+
+
+def build_login_username_attempts(
+    *,
+    email_address: str,
+    login_username: str = "",
+) -> list[tuple[str, str]]:
+    """기능: 로그인 username 시도 순서를 만든다.
+
+    입력:
+    - email_address: 이메일 주소
+    - login_username: 명시된 로그인 id
+
+    반환:
+    - `(username, 사용 종류)` 목록
+    """
+
+    normalized_email = email_address.strip()
+    normalized_login_username = login_username.strip()
+    attempts: list[tuple[str, str]] = []
+
+    if normalized_login_username:
+        attempts.append((normalized_login_username, "explicit_login_username"))
+    if normalized_email and normalized_email != normalized_login_username:
+        attempts.append((normalized_email, "email_address_fallback"))
+    if not attempts:
+        attempts.append((normalized_email, "email_address_fallback"))
+    return attempts
+
+
+def summarize_login_username_kind(
+    *,
+    email_address: str,
+    login_username: str = "",
+    probe_results: list[MailServerProbeResult],
+) -> str:
+    """기능: probe 결과 기준으로 실제 유효했던 로그인 username 종류를 요약한다."""
+
+    successful_kinds = [
+        item.login_username_kind
+        for item in probe_results
+        if item.success and item.login_username_kind
+    ]
+    if "explicit_login_username" in successful_kinds:
+        return "explicit_login_username"
+    if "email_address_fallback" in successful_kinds and login_username.strip():
+        return "email_address_after_explicit_failure"
+    if "email_address_fallback" in successful_kinds:
+        return "email_address_fallback"
+    if login_username.strip() and login_username.strip() != email_address.strip():
+        return "explicit_login_username"
+    return "email_address_fallback"
 
 
 def normalize_security(socket_type: str) -> str:

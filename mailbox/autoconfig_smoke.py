@@ -67,6 +67,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="mailbox autoconfig smoke")
     parser.add_argument("--email-address", required=True)
+    parser.add_argument("--login-username", default="")
     parser.add_argument("--password", default="")
     parser.add_argument("--profile-root", default=str(default_profile_root()))
     parser.add_argument("--timeout-seconds", type=float, default=8.0)
@@ -88,6 +89,7 @@ def main() -> None:
 
     report = run_mailbox_autoconfig_smoke(
         email_address=args.email_address,
+        login_username=args.login_username,
         password=args.password,
         timeout_seconds=args.timeout_seconds,
         max_probes_per_protocol=args.max_probes_per_protocol,
