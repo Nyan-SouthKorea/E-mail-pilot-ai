@@ -2,6 +2,8 @@
 
 이 디렉토리는 language model orchestration 계층 자리다.
 
+현재 모듈 현재 상태와 최근 변경은 [`docs/logbook.md`](docs/logbook.md)에서 관리한다.
+
 현재 상태:
 
 - OpenAI Responses wrapper 골격 추가
@@ -37,5 +39,7 @@
 
 현재 참고 기준:
 
-- [`../docs/status.md`](../docs/status.md)
-- [`../docs/개발방침.md`](../docs/개발방침.md)
+- [`../AGENTS.md`](../AGENTS.md)
+- [`../README.md`](../README.md)
+- [`../docs/logbook.md`](../docs/logbook.md)
+- [`./docs/logbook.md`](./docs/logbook.md)

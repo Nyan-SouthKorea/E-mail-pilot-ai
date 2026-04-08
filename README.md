@@ -1,59 +1,137 @@
-# Email Agent
+# E-mail-pilot-ai
 
-이 리포지토리는 ChatGPT API를 활용해 이메일을 읽고, 분류하고, 필요한 정보를 구조화해 Excel로 내보내는 소프트웨어를 만들기 위한 시작점이다. 현재는 미래 확장용 구조를 과하게 미리 늘리지 않고, `이메일 수신 -> 분석 -> Excel 출력`의 주경로를 먼저 고정하는 단계다. 장기적으로는 Python으로 직접 실행할 수 있으면서도, Windows 환경에서 `exe`로 패키징해 실행 가능한 형태를 함께 목표로 한다. 사용자 경험은 개인용 데스크톱 앱을 우선으로 보고, GUI에서 프로필을 만들고 그 프로필 설정으로 자동화가 동작하는 흐름을 지향한다. 다만 구현 순서는 GUI 화면보다 메일 설정/수신/분석 엔진을 텍스트 기반 smoke로 먼저 검증한 뒤 그 위를 감싸는 방향을 우선한다. 메일 연동 설정은 사용자가 이메일 주소와 인증 정보만 입력하면 앱이 가능한 프로토콜과 서버 설정을 자동 탐지해 GUI에 채워주는 방향을 기본으로 둔다. 사용자별 예시 메일과 기대 산출물은 `secrets/사용자 설정/<이름>/참고자료/` 아래에 레퍼런스 fixture로 보관하고, 실제 런타임 메일/엑셀/로그는 같은 프로필 아래 `실행결과/` 계층으로 분리해 관리한다. 입력 형식은 현재 샘플 두 건에 맞추지 않고, 텍스트/HTML/inline 이미지/첨부 이미지/스캔 PDF/ZIP 안 문서/이미지 안 표까지 포괄하는 방향을 기본으로 둔다. 이미지 첨부가 있으면 텍스트 요약만 보내지 않고 실제 이미지를 함께 보는 멀티모달 입력을 기본으로 삼는다. 현재 내부 데이터 흐름은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 네 단계 계약으로 고정해 간다. 단, `ExportRow`의 실제 열 구조는 프로젝트 전체에서 하나로 고정하지 않고, 사용자 프로필 폴더의 레퍼런스 Excel 템플릿을 해석해 프로필별로 달라질 수 있게 설계한다.
+이 저장소는 이메일을 받아 필요한 정보를 구조화하고 Excel로 반영하는 개인용 자동화 스택을 만드는 리포지토리다. 현재 주경로는 `이메일 수신 -> 구조화 분석 -> Excel 출력`이며, 실제 메일 계정과 프로필별 Excel 템플릿을 안전하게 다루는 방향을 우선한다.
 
-## 현재 범위
+처음 방문한 사람은 이 문서부터 읽으면 된다. 실제 작업을 시작하는 사람은 그다음 [AGENTS.md](./AGENTS.md), [docs/logbook.md](./docs/logbook.md), 최신 [docs/logbook_archive](./docs/logbook_archive) 1개, 관련 모듈 `README.md`, 관련 모듈 `docs/logbook.md` 순서로 들어간다.
 
-- 수신 이메일 동기화와 정규화
-- LLM 기반 분류 / 추출 / 요약
-- Excel 출력 자동화
-- Python 실행형과 Windows `exe` 패키징을 함께 고려한 구조 설계
-- GUI 기반 프로필 생성/선택과 로컬 설정 파일 저장
-- 도메인 규칙, autodiscover, 접속 테스트 기반 메일 설정 자동 탐지
-- 수신 이메일 `raw eml + html preview + attachment bundle + summary doc` 보관
-- 프로필별 레퍼런스 Excel 템플릿 해석과 그에 맞는 출력 매핑
-- 사람이 수정하는 Excel 문서를 존중하는 append 중심 업데이트
-- 이미지 기반 정보와 표가 포함된 메일/첨부까지 처리 가능한 multimodal 입력 해석
-- 이후 reply draft와 외부 알림으로 확장 가능한 설계 준비
+비공개 자격증명, 실제 메일 원문, 실제 사용자 workbook, 로컬 publish 운영이 포함된 작업은 tracked 문서만 보지 않고 sibling `../secrets/README.local.md`와 그 하위 로컬 문서를 함께 본다.
 
-## 현재 활성 디렉토리
+## 프로젝트 한눈에 보기
 
-| 디렉토리 | 역할 | 상태 |
+- 실제 메일 계정 연결은 `mailbox`가 맡는다.
+- 구조화 분류, 필드 추출, 요약, 멀티모달 해석은 `analysis`가 맡는다.
+- 프로필별 Excel 템플릿 해석과 workbook append는 `exports`가 맡는다.
+- OpenAI 호출 transport, usage logging, 공용 설정은 `llm`이 맡는다.
+- 앞으로 GUI와 프로필 편집 진입점은 `app/`, 장시간 배치와 실행 조율은 `runtime/`에 둘 예정이다.
+
+## 현재 구현 범위
+
+| 모듈 | 역할 | 현재 상태 |
 |---|---|---|
-| [mailbox](mailbox/README.md) | 메일 수집, 번들 보관, 정규화 입력 생성 | 기본 schema 클래스 골격 있음 |
-| [analysis](analysis/README.md) | 분류, 정보 추출, 요약, schema 정규화 | fixture analysis/export smoke 진입점 있음 |
-| [exports](exports/README.md) | Excel 출력, 템플릿 해석, workbook 반영 | 템플릿 해석, projection, workbook append, regression check 규칙 있음 |
-| [llm](llm/README.md) | OpenAI 호출, prompt, structured response | wrapper + usage log + 성능 우선 LLM orchestration 기준 있음 |
+| [mailbox](./mailbox/README.md) | 메일 번들 보관, 자동 설정 후보 생성, probe, 정규화 입력 준비 | fixture materialize, bundle reader, connect/auth probe smoke까지 구현 |
+| [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke와 structured output 경로 구현 |
+| [exports](./exports/README.md) | 템플릿 해석, 열 의미 매핑, projection, workbook append | rule-first mapping, LLM fallback, workbook append, 회귀 guardrail 구현 |
+| [llm](./llm/README.md) | OpenAI wrapper, usage logging, 비용 추정, structured output transport | 공용 wrapper와 usage log 골격 구현 |
 
-workflow routing, reply draft, notification은 실제 구현이 시작될 때 디렉토리를 추가한다.
+## 새 기능을 어디에 둘까
 
-## 시작 문서
+새 기능 추가, 폴더 이동, 레이어 경계 판단이 필요한 작업에서는 이 섹션을 프로젝트 전역의 단일 기준으로 본다. 운영 규칙은 [`AGENTS.md`](./AGENTS.md)가 맡고, 실제 배치 기준은 이 섹션이 맡는다.
 
-1. [docs/AGENT.md](docs/AGENT.md)
-2. [docs/README.md](docs/README.md)
-3. [docs/status.md](docs/status.md)
-4. 필요한 모듈의 `README.md`
-5. [docs/decisions.md](docs/decisions.md)
-6. [docs/logbook.md](docs/logbook.md)
+### 1. 먼저 소속부터 고른다
 
-## 문서 역할 요약
-
-| 문서 | 역할 |
+| 질문 | 위치 |
 |---|---|
-| [docs/status.md](docs/status.md) | 현재 상태와 다음 작업의 단일 기준 |
-| [docs/개발방침.md](docs/개발방침.md) | 장기적으로 유지할 운영 원칙 |
-| [docs/decisions.md](docs/decisions.md) | 현재 유효한 핵심 결정 |
-| [docs/logbook.md](docs/logbook.md) | 최근 작업 로그 |
+| 메일 서버 탐지, auth probe, inbox fetch, raw bundle 저장, attachment 추출인가 | [`mailbox/`](./mailbox/README.md) |
+| 메일 본문/첨부 해석, 분류, 필드 추출, 요약, 이미지 입력 해석인가 | [`analysis/`](./analysis/README.md) |
+| Excel 템플릿 해석, 열 의미 매핑, projection, workbook append, diff 검증인가 | [`exports/`](./exports/README.md) |
+| 모델 설정, 호출 wrapper, usage logging, 공용 structured output transport인가 | [`llm/`](./llm/README.md) |
+| GUI, 프로필 편집, 사용자 실행 진입점, 패키징 진입점인가 | 향후 `app/` |
+| 장시간 실행 조율, polling loop, queue worker, batch run, watchdog인가 | 향후 `runtime/` |
 
-## 리포 구조
+### 2. 의존 방향은 아래를 기본으로 둔다
+
+- `app -> runtime -> mailbox / analysis / exports / llm`
+- `analysis -> llm`
+- `exports -> llm`
+- `mailbox`는 `analysis`와 `exports`를 직접 import하지 않는다.
+- `llm`은 메일 도메인 규칙이나 Excel 규칙을 직접 알지 않는다.
+- `runtime`은 UI 세부사항을 직접 알지 않고, `app`은 low-level mailbox probe 세부사항을 직접 구현하지 않는다.
+
+### 3. 새 추상화는 아래 조건이 있을 때만 만든다
+
+- 둘 이상의 실행 경로가 같은 기능을 공유한다.
+- 같은 wiring 코드가 두 군데 이상 반복된다.
+- 상태 원본이 둘 이상 생겨 충돌 위험이 있다.
+- 위 조건이 약하면 새 계층을 만들지 말고 현재 계층 안에서 먼저 작게 정리한다.
+
+### 4. 빠른 판단 체크리스트
+
+- 이 기능은 메일 원본 보존과 설정 탐지 문제인가?
+- 이 기능은 구조화 추출과 요약 문제인가?
+- 이 기능은 Excel 양식 해석과 workbook 갱신 문제인가?
+- 이 기능은 공용 LLM transport와 로그 문제인가?
+- 이 기능은 GUI나 사용자 실행 흐름 문제인가?
+- 이 기능은 장시간 실행 조율 문제인가?
+
+## 처음 방문한 사람이 읽는 순서
+
+### 1. 이 문서
+
+- 프로젝트가 무엇인지
+- 어떤 모듈이 있고 어디까지 왔는지
+- 전체 구조와 기능 배치 기준이 어떻게 생겼는지
+
+### 2. 작업을 실제로 시작할 때
+
+1. [AGENTS.md](./AGENTS.md)
+2. [docs/logbook.md](./docs/logbook.md)
+3. 최신 [docs/logbook_archive](./docs/logbook_archive) 안의 `logbook_*.md` 1개
+4. 관련 모듈 `README.md`
+5. 관련 모듈 `docs/logbook.md`
+
+## 어디에 무엇이 기록되는가
+
+| 위치 | 역할 |
+|---|---|
+| [README.md](./README.md) | 처음 방문자를 위한 프로젝트 소개, 전체 구조, 프로젝트 전역 고정 메모 |
+| [AGENTS.md](./AGENTS.md) | 운영 정책과 작업 방법의 단일 기준 |
+| [docs/logbook.md](./docs/logbook.md) | 현재 상태, 전역 결정, 최근 로그의 단일 기준 |
+| [docs/logbook_archive](./docs/logbook_archive) | 이전 active logbook와 legacy 기준 문서 archive |
+| `.agents/skills/` | 이 저장소 공용 반복 workflow skill 원본 |
+| `templates/codex_starter/` | 새 저장소 시작 때 복사해 쓰는 공통 운영 팩 |
+| 각 모듈 `README.md` | 해당 모듈의 안정된 설명, 고정 결정, 경로, 실행 절차 |
+| 각 모듈 `docs/logbook.md` | 해당 모듈의 현재 상태, 최근 변경, 다음 작업 |
+| 각 모듈 `docs/보고서/` | 외부 공유 또는 사용자 요청이 있을 때 만드는 요약 보고서의 공식 위치 |
+| 각 모듈 `docs/환경/` | 설치, 재현, 운영 절차의 공식 위치 |
+| 각 모듈 `results/` | repo-safe한 소형 실행 산출물의 공식 위치 |
+| `assets/` | root `README.md`가 직접 참조하는 프로젝트 전역 공용 자산의 공식 위치 |
+| `../secrets/README.local.md` | tracked repo에 적지 않는 비공개 자산과 자격증명 운영의 로컬 시작 문서 |
+
+## 레포 구조
 
 ```text
 .
-├── mailbox/
+├── .agents/skills/
+├── AGENTS.md
 ├── analysis/
+├── docs/
+│   └── logbook_archive/
 ├── exports/
 ├── llm/
-└── docs/
+├── mailbox/
+├── templates/
+│   └── codex_starter/
+└── tools/
 ```
 
-로컬 워크스페이스는 보통 `repo/`, `envs/`, `results/`, `secrets/`를 같은 상위 루트 아래 sibling으로 둔다. Python 개발 의존성은 기본적으로 `envs/venv` 같은 프로젝트 전용 가상환경에만 설치한다. 현재 리포의 Python 패키지 목록은 [`requirements.txt`](requirements.txt)로 관리한다. Git으로 추적할 공식 상태와 운영 기준은 이 리포 안의 문서를 기준으로 유지하고, 실제 프로필 기반 reference/runtime 자산은 기본적으로 `secrets/사용자 설정/<이름>/참고자료/`, `secrets/사용자 설정/<이름>/실행결과/` 아래에서 관리한다.
+## 로컬 워크스페이스와 산출물 규칙
+
+- 로컬 워크스페이스는 기본적으로 `repo / envs / results / secrets` sibling 구조를 사용한다.
+- 실제 사용자 메일, 첨부, workbook, profile 로그는 tracked repo가 아니라 sibling `../secrets/사용자 설정/<이름>/실행결과/`에서 관리한다.
+- reference fixture는 sibling `../secrets/사용자 설정/<이름>/참고자료/`에서 읽기 전용으로 관리한다.
+- repo 내부 `<module>/results/`는 재현 가능한 smoke 결과, 비교 요약, 소형 metadata만 둔다.
+- 빠른 예시:
+  - 실제 inbox fetch 결과 bundle, 실제 export workbook, 실제 OpenAI usage log는 `../secrets/사용자 설정/<이름>/실행결과/`에 둔다.
+  - `auth probe` 요약 JSON, regression diff summary, deterministic smoke 보고서처럼 다시 만들 수 있는 작은 산출물만 `mailbox/results/`, `exports/results/`, `llm/results/` 같은 공식 위치 후보를 쓴다.
+- 새 산출물 폴더와 시간이 지나며 누적되는 문서는 `YYMMDD_HHMM_설명` prefix를 사용한다.
+- 새 파일이나 폴더를 만들기 전에는 `python tools/directory_inventory.py --module <module> --kind <kind> --candidate-name <name>`로 기존 구조를 먼저 확인한다.
+
+## 프로젝트 전역 고정 메모
+
+- 현재 주경로는 `이메일 수신 -> 구조화 분석 -> Excel 출력`이다.
+- 메일 설정 탐지는 `도메인 규칙 -> provider preset -> autodiscover/autoconfig -> 실제 probe` 순서를 우선한다.
+- `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4층 계약은 유지한다.
+- 입력 해석은 현재 fixture 2건에 과적합하지 않고, 이미지/스캔/ZIP 복합 첨부까지 포괄하는 방향을 유지한다.
+- Excel 출력은 전역 고정 양식보다 프로필별 템플릿 해석을 우선한다.
+- root `README.md`에 직접 쓰이는 전역 공용 자산이 필요해질 때만 `assets/`를 만든다.
+- `app/`과 `runtime/`은 이름만 먼저 예약해 둔 상태다. 실제 코드가 처음 들어가는 턴에만 디렉토리를 만들고, 같은 턴에 각 디렉토리 `README.md`와 `docs/logbook.md`를 함께 연다.

@@ -2,6 +2,8 @@
 
 이 디렉토리는 이메일 수집과 입력 정규화 계층 자리다.
 
+현재 모듈 현재 상태와 최근 변경은 [`docs/logbook.md`](docs/logbook.md)에서 관리한다.
+
 현재 상태:
 
 - 기본 schema 클래스 골격 정의 완료
@@ -65,5 +67,7 @@ secrets/사용자 설정/<이름>/실행결과/받은 메일/
 
 현재 참고 기준:
 
-- [`../docs/status.md`](../docs/status.md)
-- [`../docs/개발방침.md`](../docs/개발방침.md)
+- [`../AGENTS.md`](../AGENTS.md)
+- [`../README.md`](../README.md)
+- [`../docs/logbook.md`](../docs/logbook.md)
+- [`./docs/logbook.md`](./docs/logbook.md)
