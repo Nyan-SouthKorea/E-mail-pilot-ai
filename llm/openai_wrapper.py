@@ -342,7 +342,7 @@ class OpenAIResponsesWrapper:
         if self._client is None:
             from openai import OpenAI
 
-            api_key = getenv(self.config.api_key_env)
+            api_key = self.config.api_key or getenv(self.config.api_key_env)
             if not api_key:
                 key_file = Path(self.config.api_key_file)
                 if key_file.exists():

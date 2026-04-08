@@ -76,6 +76,53 @@ KEY_ALIASES = {
 }
 
 
+def build_local_mailbox_account_config(
+    *,
+    email_address: str,
+    login_username: str,
+    password: str,
+    profile_root: str | Path,
+    source_path: str = "workspace_shared_settings",
+    notes: list[str] | None = None,
+) -> LocalMailboxAccountConfig:
+    """기능: 명시 값들로 `LocalMailboxAccountConfig`를 바로 만든다.
+
+    입력:
+    - email_address: 계정 이메일 주소
+    - login_username: 실제 로그인 id
+    - password: 비밀번호 또는 앱 비밀번호
+    - profile_root: 사용자 프로필 루트
+    - source_path: 설정 출처 설명 문자열
+    - notes: 추가 메모
+
+    반환:
+    - `LocalMailboxAccountConfig`
+    """
+
+    resolved_email = email_address.strip()
+    resolved_login_username = login_username.strip() or resolved_email
+    resolved_password = password.strip()
+    if not resolved_email:
+        raise ValueError("이메일 주소가 비어 있어 mailbox 계정 구성을 만들 수 없다.")
+    if not resolved_password:
+        raise ValueError("비밀번호가 비어 있어 mailbox 계정 구성을 만들 수 없다.")
+
+    resolved_notes = list(notes or [])
+    if resolved_login_username == resolved_email:
+        resolved_notes.append("별도 로그인 id가 없어 이메일 주소를 login username으로 사용한다.")
+    else:
+        resolved_notes.append("별도 로그인 id를 명시적으로 사용한다.")
+
+    return LocalMailboxAccountConfig(
+        email_address=resolved_email,
+        login_username=resolved_login_username,
+        password=resolved_password,
+        profile_root=str(_resolve_profile_root(explicit_profile_root=profile_root, configured_profile_root=None)),
+        source_path=source_path,
+        notes=resolved_notes,
+    )
+
+
 def default_local_account_config_path() -> Path:
     """기능: 기본 local 계정 정보 파일 경로를 반환한다.
 

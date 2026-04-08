@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Email Pilot AI{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --ink:#1a1f1a;
+      --muted:#61706a;
+      --line:#d7ddd8;
+      --bg:#f3f1eb;
+      --card:#fffdf8;
+      --accent:#1f6f5e;
+      --accent-soft:#d7efe8;
+      --warn:#a66a00;
+      --warn-soft:#fff0c9;
+      --quiet:#eef1ef;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#efe9db 0%,#f6f4ef 40%,#f3f1eb 100%);color:var(--ink);font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+    a{color:var(--accent);text-decoration:none}
+    .shell{max-width:1440px;margin:0 auto;padding:28px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}
+    .brand{font-size:28px;font-weight:700;letter-spacing:-0.02em}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}
+    .nav a,.nav button{padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.72);color:var(--ink);cursor:pointer}
+    .hero{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:24px;box-shadow:0 20px 40px rgba(39,45,42,.06)}
+    .grid{display:grid;gap:16px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+    .card .label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    .card .value{font-size:30px;font-weight:700}
+    .section{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}
+    .section h2{margin:0 0 12px;font-size:18px}
+    .muted{color:var(--muted)}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+    label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+    input,select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#fff}
+    button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+    th,td{padding:12px 10px;border-bottom:1px solid #eceeea;text-align:left;vertical-align:top;font-size:13px}
+    th{background:#f5f6f1;position:sticky;top:0}
+    .badge{display:inline-block;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}
+    .application{background:var(--accent-soft);color:#125547}
+    .not_application{background:var(--quiet);color:#38433f}
+    .needs_human_review,.duplicate_application{background:var(--warn-soft);color:var(--warn)}
+    .danger{color:#9b1c1c}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+    .details{font-size:12px;color:var(--muted);display:grid;gap:4px}
+    .links{display:flex;gap:8px;flex-wrap:wrap}
+    .footer-note{margin-top:18px;color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="brand">Email Pilot AI</div>
+      <div class="nav">
+        <a href="/">홈</a>
+        <a href="/settings">설정</a>
+        <a href="/review">통합 리뷰센터</a>
+      </div>
+    </div>
+    {% block body %}{% endblock %}
+  </div>
+</body>
+</html>

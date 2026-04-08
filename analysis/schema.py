@@ -123,6 +123,9 @@ class ExtractedRecord:
     evidence: list[EvidenceRef] = field(default_factory=list)
     summary_one_line: str = ""
     summary_short: str = ""
+    triage_label: str = "needs_human_review"
+    triage_reason: str = ""
+    triage_confidence: float | None = None
     overall_confidence: float | None = None
     action_hints: list[str] = field(default_factory=list)
     unresolved_questions: list[str] = field(default_factory=list)
@@ -179,6 +182,9 @@ class ExtractedRecord:
             ],
             summary_one_line=str(payload.get("summary_one_line") or ""),
             summary_short=str(payload.get("summary_short") or ""),
+            triage_label=str(payload.get("triage_label") or "needs_human_review"),
+            triage_reason=str(payload.get("triage_reason") or ""),
+            triage_confidence=payload.get("triage_confidence"),
             overall_confidence=payload.get("overall_confidence"),
             action_hints=list(payload.get("action_hints") or []),
             unresolved_questions=list(payload.get("unresolved_questions") or []),

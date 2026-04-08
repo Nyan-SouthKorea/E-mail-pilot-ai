@@ -127,6 +127,8 @@ def _summarize_zip_artifacts(path: Path, *, evidence_id: str) -> list[ArtifactSu
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         for index, name in enumerate(names, start=1):
+            if name.endswith("/"):
+                continue
             lower_name = name.lower()
             nested_evidence_id = evidence_id if len(names) == 1 else f"{evidence_id}_{index}"
             if lower_name.endswith(".xlsx"):
@@ -151,8 +153,14 @@ def _summarize_zip_artifacts(path: Path, *, evidence_id: str) -> list[ArtifactSu
 
 
 def _summarize_xlsx_from_zip(archive: zipfile.ZipFile, name: str) -> str:
-    workbook = load_workbook(filename=BytesIO(archive.read(name)), data_only=True)
-    worksheet = workbook[workbook.sheetnames[0]]
+    try:
+        workbook = load_workbook(filename=BytesIO(archive.read(name)), data_only=True)
+        worksheet = workbook[workbook.sheetnames[0]]
+    except Exception as exc:
+        return (
+            f"ZIP 내부 XLSX 파일: {name}\n"
+            f"워크북 구조 해석 실패: {exc.__class__.__name__}: {exc}"
+        )
 
     lines = [f"ZIP 내부 XLSX 파일: {name}"]
     captured_rows = 0

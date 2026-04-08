@@ -14,9 +14,12 @@ IMAGE_SUFFIXES = {
     ".jpeg",
     ".webp",
     ".gif",
-    ".bmp",
-    ".tif",
-    ".tiff",
+}
+SUPPORTED_OPENAI_IMAGE_MEDIA_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
 }
 
 
@@ -135,7 +138,7 @@ def build_visual_attachment_content_parts(
     parts: list[dict[str, object]] = []
     for offset, path_like in enumerate(attachment_paths):
         path = Path(path_like)
-        media_type = _guess_media_type(path)
+        media_type = _normalize_supported_media_type(path)
         if not _is_direct_image(path, media_type):
             continue
 
@@ -181,8 +184,21 @@ def _guess_media_type(path: Path) -> str:
     return guessed_type or "application/octet-stream"
 
 
+def _normalize_supported_media_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".gif":
+        return "image/gif"
+    if suffix == ".webp":
+        return "image/webp"
+    return _guess_media_type(path)
+
+
 def _is_direct_image(path: Path, media_type: str) -> bool:
-    if media_type.startswith("image/"):
+    if media_type in SUPPORTED_OPENAI_IMAGE_MEDIA_TYPES:
         return True
     return path.suffix.lower() in IMAGE_SUFFIXES
 

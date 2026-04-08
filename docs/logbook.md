@@ -24,7 +24,7 @@
 
 - 상위 목표:
   - 이메일을 받아 구조화된 결과로 정리하고 Excel로 안전하게 누적하는 자동화 스택을 만든다.
-  - 현재 우선 주경로는 `이메일 수신 -> 구조화 분석 -> Excel 출력`이다.
+  - 현재 우선 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이다.
 - 현재 작업 모드:
   - `협업 모드`
 - 현재 전역 운영 문서:
@@ -33,10 +33,12 @@
   - 프로젝트 레벨 현재 상태와 최근 기록: `docs/logbook.md`
   - 저장소 공용 반복 workflow skill 원본: `.agents/skills/`
   - 새 저장소 시작용 공통 운영 팩: `templates/codex_starter/`
-  - 모듈별 상세 기준: `mailbox/README.md`, `analysis/README.md`, `exports/README.md`, `llm/README.md`
-  - 모듈별 현재 상태와 최근 기록: `mailbox/docs/logbook.md`, `analysis/docs/logbook.md`, `exports/docs/logbook.md`, `llm/docs/logbook.md`
+  - 모듈별 상세 기준: `mailbox/README.md`, `analysis/README.md`, `exports/README.md`, `llm/README.md`, `runtime/README.md`, `app/README.md`
+  - 모듈별 현재 상태와 최근 기록: `mailbox/docs/logbook.md`, `analysis/docs/logbook.md`, `exports/docs/logbook.md`, `llm/docs/logbook.md`, `runtime/docs/logbook.md`, `app/docs/logbook.md`
 - 현재 로컬 워크스페이스:
   - sibling 구조 `repo / envs / results / secrets`
+- 현재 공유 워크스페이스:
+  - `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + profile/`
 - 비공개 자산과 자격증명의 canonical 로컬 시작 문서는 sibling `../secrets/README.local.md`다.
 - 현재 로컬 산출물 정책:
   - 실제 사용자 메일, 첨부, workbook, 로그는 `../secrets/사용자 설정/<이름>/실행결과/` 아래에 둔다.
@@ -44,22 +46,28 @@
   - repo 내부 `<module>/results/`는 재현 가능한 smoke 결과와 소형 비교 자료만 둔다.
   - root `results/`는 현재 canonical 위치가 아니다.
 - 현재 모듈 상태:
-  - `mailbox`: bundle schema, fixture materialize, bundle reader, provider 자동 설정 후보 생성, connect/auth probe, local-only credential loader, real account latest IMAP fetch smoke가 있다.
-  - `analysis`: `NormalizedMessage -> ExtractedRecord` structured output 경로와 multimodal 입력 builder, fixture/runtime bundle smoke가 있고, real bundle 1건의 analysis/export handoff를 검증했다.
+  - `mailbox`: bundle schema, fixture materialize, bundle reader, provider 자동 설정 후보 생성, connect/auth probe, local-only credential loader, real account latest IMAP fetch smoke, INBOX read-only backfill smoke가 있다.
+  - `analysis`: `NormalizedMessage -> ExtractedRecord` structured output 경로와 multimodal 입력 builder, fixture/runtime bundle smoke, real-bundle quality smoke, 3-way triage, HTML review board, application-only batch export 경로가 있다.
   - `exports`: 템플릿 reader, semantic mapping, projection, workbook append, 회귀 guardrail이 있다.
   - `llm`: OpenAI wrapper, usage logging, 가격표 snapshot 기반 비용 추정, structured output transport가 있다.
+  - `runtime`: 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock, dedupe/workbook rebuild, sync CLI가 있다.
+  - `app`: FastAPI 기반 로컬 UI, pywebview launcher, workspace open/create, settings, review center 골격이 있다.
 
 ## 현재 전역 결정
 
 - 시작 게이트는 항상 `AGENTS.md -> README.md -> docs/logbook.md`다.
 - stable truth는 `README.md`와 각 모듈 `README.md`, active truth는 `docs/logbook.md`와 각 모듈 `docs/logbook.md`에 둔다.
 - 런타임 데이터 계약은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계를 유지한다.
+- `ExtractedRecord` top-level triage는 `application`, `not_application`, `needs_human_review` 3개 값으로 고정한다.
 - 메일 설정 탐지는 `rule/probe-first`, LLM 보조 fallback 기준을 유지한다.
 - 입력 해석은 multimodal-first로 두고, 이미지나 스캔 문서가 있으면 실제 이미지 입력을 우선 활용한다.
 - 템플릿 해석은 rule-first로 시작하고, unresolved header만 LLM fallback으로 보충한다.
-- GUI와 프로필 편집은 향후 `app/`에 두고, 장시간 실행 조율과 배치 런타임은 향후 `runtime/`에 둔다.
-- `app/`과 `runtime/`은 실제 코드가 처음 들어가는 턴에만 만들고, 그때 각 디렉토리 `README.md`와 `docs/logbook.md`를 함께 연다.
+- `app/`은 전용 데스크톱 창과 로컬 Web UI를 맡고, `runtime/`은 공유 save와 sync orchestration을 맡는다.
 - 실제 inbox bundle, 실제 workbook, 실제 usage log는 `../secrets/사용자 설정/<이름>/실행결과/`에 두고, 재현 가능한 작은 smoke 결과와 비교 요약만 repo 내부 공식 위치 후보를 쓴다.
+- batch review HTML/JSON 보드는 `../secrets/사용자 설정/<이름>/실행결과/로그/review/`에 둔다.
+- workbook 자동 반영은 triage가 `application`이고 기업/연락처 신호가 함께 확인된 경우에만 허용한다.
+- 공유 워크스페이스에서는 민감한 값도 `secure/secrets.enc.json` 안에 암호화 저장하고, review/dedupe/override/workbook row 상태는 `state/state.sqlite`에 저장한다.
+- 공유 워크스페이스는 단일 작성자 잠금을 기본으로 하고 `locks/write.lock` heartbeat 기준 stale takeover를 허용한다.
 
 ## 현재 활성 체크리스트
 
@@ -80,10 +88,45 @@
   - [x] 실제 이메일 계정 기준 mailbox auth probe 실행
   - [x] 최신 inbox 1건 fetch smoke로 `MailBundle` 저장 경로 연결
   - [x] 저장된 최신 bundle 1건을 materialized analysis smoke와 handoff 기준으로 연결
-  - [ ] real bundle 기준 unresolved export 컬럼과 summary 품질 개선
-  - [ ] `app/`과 `runtime/`의 실제 디렉토리 도입 시점과 경계 구체화
+  - [x] real bundle 기준 unresolved export 컬럼과 summary 품질 개선
+  - [x] INBOX 전체 read-only backfill 경로 추가
+  - [x] 전체 bundle 3-way triage와 HTML review board 추가
+  - [x] application-only batch workbook export 추가
+  - [x] `app/`과 `runtime/`의 실제 디렉토리 도입과 문서 시드
+  - [x] 공유 워크스페이스 save v1, 암호화 secret blob, sqlite state, write lock 도입
+  - [x] 데스크톱 리뷰센터 앱 골격과 sync orchestration 도입
+  - [ ] real bundle 2건 이상으로 quality smoke 기준 확대
+  - [ ] mailbox unseen 우선, 폴더 선택, 증분 fetch 순서로 운영성 보강
+  - [ ] UI override 이후 diff/재반영 경험과 진행률 UX 보강
 
 ## 최근 로그
+
+### 2026-04-08 | Human + Codex | Windows 데스크톱 리뷰센터와 공유 워크스페이스 save v1 도입
+
+- `runtime/`에 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock, CLI, sync orchestration을 추가했다.
+- `app/`에 FastAPI 기반 로컬 UI와 pywebview launcher를 추가해 `세이브 파일 불러오기 -> 설정 -> 동기화 -> 통합 리뷰센터` 흐름 골격을 만들었다.
+- 공유 save는 `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + profile/` 구조를 기본으로 잡았고, bundle/로그/workbook 링크는 workspace 상대경로만 저장하게 했다.
+- 운영 workbook은 stable path `운영본_기업_신청서_모음.xlsx`로 다시 쓰고, `검토_인덱스` 시트를 함께 추가하는 재구성 경로를 넣었다.
+- 정적 HTML review board는 fallback/debug 산출물로 남기고, 사용자 검토의 active canonical 상태는 runtime state DB와 app 리뷰센터가 맡도록 방향을 고정했다.
+
+### 2026-04-08 | Human + Codex | 전체 inbox backfill과 triage review board 추가
+
+- `mailbox`에 실제 계정 `INBOX` 전체를 read-only로 순회하며 runtime bundle을 채우는 backfill smoke를 추가했다.
+- 전체 bundle을 최신 prompt 기준으로 재분석해 `application / not_application / needs_human_review` 3분류로 나누고, `application` 중 기업/연락처 신호가 있는 메일만 workbook에 자동 반영하는 batch review 경로를 추가했다.
+- 사람 검토용 결과물은 sibling runtime 경로 아래 `로그/review/`의 HTML 보드와 JSON report로 남기고, 각 메일에서 `summary.md`, `preview.html`, `extracted_record.json`, `projected_row.json`으로 바로 이동할 수 있게 했다.
+- 이 단계부터 현재 검증 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`으로 읽는다.
+- 실제 full INBOX backfill 기준 `4690`개 메시지를 read-only로 처리했고, 기존 bundle `1582`건을 skip하면서 새 bundle `3108`건을 추가 materialize해 총 valid runtime bundle `4692`건을 확보했다.
+- latest full review board 결과는 `application=155`, `not_application=4526`, `needs_human_review=11`, `exported=153`, `failed=0`이었다.
+- 최종 사람 검토용 산출물은 sibling runtime 경로의 `260408_1505_inbox_review_board.html`, `260408_1505_inbox_review_board.json`, `260408_1505_기업_신청서_모음.xlsx`다.
+- review board를 전량 실행하는 과정에서 ZIP 내부 손상 XLSX와 HEIC 첨부 때문에 생기던 예외를 잡아, attachment summary fallback과 unsupported image skip 경로로 안정화했다.
+
+### 2026-04-08 | Human + Codex | real bundle 품질 보정과 regression smoke 추가
+
+- `analysis`에 전시회/안내형 메일 후처리 보정 로직을 추가해, direct application 형식이 아닌 real bundle에서도 `company_name`, `product_or_service`, `application_purpose`, `request_summary`를 best-effort로 채우도록 했다.
+- 추출 prompt도 안내형 메일에서 업무형 필드를 비워 두지 않도록 보강했다.
+- `analysis/real_bundle_quality_smoke.py`를 추가해 같은 real bundle에 대해 analysis 결과, projected row, unresolved 컬럼, summary 존재 여부를 한 번에 점검하도록 했다.
+- 현재 baseline real bundle 1건에서는 `missing_expected_fields = 0`, `unresolved_columns = 0`까지 확인했다.
+- 다음 품질 단계는 같은 기준을 real bundle 2건 이상으로 늘려, 특정 메일 유형에만 맞춘 개선이 아닌지 확인하는 것이다.
 
 ### 2026-04-08 | Human + Codex | real bundle analysis/export handoff 검증
 

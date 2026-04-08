@@ -162,6 +162,24 @@ class ProjectedTemplateValue:
 
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "ProjectedTemplateValue":
+        """기능: 직렬화된 dict를 `ProjectedTemplateValue`로 복원한다."""
+
+        return cls(
+            sheet_name=str(payload["sheet_name"]),
+            column_index=int(payload["column_index"]),
+            column_letter=str(payload["column_letter"]),
+            header_text=str(payload["header_text"]),
+            semantic_key=str(payload["semantic_key"]),
+            value=str(payload.get("value") or ""),
+            source_field_name=str(payload.get("source_field_name") or ""),
+            source_kind=str(payload.get("source_kind") or "field"),
+            confidence=payload.get("confidence"),
+            evidence_ids=list(payload.get("evidence_ids") or []),
+            notes=list(payload.get("notes") or []),
+        )
+
 
 @dataclass(slots=True)
 class ProjectedTemplateRow:
@@ -217,6 +235,27 @@ class ProjectedTemplateRow:
         """
 
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "ProjectedTemplateRow":
+        """기능: 직렬화된 dict를 `ProjectedTemplateRow`로 복원한다."""
+
+        return cls(
+            profile_id=str(payload["profile_id"]),
+            template_id=str(payload["template_id"]),
+            sheet_name=str(payload["sheet_name"]),
+            record_key=str(payload["record_key"]),
+            values=[
+                ProjectedTemplateValue.from_dict(item)
+                for item in (payload.get("values") or [])
+            ],
+            unresolved_columns=list(payload.get("unresolved_columns") or []),
+            skipped_columns=list(payload.get("skipped_columns") or []),
+            notes=list(payload.get("notes") or []),
+            schema_version=str(
+                payload.get("schema_version") or RECORD_TEMPLATE_PROJECTION_SCHEMA_VERSION
+            ),
+        )
 
 
 def default_extracted_record_aliases() -> dict[str, list[str]]:

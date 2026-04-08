@@ -28,9 +28,22 @@ def list_valid_runtime_bundle_directories(profile_root: str) -> list[Path]:
     for path in sorted(bundles_root.iterdir()):
         if not path.is_dir():
             continue
-        if _is_valid_normalized_bundle(path):
+        if is_valid_runtime_bundle_directory(path):
             directories.append(path)
     return directories
+
+
+def is_valid_runtime_bundle_directory(bundle_root: str | Path) -> bool:
+    """기능: 주어진 bundle 디렉토리가 유효한 runtime bundle인지 확인한다.
+
+    입력:
+    - bundle_root: bundle 루트 디렉토리 경로
+
+    반환:
+    - `normalized.json` schema가 현재 버전이면 `True`
+    """
+
+    return _is_valid_normalized_bundle(Path(bundle_root))
 
 
 def load_normalized_message_from_bundle(bundle_root: str | Path) -> NormalizedMessage:

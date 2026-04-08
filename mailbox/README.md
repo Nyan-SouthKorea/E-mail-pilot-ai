@@ -13,6 +13,7 @@
 - local-only 계정 정보 loader 추가
 - 실제 계정 기준 auth probe와 최신 IMAP 1건 fetch smoke 추가
 - 최신 fetched message를 runtime `MailBundle`, `preview.html`, `normalized.json`, `summary.md`로 저장하는 경로 추가
+- 실제 계정 `INBOX` 전체 read-only backfill smoke 추가
 
 현재 고정 출력 계약:
 
@@ -64,9 +65,12 @@ secrets/사용자 설정/<이름>/실행결과/받은 메일/
 - 실제 기본 런타임 경로는 `secrets/사용자 설정/<이름>/실행결과/받은 메일/`이다.
 - 메일 원본 보존은 `.eml`, 빠른 열람은 `.html` preview를 기본 조합으로 둔다.
 - 실계정 credential 입력은 tracked repo가 아니라 sibling `../secrets/README.local.md` 기준 로컬 문서와 `../secrets/이메일 정보.txt`에서만 관리한다.
+- 공유 워크스페이스 실행에서는 같은 계정 정보를 암호화된 `secure/secrets.enc.json`에서 읽어 `profile_root=<workspace>/profile` 기준으로 다시 사용할 수 있다.
 - 현재 샘플 메일 형식에 맞춘 특수 분기보다, 다양한 MIME 구조와 첨부 구성을 가능한 한 보편적으로 정규화하는 쪽을 우선한다.
 - 후속 계층으로 넘기는 경로 정보는 절대경로보다 bundle 루트 기준 상대경로를 우선한다.
 - 인증 정보와 실제 메일 원문은 문서나 Git 추적 자산이 아닌 로컬 런타임 경로에서 관리한다.
+- 최신 1건 fetch와 INBOX 전체 backfill은 모두 read-only IMAP `BODY.PEEK[]` 기준을 유지한다.
+- 전체 backfill은 기존 valid bundle id를 기준으로 중복 저장을 피하고, schema가 깨진 placeholder는 자동 skip 근거로 쓰지 않는다.
 
 현재 참고 기준:
 

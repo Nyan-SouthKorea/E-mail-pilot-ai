@@ -6,6 +6,11 @@ from .fixture_smoke import (
     load_fixture_email_input,
     run_fixture_analysis_smoke,
 )
+from .inbox_review_board_smoke import (
+    InboxReviewBoardItem,
+    InboxReviewBoardReport,
+    run_inbox_review_board_smoke,
+)
 from .llm_extraction import (
     EXTRACTED_RECORD_RESPONSE_SCHEMA_NAME,
     build_extracted_record_response_schema,
@@ -26,6 +31,8 @@ __all__ = [
     "EvidenceRef",
     "ExtractedField",
     "ExtractedRecord",
+    "InboxReviewBoardItem",
+    "InboxReviewBoardReport",
     "build_extracted_record_response_schema",
     "build_extracted_record_text_config",
     "build_extraction_instructions",
@@ -33,5 +40,6 @@ __all__ = [
     "build_fixture_analysis_request",
     "load_fixture_email_input",
     "parse_extracted_record_payload",
+    "run_inbox_review_board_smoke",
     "run_fixture_analysis_smoke",
 ]

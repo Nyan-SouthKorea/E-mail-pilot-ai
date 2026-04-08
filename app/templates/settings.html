@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}설정 | Email Pilot AI{% endblock %}
+{% block body %}
+<section class="hero">
+  <h1>설정</h1>
+  <p class="muted">API key와 메일 계정 정보는 공유 워크스페이스의 암호화 blob에 저장되고, 최근 워크스페이스 목록과 창 상태만 로컬 장치에 저장됩니다.</p>
+</section>
+
+<form class="section" action="/settings/save" method="post">
+  <div class="row">
+    <div>
+      <h2>AI 설정</h2>
+      <label>모델</label>
+      <input name="llm_model" value="{{ shared_settings.llm.model }}">
+      <label>OpenAI API key</label>
+      <input type="password" name="llm_api_key" value="">
+    </div>
+    <div>
+      <h2>메일 설정</h2>
+      <label>이메일 주소</label>
+      <input name="email_address" value="{{ shared_settings.mailbox.email_address }}">
+      <label>로그인 ID</label>
+      <input name="login_username" value="{{ shared_settings.mailbox.login_username }}">
+      <label>비밀번호 / 앱 비밀번호</label>
+      <input type="password" name="mailbox_password" value="">
+      <label>기본 폴더</label>
+      <input name="default_folder" value="{{ shared_settings.mailbox.default_folder }}">
+    </div>
+    <div>
+      <h2>내보내기 설정</h2>
+      <label>템플릿 relative path</label>
+      <input name="template_workbook_relative_path" value="{{ shared_settings.exports.template_workbook_relative_path }}">
+      <div class="details" style="margin-top:10px">
+        <div>공유 저장: 메일 설정, API key, 템플릿 경로, review state, dedupe, 대표 선택</div>
+        <div>로컬 저장: 최근 워크스페이스, 창 크기, 마지막 필터</div>
+        <div>암호화 대상: API key, 메일 비밀번호</div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <button class="primary" type="submit" {% if readonly %}disabled{% endif %}>설정 저장</button>
+  </div>
+</form>
+{% endblock %}

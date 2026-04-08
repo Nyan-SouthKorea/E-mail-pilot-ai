@@ -1,10 +1,10 @@
 # E-mail-pilot-ai
 
-이 저장소는 이메일을 받아 필요한 정보를 구조화하고 Excel로 반영하는 개인용 자동화 스택을 만드는 리포지토리다. 현재 주경로는 `이메일 수신 -> 구조화 분석 -> Excel 출력`이며, 실제 메일 계정과 프로필별 Excel 템플릿을 안전하게 다루는 방향을 우선한다.
+이 저장소는 이메일을 받아 필요한 정보를 구조화하고 Excel로 반영하는 개인용 자동화 스택을 만드는 리포지토리다. 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이며, 실제 메일 계정과 프로필별 Excel 템플릿을 안전하게 다루는 방향을 우선한다.
 
 처음 방문한 사람은 이 문서부터 읽으면 된다. 실제 작업을 시작하는 사람은 그다음 [AGENTS.md](./AGENTS.md), [docs/logbook.md](./docs/logbook.md), 최신 [docs/logbook_archive](./docs/logbook_archive) 1개, 관련 모듈 `README.md`, 관련 모듈 `docs/logbook.md` 순서로 들어간다.
 
-비공개 자격증명, 실제 메일 원문, 실제 사용자 workbook, 로컬 publish 운영이 포함된 작업은 tracked 문서만 보지 않고 sibling `../secrets/README.local.md`와 그 하위 로컬 문서를 함께 본다.
+비공개 자격증명, 실제 메일 원문, 실제 사용자 workbook, 공유 워크스페이스 운영이 포함된 작업은 tracked 문서만 보지 않고 sibling `../secrets/README.local.md`와 그 하위 로컬 문서를 함께 본다.
 
 ## 프로젝트 한눈에 보기
 
@@ -12,16 +12,18 @@
 - 구조화 분류, 필드 추출, 요약, 멀티모달 해석은 `analysis`가 맡는다.
 - 프로필별 Excel 템플릿 해석과 workbook append는 `exports`가 맡는다.
 - OpenAI 호출 transport, usage logging, 공용 설정은 `llm`이 맡는다.
-- 앞으로 GUI와 프로필 편집 진입점은 `app/`, 장시간 배치와 실행 조율은 `runtime/`에 둘 예정이다.
+- `app/`은 Windows 데스크톱 창과 로컬 Web UI를 맡고, `runtime/`은 공유 워크스페이스 save, 상태 저장, sync orchestration을 맡는다.
 
 ## 현재 구현 범위
 
 | 모듈 | 역할 | 현재 상태 |
 |---|---|---|
-| [mailbox](./mailbox/README.md) | 메일 번들 보관, 자동 설정 후보 생성, probe, 정규화 입력 준비 | fixture materialize, bundle reader, connect/auth probe, real account latest IMAP fetch smoke 구현 |
-| [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke와 structured output 경로 구현 |
+| [mailbox](./mailbox/README.md) | 메일 번들 보관, 자동 설정 후보 생성, probe, 정규화 입력 준비 | fixture materialize, bundle reader, connect/auth probe, real account latest IMAP fetch, INBOX read-only backfill smoke 구현 |
+| [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke, real-bundle quality smoke, 3-way triage, HTML review board, application-only batch export 구현 |
 | [exports](./exports/README.md) | 템플릿 해석, 열 의미 매핑, projection, workbook append | rule-first mapping, LLM fallback, workbook append, 회귀 guardrail 구현 |
 | [llm](./llm/README.md) | OpenAI wrapper, usage logging, 비용 추정, structured output transport | 공용 wrapper와 usage log 골격 구현 |
+| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace manifest, encrypted secrets, state DB, dedupe/workbook rebuild, CLI 구현 |
+| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, workspace open/create, settings, review center 골격 구현 |
 
 ## 새 기능을 어디에 둘까
 
@@ -35,8 +37,8 @@
 | 메일 본문/첨부 해석, 분류, 필드 추출, 요약, 이미지 입력 해석인가 | [`analysis/`](./analysis/README.md) |
 | Excel 템플릿 해석, 열 의미 매핑, projection, workbook append, diff 검증인가 | [`exports/`](./exports/README.md) |
 | 모델 설정, 호출 wrapper, usage logging, 공용 structured output transport인가 | [`llm/`](./llm/README.md) |
-| GUI, 프로필 편집, 사용자 실행 진입점, 패키징 진입점인가 | 향후 `app/` |
-| 장시간 실행 조율, polling loop, queue worker, batch run, watchdog인가 | 향후 `runtime/` |
+| GUI, 프로필 편집, 사용자 실행 진입점, 패키징 진입점인가 | [`app/`](./app/README.md) |
+| 장시간 실행 조율, polling loop, queue worker, batch run, watchdog, 공유 상태 저장인가 | [`runtime/`](./runtime/README.md) |
 
 ### 2. 의존 방향은 아래를 기본으로 둔다
 
@@ -104,11 +106,13 @@
 ├── .agents/skills/
 ├── AGENTS.md
 ├── analysis/
+├── app/
 ├── docs/
 │   └── logbook_archive/
 ├── exports/
 ├── llm/
 ├── mailbox/
+├── runtime/
 ├── templates/
 │   └── codex_starter/
 └── tools/
@@ -118,20 +122,27 @@
 
 - 로컬 워크스페이스는 기본적으로 `repo / envs / results / secrets` sibling 구조를 사용한다.
 - 실제 사용자 메일, 첨부, workbook, profile 로그는 tracked repo가 아니라 sibling `../secrets/사용자 설정/<이름>/실행결과/`에서 관리한다.
+- Windows 앱과 서버 검증을 같이 쓰는 경우에는 공유 워크스페이스 root 아래 `profile/`를 같은 canonical profile root로 사용한다.
 - reference fixture는 sibling `../secrets/사용자 설정/<이름>/참고자료/`에서 읽기 전용으로 관리한다.
 - repo 내부 `<module>/results/`는 재현 가능한 smoke 결과, 비교 요약, 소형 metadata만 둔다.
 - 빠른 예시:
   - 실제 inbox fetch 결과 bundle, 실제 export workbook, 실제 OpenAI usage log는 `../secrets/사용자 설정/<이름>/실행결과/`에 둔다.
+  - 분류 검토용 HTML 보드와 batch review JSON은 `../secrets/사용자 설정/<이름>/실행결과/로그/review/`에 둔다.
+  - 공유 워크스페이스를 쓰면 같은 구조를 `workspace/profile/실행결과/` 아래에서 그대로 유지한다.
   - `auth probe` 요약 JSON, regression diff summary, deterministic smoke 보고서처럼 다시 만들 수 있는 작은 산출물만 `mailbox/results/`, `exports/results/`, `llm/results/` 같은 공식 위치 후보를 쓴다.
 - 새 산출물 폴더와 시간이 지나며 누적되는 문서는 `YYMMDD_HHMM_설명` prefix를 사용한다.
 - 새 파일이나 폴더를 만들기 전에는 `python tools/directory_inventory.py --module <module> --kind <kind> --candidate-name <name>`로 기존 구조를 먼저 확인한다.
 
 ## 프로젝트 전역 고정 메모
 
-- 현재 주경로는 `이메일 수신 -> 구조화 분석 -> Excel 출력`이다.
+- 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이다.
+- 제품 주 사용 흐름은 `exe 실행 -> 세이브 파일 불러오기 -> 워크스페이스 암호 입력 -> 동기화 -> 자동 수집/분류/정리/엑셀 반영 -> 같은 창에서 검토/수정`이다.
 - 메일 설정 탐지는 `도메인 규칙 -> provider preset -> autodiscover/autoconfig -> 실제 probe` 순서를 우선한다.
 - `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4층 계약은 유지한다.
+- `ExtractedRecord`는 `application / not_application / needs_human_review` 3분류 triage를 기본으로 가진다.
 - 입력 해석은 현재 fixture 2건에 과적합하지 않고, 이미지/스캔/ZIP 복합 첨부까지 포괄하는 방향을 유지한다.
 - Excel 출력은 전역 고정 양식보다 프로필별 템플릿 해석을 우선한다.
+- 자동 workbook 반영은 `application`이면서 `기업 식별 신호 + 연락처 신호`를 만족하는 메일만 대상으로 한다.
 - root `README.md`에 직접 쓰이는 전역 공용 자산이 필요해질 때만 `assets/`를 만든다.
-- `app/`과 `runtime/`은 이름만 먼저 예약해 둔 상태다. 실제 코드가 처음 들어가는 턴에만 디렉토리를 만들고, 같은 턴에 각 디렉토리 `README.md`와 `docs/logbook.md`를 함께 연다.
+- 공유 워크스페이스 save는 `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + profile/` 구조를 기본으로 본다.
+- static HTML review board는 fallback/debug 산출물이고, 사용자 검토의 active canonical 상태는 `runtime` state DB와 `app` 리뷰센터가 맡는다.

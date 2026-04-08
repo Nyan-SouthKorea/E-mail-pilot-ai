@@ -98,6 +98,7 @@ class OpenAIResponsesConfig:
 
     model: str = "gpt-5.4"
     api_key_env: str = "OPENAI_API_KEY"
+    api_key: str | None = None
     api_key_file: str = field(default_factory=lambda: str(default_openai_api_key_file()))
     usage_log_path: str = field(default_factory=lambda: str(default_llm_usage_log_path()))
     store: bool = False

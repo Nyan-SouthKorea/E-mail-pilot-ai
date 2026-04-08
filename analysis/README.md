@@ -11,6 +11,8 @@
 - fixture 이메일에서 workbook append까지 이어지는 end-to-end smoke 진입점 추가
 - materialized bundle의 `normalized.json`을 직접 읽는 live 분석 smoke 추가
 - materialized bundle에서 workbook append까지 이어지는 end-to-end smoke 진입점 추가
+- real bundle 1건 기준 quality smoke와 후처리 보정 경로 추가
+- 전체 bundle 재분석, 3-way triage, HTML review board, application-only batch export smoke 추가
 
 현재 입력 계약:
 
@@ -22,6 +24,7 @@
 
 - `ExtractedField`: 필드 값과 근거 id 묶음
 - `ExtractedRecord`: 분류, 요약, confidence, action hint, unresolved question을 담는 분석 결과
+- `ExtractedRecord`는 `triage_label`, `triage_reason`, `triage_confidence`로 review/export 판단 기준도 함께 가진다.
 - `ExtractedRecord`는 프로필 템플릿과 무관한 공통 의미 필드를 유지하는 기준 계약이다.
 - 가능하면 `ExtractedField.field_name`은 `company_name`, `business_summary` 같은 공통 의미 키와 가깝게 유지하고, 초기 변형은 export 계층 alias 규칙이 흡수한다.
 
@@ -45,9 +48,16 @@
 - 요약은 신청서와 이메일 본문 기준으로 중복 표현을 줄이고, 보고용 가독성을 높이는 방향을 기본으로 둔다.
 - 본문이 비어 있거나 약해도 inline 이미지, 첨부 이미지, 스캔 PDF, 이미지 속 표에서 근거를 끌어올 수 있게 설계한다.
 - 이미지 첨부가 실제로 있으면 텍스트 요약만 보내지 않고 가능한 범위에서 LLM에 실제 이미지도 함께 전달한다.
+- triage는 `application`, `not_application`, `needs_human_review` 3개로 고정하고, review board와 export gate가 같은 값을 공유한다.
+- batch 검증에서는 유효 bundle 전체를 최신 prompt로 다시 분석하고, review board HTML과 JSON report를 함께 남긴다.
+- end-user 검토의 active canonical 상태는 static HTML 자체가 아니라 `runtime` state DB와 `app` 리뷰센터다. static HTML은 fallback/debug 산출물로 유지한다.
+- workbook 자동 반영은 `application` 중에서도 `company_name`과 연락처 신호가 확인된 메일만 허용한다.
 - 초기 smoke 단계에서는 fixture 디렉토리의 이메일 본문과 ZIP 내부 XLSX 요약을 합쳐 structured output 기반 첫 분석 호출을 준비한다.
 - extraction prompt와 structured output schema는 [`llm_extraction.py`](llm_extraction.py)에서 같이 관리한다.
 - runtime bundle을 다시 읽는 분석에서는 bundle 루트의 `normalized.json`을 canonical `NormalizedMessage` 입력으로 사용한다.
+- 전시회/안내형 메일처럼 직접 신청서가 아닌 경우에도 운영 workbook에 넣을 수 있도록 best-effort 업무형 필드 보정을 허용한다.
+- real bundle 품질 회귀는 `real_bundle_quality_smoke.py`로 확인한다.
+- 전체 inbox 검토 보드는 `inbox_review_board_smoke.py`로 만든다.
 
 현재 참고 기준:
 

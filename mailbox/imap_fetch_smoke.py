@@ -124,13 +124,14 @@ def run_imap_latest_mail_fetch_smoke(
     *,
     credentials_path: str | Path | None = None,
     profile_root: str | Path | None = None,
+    account_config=None,
     folder: str = "INBOX",
     timeout_seconds: float = 8.0,
     max_probes_per_protocol: int = 2,
 ) -> MailboxImapFetchSmokeReport:
     """기능: 실제 계정 정보로 auth probe 후 최신 메일 1건을 bundle로 저장한다."""
 
-    config = load_local_mailbox_account_config(
+    config = account_config or load_local_mailbox_account_config(
         credentials_path=credentials_path,
         profile_root=profile_root,
     )
@@ -315,43 +316,69 @@ def fetch_latest_imap_message(
         timeout_seconds=timeout_seconds,
     )
     try:
-        status, _ = client.select(folder, readonly=True)
-        if status != "OK":
-            raise RuntimeError(f"IMAP 폴더를 read-only로 열지 못했다: {folder}")
-
-        status, data = client.uid("search", None, "ALL")
-        if status != "OK":
-            raise RuntimeError("IMAP UID SEARCH ALL이 실패했다.")
-
-        uid_blob = b"".join(item for item in data if isinstance(item, bytes)).strip()
-        if not uid_blob:
+        uid_list = list_imap_message_uids(client=client, folder=folder)
+        if not uid_list:
             raise RuntimeError("INBOX에 가져올 메일이 없다.")
-
-        latest_uid = uid_blob.split()[-1].decode("utf-8", errors="replace")
-        status, fetch_data = client.uid(
-            "fetch",
-            latest_uid,
-            "(UID BODY.PEEK[] FLAGS INTERNALDATE)",
-        )
-        if status != "OK":
-            raise RuntimeError(f"UID {latest_uid} fetch가 실패했다.")
-
-        raw_bytes, internal_date = _extract_imap_fetch_payload(fetch_data)
-
-        if not raw_bytes:
-            raise RuntimeError(f"UID {latest_uid}에서 RFC822 원문을 읽지 못했다.")
-
-        return FetchedImapMessage(
-            folder=folder,
-            uid=latest_uid,
-            raw_bytes=raw_bytes,
-            internal_date=internal_date,
-        )
+        return fetch_imap_message_by_uid(client=client, uid=uid_list[-1], folder=folder)
     finally:
         try:
             client.logout()
         except Exception:
             pass
+
+
+def list_imap_message_uids(
+    *,
+    client,
+    folder: str,
+) -> list[str]:
+    """기능: 지정 폴더의 UID 목록을 read-only로 읽는다."""
+
+    status, _ = client.select(folder, readonly=True)
+    if status != "OK":
+        raise RuntimeError(f"IMAP 폴더를 read-only로 열지 못했다: {folder}")
+
+    status, data = client.uid("search", None, "ALL")
+    if status != "OK":
+        raise RuntimeError("IMAP UID SEARCH ALL이 실패했다.")
+
+    uid_blob = b"".join(item for item in data if isinstance(item, bytes)).strip()
+    if not uid_blob:
+        return []
+
+    return [
+        item.decode("utf-8", errors="replace")
+        for item in uid_blob.split()
+        if item
+    ]
+
+
+def fetch_imap_message_by_uid(
+    *,
+    client,
+    uid: str,
+    folder: str,
+) -> FetchedImapMessage:
+    """기능: UID 하나를 BODY.PEEK 기준으로 read-only fetch한다."""
+
+    status, fetch_data = client.uid(
+        "fetch",
+        uid,
+        "(UID BODY.PEEK[] FLAGS INTERNALDATE)",
+    )
+    if status != "OK":
+        raise RuntimeError(f"UID {uid} fetch가 실패했다.")
+
+    raw_bytes, internal_date = _extract_imap_fetch_payload(fetch_data)
+    if not raw_bytes:
+        raise RuntimeError(f"UID {uid}에서 RFC822 원문을 읽지 못했다.")
+
+    return FetchedImapMessage(
+        folder=folder,
+        uid=uid,
+        raw_bytes=raw_bytes,
+        internal_date=internal_date,
+    )
 
 
 def materialize_fetched_imap_message(
@@ -360,6 +387,7 @@ def materialize_fetched_imap_message(
     profile_root: str,
     provider: str,
     account_id: str,
+    labels: list[str] | None = None,
 ) -> MaterializedFetchedMailResult:
     """기능: fetched IMAP message를 runtime bundle 구조로 저장한다."""
 
@@ -371,10 +399,7 @@ def materialize_fetched_imap_message(
     internet_message_id = str(message.get("Message-ID") or "").strip()
     sent_at = _normalize_header_datetime(message.get("Date"))
     received_at = fetched_message.internal_date or sent_at or _utc_now_iso()
-    bundle_id = build_mail_bundle_id(
-        received_at=received_at,
-        message_key=internet_message_id or f"imap-uid:{fetched_message.uid}",
-    )
+    bundle_id = predict_bundle_id_for_fetched_imap_message(fetched_message=fetched_message)
     bundle_paths = build_mail_bundle_paths(profile_root, bundle_id)
     bundle_root = Path(bundle_paths.root_dir)
     attachments_root = bundle_root / bundle_paths.attachments_dir
@@ -441,7 +466,7 @@ def materialize_fetched_imap_message(
         body_parts=body_parts,
         artifacts=artifacts,
         headers=_extract_header_snapshot(message),
-        labels=["imap_latest_fetch_smoke"],
+        labels=list(labels or ["imap_latest_fetch_smoke"]),
     )
     normalized = NormalizedMessage.from_bundle(bundle)
 
@@ -469,6 +494,22 @@ def materialize_fetched_imap_message(
         has_text_body=bool(body_text.strip()),
         has_html_body=bool(body_html.strip()),
         remote_message_id=fetched_message.uid,
+    )
+
+
+def predict_bundle_id_for_fetched_imap_message(
+    *,
+    fetched_message: FetchedImapMessage,
+) -> str:
+    """기능: fetched message를 실제 저장 전에 동일 규칙 bundle id로 계산한다."""
+
+    message = BytesParser(policy=policy.default).parsebytes(fetched_message.raw_bytes)
+    internet_message_id = str(message.get("Message-ID") or "").strip()
+    sent_at = _normalize_header_datetime(message.get("Date"))
+    received_at = fetched_message.internal_date or sent_at or _utc_now_iso()
+    return build_mail_bundle_id(
+        received_at=received_at,
+        message_key=internet_message_id or f"imap-uid:{fetched_message.uid}",
     )
 
 
@@ -631,17 +672,27 @@ def _looks_like_email_bytes(payload: bytes) -> bool:
 
     if not payload:
         return False
-    lowered_prefix = payload[:512].lower()
-    return (
-        b"\r\n" in payload[:512]
-        and (
-            lowered_prefix.startswith(b"from:")
-            or lowered_prefix.startswith(b"message-id:")
-            or lowered_prefix.startswith(b"mime-version:")
-            or b"\r\nsubject:" in lowered_prefix
-            or b"\r\nfrom:" in lowered_prefix
-            or b"\r\nto:" in lowered_prefix
-        )
+    prefix = payload[:1024]
+    lowered_prefix = prefix.lower()
+    if b"\r\n" not in prefix:
+        return False
+
+    first_line = prefix.splitlines()[0].strip()
+    if re.match(rb"^[A-Za-z0-9-]+:\s*", first_line):
+        return True
+
+    return any(
+        token in lowered_prefix
+        for token in [
+            b"\r\nsubject:",
+            b"\r\nfrom:",
+            b"\r\nto:",
+            b"\r\nmessage-id:",
+            b"\r\nreceived:",
+            b"\r\nreturn-path:",
+            b"\r\ndelivered-to:",
+            b"\r\nmime-version:",
+        ]
     )
 
 

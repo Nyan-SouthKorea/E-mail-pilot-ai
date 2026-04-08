@@ -144,6 +144,33 @@ class ProfilePaths:
 
         return self.runtime_root() / "엑셀 산출물"
 
+    def runtime_exports_snapshots_root(self) -> Path:
+        """기능: 운영 workbook snapshot 저장 루트 경로를 반환한다.
+
+        입력:
+        - 없음
+
+        반환:
+        - `실행결과/엑셀 산출물/스냅샷` 경로
+        """
+
+        return self.runtime_exports_root() / "스냅샷"
+
+    def operating_export_workbook_path(
+        self,
+        filename: str = "운영본_기업_신청서_모음.xlsx",
+    ) -> Path:
+        """기능: 앱이 재구성하는 stable 운영 workbook 경로를 반환한다.
+
+        입력:
+        - filename: 운영 workbook 파일명
+
+        반환:
+        - `실행결과/엑셀 산출물/<filename>` 경로
+        """
+
+        return self.runtime_exports_root() / filename
+
     def runtime_logs_root(self) -> Path:
         """기능: 로그 저장 루트 경로를 반환한다.
 
@@ -204,6 +231,18 @@ class ProfilePaths:
 
         return self.runtime_logs_root() / "mailbox"
 
+    def runtime_review_logs_root(self) -> Path:
+        """기능: review board와 batch 검증 로그 경로를 반환한다.
+
+        입력:
+        - 없음
+
+        반환:
+        - `실행결과/로그/review` 경로
+        """
+
+        return self.runtime_logs_root() / "review"
+
     def llm_usage_log_path(self) -> Path:
         """기능: 현재 프로필의 기본 LLM usage log 파일 경로를 반환한다.
 
@@ -230,11 +269,13 @@ class ProfilePaths:
             self.runtime_root(),
             self.runtime_mail_bundles_root(),
             self.runtime_exports_root(),
+            self.runtime_exports_snapshots_root(),
             self.runtime_logs_root(),
             self.runtime_analysis_logs_root(),
             self.runtime_exports_logs_root(),
             self.runtime_llm_logs_root(),
             self.runtime_mailbox_logs_root(),
+            self.runtime_review_logs_root(),
         ]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
