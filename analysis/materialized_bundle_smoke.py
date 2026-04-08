@@ -19,13 +19,22 @@ from mailbox.bundle_reader import (
 )
 from project_paths import ProfilePaths, default_example_profile_root
 
-from .artifact_summary import ArtifactSummary, summarize_attachment_paths
-from .llm_extraction import (
-    build_extracted_record_text_config,
-    build_extraction_instructions,
-    parse_extracted_record_payload,
-)
-from .multimodal_input import build_email_analysis_input_payload
+if __package__ in (None, ""):
+    from analysis.artifact_summary import ArtifactSummary, summarize_attachment_paths
+    from analysis.llm_extraction import (
+        build_extracted_record_text_config,
+        build_extraction_instructions,
+        parse_extracted_record_payload,
+    )
+    from analysis.multimodal_input import build_email_analysis_input_payload
+else:
+    from .artifact_summary import ArtifactSummary, summarize_attachment_paths
+    from .llm_extraction import (
+        build_extracted_record_text_config,
+        build_extraction_instructions,
+        parse_extracted_record_payload,
+    )
+    from .multimodal_input import build_email_analysis_input_payload
 
 
 @dataclass(slots=True)

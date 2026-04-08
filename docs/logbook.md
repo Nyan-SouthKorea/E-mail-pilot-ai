@@ -45,7 +45,7 @@
   - root `results/`는 현재 canonical 위치가 아니다.
 - 현재 모듈 상태:
   - `mailbox`: bundle schema, fixture materialize, bundle reader, provider 자동 설정 후보 생성, connect/auth probe, local-only credential loader, real account latest IMAP fetch smoke가 있다.
-  - `analysis`: `NormalizedMessage -> ExtractedRecord` structured output 경로와 multimodal 입력 builder, fixture/runtime bundle smoke가 있다.
+  - `analysis`: `NormalizedMessage -> ExtractedRecord` structured output 경로와 multimodal 입력 builder, fixture/runtime bundle smoke가 있고, real bundle 1건의 analysis/export handoff를 검증했다.
   - `exports`: 템플릿 reader, semantic mapping, projection, workbook append, 회귀 guardrail이 있다.
   - `llm`: OpenAI wrapper, usage logging, 가격표 snapshot 기반 비용 추정, structured output transport가 있다.
 
@@ -79,10 +79,19 @@
 - 다음 제품 작업:
   - [x] 실제 이메일 계정 기준 mailbox auth probe 실행
   - [x] 최신 inbox 1건 fetch smoke로 `MailBundle` 저장 경로 연결
-  - [ ] 저장된 최신 bundle 1건을 materialized analysis smoke와 handoff 기준으로 연결
+  - [x] 저장된 최신 bundle 1건을 materialized analysis smoke와 handoff 기준으로 연결
+  - [ ] real bundle 기준 unresolved export 컬럼과 summary 품질 개선
   - [ ] `app/`과 `runtime/`의 실제 디렉토리 도입 시점과 경계 구체화
 
 ## 최근 로그
+
+### 2026-04-08 | Human + Codex | real bundle analysis/export handoff 검증
+
+- 방금 저장한 최신 real bundle 1건을 기준으로 `analysis/materialized_bundle_smoke.py`와 `analysis/materialized_bundle_pipeline_smoke.py`를 실제 실행해 `ExtractedRecord` 생성과 workbook append까지 확인했다.
+- analysis smoke는 runtime `extracted_record.json`을 남겼고, pipeline smoke는 runtime `projected_row.json`과 새 결과 workbook을 남겼다.
+- handoff 과정에서 `analysis/materialized_bundle_smoke.py`가 직접 스크립트 실행 시 relative import로 실패하던 문제를 고쳐 CLI 진입이 바로 되도록 맞췄다.
+- 첫 real bundle 품질 확인 결과 `contact_name`, `phone_number`, `email_address`, `website_or_social`, `industry`, 소개/사업내용 요약은 채워졌고 workbook append도 성공했다.
+- 다만 `company_name`, `product_or_service`, `application_purpose`, `request_summary`는 이번 메일 성격상 또는 현재 추출 규칙 한계로 비어 있어, 다음 개선 초점은 real bundle 기준 unresolved export 컬럼과 summary 품질 보강으로 잡는다.
 
 ### 2026-04-08 | Human + Codex | 실제 이메일 연동 1단계 완료
 
