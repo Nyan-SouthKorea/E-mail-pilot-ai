@@ -13,11 +13,13 @@
 | feature_id | 제목 | 소유 모듈 | 접근 | 핵심 출력 |
 |---|---|---|---|---|
 | `app.desktop.launch` | 데스크톱 앱 실행 | `app` | UI, CLI | 전용 창, 파일 탐색기 브리지, 실행 진단 |
+| `mailbox.connection_check` | 계정 연결 확인 | `mailbox` | UI | 로그인 성공 여부, 추천 기본 폴더, 폴더 목록 |
 | `runtime.workspace.create_sample` | 샘플 워크스페이스 생성 | `runtime` | CLI | repo-safe sample save, review board, workbook |
 | `runtime.workspace.inspect` | 워크스페이스 점검 | `runtime` | 관리도구, CLI | manifest/state/settings 요약 |
 | `mailbox.live_backfill` | 실메일 INBOX backfill | `mailbox` | 관리도구, CLI | mailbox report, runtime bundles |
 | `analysis.review_board_refresh` | 리뷰보드 재생성 | `analysis` | 관리도구, CLI | review JSON/HTML, sqlite review state |
 | `exports.operating_workbook.rebuild` | 운영 workbook 재반영 | `exports` | UI, 관리도구, CLI | 운영 workbook, 검토 인덱스 |
+| `runtime.workspace.sync.quick_smoke` | 빠른 테스트 동기화 | `runtime` | UI, 관리도구, CLI | 최근 10건 sync, review 갱신, workbook 반영 |
 | `runtime.workspace.sync` | 전체 동기화 | `runtime` | UI, 관리도구, CLI | backfill + review board + workbook |
 | `packaging.portable_exe.build` | 포터블 exe 빌드 | `app` | 관리도구, CLI, 문서 | Windows onedir bundle, D 로컬 publish runtime, bundle manifest |
 
@@ -27,8 +29,10 @@
   - `세이브 파일 불러오기`
   - `세이브 파일 가이드`
   - `설정`
-  - `동기화`
-  - `통합 리뷰센터`
+  - `계정 연결 확인`
+  - `빠른 테스트 동기화`
+  - `전체 동기화`
+  - `리뷰`
   - `운영 workbook 재반영`
 - 세부 smoke/debug 기능은 관리도구와 CLI에서 접근한다.
   - `실메일 backfill`
@@ -65,8 +69,10 @@
 
 - 샘플 세이브는 실메일과 비밀값 없이도 리뷰센터, dedupe, workbook 재반영, 관리도구 동작을 검증하는 기본 fixture다.
 - live 의존 기능은 아래처럼 명시한다.
+  - `mailbox.connection_check`: 실메일 credential 필요
   - `mailbox.live_backfill`: 실메일 credential 필요
   - `analysis.review_board_refresh`: OpenAI API key 필요
+  - `runtime.workspace.sync.quick_smoke`: 실메일 credential + OpenAI API key 필요
   - `runtime.workspace.sync`: 실메일 credential + OpenAI API key 필요
 - Windows 포터블 exe는 아래 중 하나로 검증한다.
   - Windows host에서 `packaging.portable_exe.build` 실행

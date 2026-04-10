@@ -198,6 +198,7 @@ def create_shared_workspace(
     )
     workspace = SharedWorkspace(root_dir=str(root), manifest=manifest)
     _ensure_workspace_dirs(workspace)
+    _ensure_default_template_workbook(workspace)
     _write_manifest(workspace)
 
     if import_profile_root:
@@ -423,6 +424,36 @@ def _ensure_workspace_dirs(workspace: SharedWorkspace) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
+def _ensure_default_template_workbook(workspace: SharedWorkspace) -> None:
+    template_path = workspace.profile_paths().template_workbook_path()
+    if template_path.exists():
+        return
+    from openpyxl import Workbook
+
+    template_path.parent.mkdir(parents=True, exist_ok=True)
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "기업 신청서"
+    headers = [
+        "번호",
+        "기업명",
+        "담당자명",
+        "연락처",
+        "이메일",
+        "홈페이지/SNS",
+        "관련산업군",
+        "주요 제품/서비스",
+        "신청목적",
+        "기업소개(한줄)",
+        "사업내용 요약",
+        "상세 요청 사항",
+    ]
+    for column_index, header in enumerate(headers, start=1):
+        worksheet.cell(row=1, column=column_index).value = header
+    worksheet.freeze_panes = "A2"
+    workbook.save(template_path)
+
+
 def _write_manifest(workspace: SharedWorkspace) -> None:
     workspace.manifest_path().write_text(
         json.dumps(workspace.manifest.to_dict(), ensure_ascii=False, indent=2),
@@ -456,6 +487,12 @@ def _default_shared_settings(workspace: SharedWorkspace) -> dict[str, object]:
             "login_username": "",
             "password": "",
             "default_folder": "INBOX",
+            "available_folders": [],
+            "recommended_folder": "",
+            "connection_status": "unknown",
+            "connection_checked_at": "",
+            "last_error": "",
+            "login_username_kind": "email_address_fallback",
         },
         "exports": {
             "template_workbook_relative_path": template_relative_path,

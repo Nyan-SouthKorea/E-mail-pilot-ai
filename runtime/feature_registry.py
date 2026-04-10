@@ -122,6 +122,20 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         requires_workspace=False,
     ),
     FeatureSpec(
+        feature_id="mailbox.connection_check",
+        title="계정 연결 확인",
+        summary="저장된 메일 계정으로 실제 로그인 가능 여부와 추천 폴더를 확인한다.",
+        owner_module="mailbox",
+        audience="user",
+        access_modes=("ui",),
+        ui_route="/settings",
+        prerequisites=("email address", "mail password"),
+        outputs=("connection status", "available folders", "recommended folder"),
+        result_paths=("secure/secrets.enc.json",),
+        test_scenarios=("실제 로그인 확인", "폴더 목록 추천", "친화적 오류 메시지"),
+        supports_run=False,
+    ),
+    FeatureSpec(
         feature_id="runtime.workspace.create_sample",
         title="샘플 워크스페이스 생성",
         summary="실메일 없이도 리뷰센터와 workbook 재반영을 검증할 수 있는 샘플 세이브를 만든다.",
@@ -197,6 +211,23 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         outputs=("operating workbook", "snapshot workbook", "review index sheet"),
         result_paths=("profile/실행결과/엑셀 산출물/", "state/state.sqlite"),
         test_scenarios=("대표 메일만 workbook 반영", "검토_인덱스 시트 확인"),
+        supports_run=True,
+        requires_write_lock=True,
+    ),
+    FeatureSpec(
+        feature_id="runtime.workspace.sync.quick_smoke",
+        title="빠른 테스트 동기화",
+        summary="최근 10건만 증분으로 가져와 review와 workbook까지 빠르게 점검한다.",
+        owner_module="runtime",
+        audience="user",
+        access_modes=("ui", "admin", "cli"),
+        ui_route="/sync",
+        admin_route="/admin/features",
+        cli_command="python -m runtime.cli sync --workspace-root <path> --workspace-password <pw> --sync-mode quick_smoke",
+        prerequisites=("mailbox credentials saved", "template workbook exists", "OpenAI API key saved", "workspace write access"),
+        outputs=("backfill report", "review board", "operating workbook"),
+        result_paths=("profile/실행결과/로그/", "profile/실행결과/엑셀 산출물/"),
+        test_scenarios=("최근 10건 smoke", "기존 bundle/analysis 재사용", "review center 갱신"),
         supports_run=True,
         requires_write_lock=True,
     ),
@@ -321,13 +352,22 @@ def check_feature(
             detail=str(context.workspace.manifest_path()),
         ),
     ]
-    if feature_id in {"runtime.workspace.inspect", "runtime.workspace.sync"}:
+    if feature_id == "mailbox.connection_check":
+        return [
+            FeatureCheckResult(
+                label="ui_only_feature",
+                status="pass",
+                detail="계정 연결 확인은 설정 화면에서 직접 실행한다.",
+            )
+        ]
+
+    if feature_id in {"runtime.workspace.inspect", "runtime.workspace.sync", "runtime.workspace.sync.quick_smoke"}:
         checks.extend(_workspace_common_checks(context))
-    if feature_id in {"mailbox.live_backfill", "runtime.workspace.sync"}:
+    if feature_id in {"mailbox.live_backfill", "runtime.workspace.sync", "runtime.workspace.sync.quick_smoke"}:
         checks.extend(_mailbox_checks(context))
-    if feature_id in {"analysis.review_board_refresh", "runtime.workspace.sync"}:
+    if feature_id in {"analysis.review_board_refresh", "runtime.workspace.sync", "runtime.workspace.sync.quick_smoke"}:
         checks.extend(_analysis_checks(context))
-    if feature_id in {"exports.operating_workbook.rebuild", "runtime.workspace.sync"}:
+    if feature_id in {"exports.operating_workbook.rebuild", "runtime.workspace.sync", "runtime.workspace.sync.quick_smoke"}:
         checks.extend(_exports_checks(context))
     return checks
 
@@ -386,8 +426,18 @@ def run_feature(
             result = _run_review_refresh(context=context, spec=spec)
         elif feature_id == "exports.operating_workbook.rebuild":
             result = _run_workbook_rebuild(context=context, spec=spec)
+        elif feature_id == "runtime.workspace.sync.quick_smoke":
+            result = _run_workspace_sync_feature(
+                context=context,
+                spec=spec,
+                sync_mode="quick_smoke",
+            )
         elif feature_id == "runtime.workspace.sync":
-            result = _run_workspace_sync_feature(context=context, spec=spec)
+            result = _run_workspace_sync_feature(
+                context=context,
+                spec=spec,
+                sync_mode="incremental_full",
+            )
         else:
             raise RuntimeError(f"runner가 정의되지 않은 feature다: {feature_id}")
 
@@ -492,7 +542,7 @@ def _run_review_refresh(
             profile_id="shared-workspace",
             profile_root=str(context.workspace.profile_root()),
             template_path=str(template_path),
-            reuse_existing_analysis=False,
+            reuse_existing_analysis=True,
             wrapper=wrapper,
         )
         update_latest_review_pointers(workspace=context.workspace, review_report=report)
@@ -563,11 +613,13 @@ def _run_workspace_sync_feature(
     *,
     context: WorkspaceFeatureContext,
     spec: FeatureSpec,
+    sync_mode: str,
 ) -> FeatureRunResult:
     result = run_workspace_sync(
         workspace_root=context.workspace.root(),
         workspace_password=str(context.secrets_payload.get("__workspace_password__") or ""),
         app_kind=context.app_kind,
+        sync_mode=sync_mode,
         force_lock_takeover=context.force_lock_takeover,
         write_lock_handle=context.existing_lock_handle,
     )
@@ -575,7 +627,11 @@ def _run_workspace_sync_feature(
         feature_id=spec.feature_id,
         title=spec.title,
         status="completed",
-        summary="backfill -> review board -> workbook 재구성을 한 번에 완료했다.",
+        summary=(
+            "최근 10건 기준 빠른 테스트 동기화를 완료했다."
+            if sync_mode == "quick_smoke"
+            else "backfill -> review board -> workbook 재구성을 한 번에 완료했다."
+        ),
         outputs=result.to_dict(),
         notes=result.notes,
     )

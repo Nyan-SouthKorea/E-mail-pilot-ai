@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from hashlib import sha256
 import json
 import sys
 from dataclasses import asdict, dataclass, field
@@ -82,6 +83,9 @@ def default_profile_root() -> Path:
     return default_example_profile_root()
 
 
+ANALYSIS_REVISION = "analysis.materialized_bundle.v2"
+
+
 def run_materialized_bundle_analysis_smoke(
     *,
     profile_root: str,
@@ -145,10 +149,16 @@ def _analyze_single_bundle(
         profile_paths.runtime_analysis_logs_root()
         / f"{normalized.bundle_id}_extracted_record.json"
     )
+    meta_path = output_path.with_suffix(".meta.json")
     notes: list[str] = []
+    current_fingerprint = build_bundle_analysis_fingerprint(bundle_root)
 
-    if reuse_existing_analysis and output_path.exists():
-        notes.append("기존 bundle 분석 결과 JSON을 재사용했다.")
+    if reuse_existing_analysis and output_path.exists() and _can_reuse_existing_analysis(
+        output_path=output_path,
+        meta_path=meta_path,
+        current_fingerprint=current_fingerprint,
+    ):
+        notes.append("기존 bundle 분석 결과 JSON을 fingerprint 기준으로 재사용했다.")
         return MaterializedBundleAnalysisResult(
             bundle_id=normalized.bundle_id,
             extracted_record_path=str(output_path),
@@ -193,12 +203,54 @@ def _analyze_single_bundle(
         json.dumps(extracted_record.to_dict(), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    meta_path.write_text(
+        json.dumps(
+            {
+                "analysis_revision": ANALYSIS_REVISION,
+                "bundle_fingerprint": current_fingerprint,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     return MaterializedBundleAnalysisResult(
         bundle_id=normalized.bundle_id,
         extracted_record_path=str(output_path),
         artifact_count=len(artifact_summaries),
         notes=notes,
+    )
+
+
+def build_bundle_analysis_fingerprint(bundle_root: Path) -> str:
+    digest = sha256()
+    for path in sorted(bundle_root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative_path = path.relative_to(bundle_root).as_posix()
+        stat = path.stat()
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(str(stat.st_size).encode("ascii"))
+        digest.update(str(stat.st_mtime_ns).encode("ascii"))
+    return digest.hexdigest()
+
+
+def _can_reuse_existing_analysis(
+    *,
+    output_path: Path,
+    meta_path: Path,
+    current_fingerprint: str,
+) -> bool:
+    if not output_path.exists() or not meta_path.exists():
+        return False
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    return (
+        str(payload.get("analysis_revision") or "") == ANALYSIS_REVISION
+        and str(payload.get("bundle_fingerprint") or "") == current_fingerprint
     )
 
 

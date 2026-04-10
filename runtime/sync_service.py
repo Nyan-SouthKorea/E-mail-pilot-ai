@@ -35,6 +35,7 @@ class WorkspaceSyncResult:
 
     workspace_root: str
     profile_root: str
+    sync_mode: str
     backfill_report_path: str
     review_json_path: str
     review_html_path: str
@@ -54,6 +55,7 @@ def run_workspace_sync(
     workspace_password: str,
     app_kind: str = "server-tool",
     profile_id: str = "shared-workspace",
+    sync_mode: str = "incremental_full",
     force_lock_takeover: bool = False,
     write_lock_handle: WorkspaceWriteLockHandle | None = None,
 ) -> WorkspaceSyncResult:
@@ -74,10 +76,14 @@ def run_workspace_sync(
         app_kind=app_kind,
         force_takeover=force_lock_takeover,
     )
+    resolved_sync_mode = _resolve_sync_mode(sync_mode)
     sync_run_id = state_store.start_sync_run(
         run_kind="workspace_sync",
         app_kind=app_kind,
-        metadata={"workspace_id": workspace.manifest.workspace_id},
+        metadata={
+            "workspace_id": workspace.manifest.workspace_id,
+            "sync_mode": resolved_sync_mode,
+        },
     )
     try:
         mailbox_settings = dict(secrets_payload.get("mailbox") or {})
@@ -107,6 +113,7 @@ def run_workspace_sync(
         backfill_report = run_imap_inbox_backfill_smoke(
             account_config=account_config,
             folder=str(mailbox_settings.get("default_folder") or "INBOX"),
+            latest_limit=10 if resolved_sync_mode == "quick_smoke" else None,
         )
         write_lock.refresh()
 
@@ -114,7 +121,8 @@ def run_workspace_sync(
             profile_id=profile_id,
             profile_root=str(workspace.profile_root()),
             template_path=str(template_path),
-            reuse_existing_analysis=False,
+            bundle_limit=10 if resolved_sync_mode == "quick_smoke" else None,
+            reuse_existing_analysis=True,
             wrapper=wrapper,
         )
         update_latest_review_pointers(workspace=workspace, review_report=review_report)
@@ -136,10 +144,12 @@ def run_workspace_sync(
         notes = [
             "공유 워크스페이스 기준 backfill, triage review, 운영 workbook 재구성을 완료했다.",
             f"backfill_success={backfill_report.success}",
+            f"sync_mode={resolved_sync_mode}",
         ]
         result = WorkspaceSyncResult(
             workspace_root=str(workspace.root()),
             profile_root=str(workspace.profile_root()),
+            sync_mode=resolved_sync_mode,
             backfill_report_path=str(
                 workspace.to_workspace_relative(
                     default_backfill_report_path(
@@ -168,12 +178,22 @@ def run_workspace_sync(
             sync_run_id,
             status="failed",
             notes=[f"{exc.__class__.__name__}: {exc}"],
-            metadata={"workspace_root": str(workspace.root())},
+            metadata={
+                "workspace_root": str(workspace.root()),
+                "sync_mode": resolved_sync_mode,
+            },
         )
         raise
     finally:
         if write_lock_handle is None:
             write_lock.release()
+
+
+def _resolve_sync_mode(sync_mode: str) -> str:
+    normalized = str(sync_mode or "incremental_full").strip() or "incremental_full"
+    if normalized not in {"quick_smoke", "incremental_full"}:
+        raise RuntimeError(f"지원하지 않는 sync_mode다: {normalized}")
+    return normalized
 
 
 def rebuild_operating_workbook(

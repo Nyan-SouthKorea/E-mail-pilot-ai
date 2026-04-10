@@ -306,6 +306,15 @@ def main() -> None:
             height=local_settings.window_height,
         )
         bridge.attach_window(window)
+        set_shell_context(
+            shell_mode="desktop_window",
+            native_dialog_state="desktop_ready",
+            startup_log_path=str(startup_log_path),
+            official_local_bundle_path=str(official_local_exe_path),
+            native_dialog_expected=True,
+            unsupported_launch_reason=unsupported_launch_reason,
+            launch_path=str(launch_path),
+        )
         webview.start()
     except Exception as exc:
         _append_startup_log("launcher: pywebview failed, checking browser fallback")

@@ -120,6 +120,7 @@ def run_inbox_review_board_smoke(
     profile_root: str,
     template_path: str,
     bundle_root: str | None = None,
+    bundle_limit: int | None = None,
     reuse_existing_analysis: bool = False,
     wrapper: OpenAIResponsesWrapper | None = None,
 ) -> InboxReviewBoardReport:
@@ -165,6 +166,13 @@ def run_inbox_review_board_smoke(
         bundle_directories = [Path(bundle_root)]
     else:
         bundle_directories = list_valid_runtime_bundle_directories(profile_root)
+        if bundle_limit is not None and bundle_limit > 0:
+            bundle_directories = sorted(
+                bundle_directories,
+                key=lambda item: item.name,
+                reverse=True,
+            )[:bundle_limit]
+            notes.append(f"review board는 최근 {bundle_limit}개 bundle만 빠른 테스트 범위로 재생성했다.")
 
     items: list[InboxReviewBoardItem] = []
     exported_count = 0

@@ -3,7 +3,7 @@
   var nativeDialogState = 'checking';
   var detectRetryHandle = null;
   var detectRetryCount = 0;
-  var maxDetectRetryCount = 30;
+  var maxDetectRetryCount = 60;
 
   function renderJobState(target, payload) {
     if (!target || !payload) return;
@@ -74,6 +74,27 @@
       button.textContent = (nativeDialogState === 'desktop_pending' || nativeDialogState === 'checking')
         ? '연결 확인 중'
         : button.dataset.defaultLabel;
+    });
+  }
+
+  function bindModalButtons() {
+    document.querySelectorAll('[data-open-modal]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var modal = document.getElementById(button.dataset.openModal || '');
+        if (modal && modal.showModal) {
+          modal.showModal();
+        }
+      });
+    });
+  }
+
+  function bindDialogRecheck() {
+    document.querySelectorAll('[data-dialog-recheck]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        detectRetryCount = 0;
+        setNativeDialogState('desktop_pending', '현재 환경: 전용 창 연결을 다시 확인하는 중입니다.');
+        detectNativeDialogs();
+      });
     });
   }
 
@@ -222,7 +243,22 @@
       });
       return;
     }
-    if (nativeDialogState === 'desktop_failed' || !ensurePywebviewApi()) {
+    if (!ensurePywebviewApi()) {
+      setNativeDialogState('desktop_pending', '현재 환경: 전용 창 연결을 다시 확인하는 중입니다.');
+      detectRetryCount = 0;
+      detectNativeDialogs().then(function (ready) {
+        if (ready) {
+          openNativePicker(button);
+          return;
+        }
+        renderPathStatus(statusTarget, {
+          status: 'warn',
+          message: '전용 창 연결이 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+        });
+      });
+      return;
+    }
+    if (nativeDialogState === 'desktop_failed') {
       renderPathStatus(statusTarget, {
         status: 'warn',
         message: '전용 창 연결이 실패했습니다. 직접 경로 입력으로 진행하거나 앱을 다시 실행해 주세요.',
@@ -283,6 +319,9 @@
     }
     if (initialState === 'desktop_ready') {
       setNativeDialogState('desktop_ready');
+      if (!ensurePywebviewApi()) {
+        queueNativeDialogDetection(150);
+      }
       return;
     }
     if (initialState === 'desktop_failed') {
@@ -298,6 +337,8 @@
     window.setInterval(pollJobState, 2500);
     bindPathInspection();
     bindNativePickerButtons();
+    bindModalButtons();
+    bindDialogRecheck();
     initializeShellContext();
   }
 

@@ -14,12 +14,15 @@
 - 변경 사실은 가까운 `docs/logbook.md`에 먼저 반영한다.
 - 안정된 설명과 경계는 `README.md` 또는 모듈 `README.md`에 반영한다.
 - 같은 내용을 여러 문서에 복제하지 않는다.
+- 승인된 상위 plan이 있으면 구현 전에 root `docs/logbook.md`에 plan 전문과 current checkpoint가 먼저 있어야 한다.
 
 ## 해야 할 일
 
 1. 이번 변경이 프로젝트 레벨인지, 모듈 레벨인지 먼저 결정한다.
-2. 관련 `docs/logbook.md`의 active checklist를 갱신한다.
-3. 바뀐 current truth가 있으면 `README.md` 또는 모듈 `README.md`를 갱신한다.
-4. 결과 경로, 다음 연결점, 임시 산출물 정리 여부를 logbook에 남긴다.
-5. 어떤 문서를 일부러 건드리지 않았는지도 필요하면 짧게 적는다.
-6. 완료 직전에는 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md`를 다시 읽고, 이번 변경이 그 기준과 어긋나지 않는지 마지막으로 확인한다.
+2. root `docs/logbook.md`의 active plan, 현재 체크포인트, publish 상태가 최신인지 먼저 맞춘다.
+3. 관련 `docs/logbook.md`의 active checklist를 현재 작업 단위 기준으로 갱신한다.
+4. 바뀐 current truth가 있으면 `README.md` 또는 모듈 `README.md`를 갱신한다.
+5. 결과 경로, 다음 연결점, 임시 산출물 정리 여부를 logbook에 남긴다.
+6. 어떤 문서를 일부러 건드리지 않았는지도 필요하면 짧게 적는다.
+7. 완료 직전에는 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md`를 다시 읽고, 이번 변경이 그 기준과 어긋나지 않는지 마지막으로 확인한다.
+8. plan 마감이면 canonical 문서 반영 뒤 `commit -> push -> clean status`까지 닫았는지 확인한다.

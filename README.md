@@ -22,8 +22,8 @@
 | [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke, real-bundle quality smoke, 3-way triage, HTML review board, application-only batch export 구현 |
 | [exports](./exports/README.md) | 템플릿 해석, 열 의미 매핑, projection, workbook append | rule-first mapping, LLM fallback, workbook append, 회귀 guardrail 구현 |
 | [llm](./llm/README.md) | OpenAI wrapper, usage logging, 비용 추정, structured output transport | 공용 wrapper와 usage log 골격 구현 |
-| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace manifest, encrypted secrets, state DB, feature registry/run history, sample workspace, feature harness smoke, CLI 구현 |
-| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, workspace open/create, settings, review center, 관리도구, UI smoke, 포터블 exe packaging/CI 기준 구현 |
+| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace manifest, encrypted secrets, state DB, feature registry/run history, sample workspace, quick/full sync, analysis reuse 기본화, feature harness smoke, CLI 구현 |
+| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, service형 홈, sync 화면, 기본/고급 설정, 리뷰센터, 관리도구, UI smoke, 포터블 exe packaging 기준 구현 |
 
 ## 새 기능을 어디에 둘까
 
@@ -139,7 +139,8 @@
 
 - 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이다.
 - 제품 주 사용 흐름은 `exe 실행 -> 세이브 파일 불러오기 -> 워크스페이스 암호 입력 -> 동기화 -> 자동 수집/분류/정리/엑셀 반영 -> 같은 창에서 검토/수정`이다.
-- 사용자는 세이브 파일 경로를 직접 외우기보다 앱의 `찾아보기` 버튼으로 고르고, 홈의 `세이브 파일 가이드`에서 폴더 기준을 확인하는 흐름을 기본으로 본다.
+- 사용자는 세이브 파일 경로를 직접 외우기보다 앱의 `찾아보기` 버튼으로 고르고, 홈의 `세이브 파일 가이드` 모달에서 폴더 기준을 확인하는 흐름을 기본으로 본다.
+- 제품 기본 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 확인 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰 -> 운영 workbook 재반영`이다.
 - Windows 실행의 공식 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
 - 제품/운영 기능의 canonical 카탈로그는 `docs/feature_catalog.md`와 `runtime/feature_registry.py`가 함께 맡는다.
 - 반복 기능 검증은 `runtime/feature_harness_smoke.py`, `app/ui_smoke.py`, `runtime/cli.py feature-*` 명령을 기준으로 한다.
@@ -147,6 +148,7 @@
 - Windows 빌드는 `D:\EmailPilotAI\repo`에서 수행하고, 완료 후 최종 실행본은 `D:\EmailPilotAI\portable\EmailPilotAI\`만 남긴다.
 - 서버와 Windows가 결과를 같이 보는 기준은 exe 위치가 아니라 같은 세이브 파일 폴더를 열었는지다.
 - 메일 설정 탐지는 `도메인 규칙 -> provider preset -> autodiscover/autoconfig -> 실제 probe` 순서를 우선한다.
+- 첫 동기화는 전체 동기화보다 `최근 10건 빠른 테스트 동기화`를 먼저 권장한다.
 - `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4층 계약은 유지한다.
 - `ExtractedRecord`는 `application / not_application / needs_human_review` 3분류 triage를 기본으로 가진다.
 - 입력 해석은 현재 fixture 2건에 과적합하지 않고, 이미지/스캔/ZIP 복합 첨부까지 포괄하는 방향을 유지한다.

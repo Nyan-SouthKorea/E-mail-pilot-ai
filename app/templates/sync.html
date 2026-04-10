@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}동기화 | Email Pilot AI{% endblock %}
+{% block body %}
+<section class="hero">
+  <div class="eyebrow">동기화</div>
+  <h1>처음에는 빠르게, 그 다음에 전체로</h1>
+  <p class="muted lead">
+    처음 동기화는 최근 10건으로 연결과 분류 품질을 먼저 확인하고,
+    결과가 괜찮으면 전체 동기화로 넘어가는 흐름을 권장합니다.
+  </p>
+  <div class="status-strip">
+    <span class="status-pill {% if connection_tone == 'pass' %}pass{% elif connection_tone == 'fail' %}fail{% endif %}">
+      계정 연결: {{ "확인 완료" if shared_settings.mailbox.connection_status == "connected" else ("실패" if shared_settings.mailbox.connection_status == "failed" else "미확인") }}
+    </span>
+    <span class="status-pill">기본 폴더: {{ shared_settings.mailbox.default_folder or shared_settings.mailbox.recommended_folder or "미설정" }}</span>
+    <span class="status-pill">템플릿: {{ template_status.relative_path or "기본 템플릿 사용" }}</span>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">실행</div>
+      <h2>동기화 방식 선택</h2>
+    </div>
+    <div class="status-strip compact" data-job-status></div>
+  </div>
+  {% if session.readonly %}
+  <div class="field-status warn">읽기 전용 세션에서는 동기화를 실행할 수 없습니다.</div>
+  {% endif %}
+  <div class="action-grid">
+    <article class="action-tile">
+      <span class="label">권장 시작</span>
+      <strong>빠른 테스트 동기화</strong>
+      <p class="muted">최근 10건만 가져와 연결, 분류, 엑셀 반영이 자연스럽게 이어지는지 먼저 확인합니다.</p>
+      <ul class="compact-list">
+        <li>최신 10건만 fetch</li>
+        <li>기존 분석이 그대로면 재사용</li>
+        <li>리뷰센터와 workbook도 함께 갱신</li>
+      </ul>
+      <div class="action-foot">
+        <span class="action-shell" title="{{ action_states.quick_sync.tooltip }}">
+          <form action="/sync" method="post">
+            <input type="hidden" name="sync_mode" value="quick_smoke">
+            <button class="primary" type="submit" {% if action_states.quick_sync.disabled %}disabled{% endif %}>빠른 테스트 동기화</button>
+          </form>
+        </span>
+      </div>
+      {% if action_states.quick_sync.reason %}
+      <div class="inline-hint warn">{{ action_states.quick_sync.reason }}</div>
+      {% endif %}
+    </article>
+
+    <article class="action-tile">
+      <span class="label">운영 모드</span>
+      <strong>전체 동기화</strong>
+      <p class="muted">이미 받은 메일은 건너뛰고, 새 메일과 변경된 분석만 반영합니다.</p>
+      <ul class="compact-list">
+        <li>이미 fetch한 bundle은 skip</li>
+        <li>unchanged 분석 결과는 재사용</li>
+        <li>review 상태와 운영 workbook 재구성</li>
+      </ul>
+      <div class="action-foot">
+        <span class="action-shell" title="{{ action_states.full_sync.tooltip }}">
+          <form action="/sync" method="post">
+            <input type="hidden" name="sync_mode" value="incremental_full">
+            <button type="submit" {% if action_states.full_sync.disabled %}disabled{% endif %}>전체 동기화</button>
+          </form>
+        </span>
+      </div>
+      {% if action_states.full_sync.reason %}
+      <div class="inline-hint warn">{{ action_states.full_sync.reason }}</div>
+      {% endif %}
+    </article>
+  </div>
+</section>
+
+<section class="split split-main">
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">필수 조건</div>
+        <h2>동기화 전에 확인할 것</h2>
+      </div>
+    </div>
+    <div class="status-list">
+      <div class="status-list-item">
+        <span class="label">OpenAI API key</span>
+        <strong class="{% if shared_settings.llm.api_key_saved %}pass{% else %}warn{% endif %}">{{ "저장됨" if shared_settings.llm.api_key_saved else "필요" }}</strong>
+      </div>
+      <div class="status-list-item">
+        <span class="label">이메일 주소</span>
+        <strong class="{% if shared_settings.mailbox.email_address %}pass{% else %}warn{% endif %}">{{ shared_settings.mailbox.email_address or "미입력" }}</strong>
+      </div>
+      <div class="status-list-item">
+        <span class="label">비밀번호</span>
+        <strong class="{% if shared_settings.mailbox.password_saved %}pass{% else %}warn{% endif %}">{{ "저장됨" if shared_settings.mailbox.password_saved else "필요" }}</strong>
+      </div>
+      <div class="status-list-item">
+        <span class="label">계정 연결 확인</span>
+        <strong class="{{ connection_tone }}">{{ shared_settings.mailbox.connection_status }}</strong>
+      </div>
+      <div class="status-list-item">
+        <span class="label">기본 폴더</span>
+        <strong>{{ shared_settings.mailbox.default_folder or shared_settings.mailbox.recommended_folder or "미설정" }}</strong>
+      </div>
+      <div class="status-list-item">
+        <span class="label">템플릿 준비</span>
+        <strong class="{{ template_status.status }}">{{ template_status.message }}</strong>
+      </div>
+    </div>
+    <div class="toolbar" style="margin-top:12px">
+      <a href="/settings">설정에서 수정하기</a>
+      <a href="/review">리뷰센터 열기</a>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">최근 결과</div>
+        <h2>동기화 기록</h2>
+      </div>
+      <a href="/admin/features">고급 도구</a>
+    </div>
+    <div class="details">
+      {% if latest_sync_run %}
+      <div>상태: {{ latest_sync_run.status }}</div>
+      <div>시작 시각: {{ latest_sync_run.started_at }}</div>
+      <div>마침 시각: {{ latest_sync_run.finished_at or "진행 중" }}</div>
+      <div>동기화 방식: {{ (latest_sync_run.metadata or {}).get("sync_mode") or "기록 없음" }}</div>
+      {% else %}
+      <div>아직 실행 기록이 없습니다.</div>
+      {% endif %}
+      <div>현재 리뷰 항목 수: {{ state_counts.total }}</div>
+      <div>application: {{ state_counts.application }}</div>
+      <div>needs_human_review: {{ state_counts.needs_human_review }}</div>
+    </div>
+  </div>
+</section>
+{% endblock %}

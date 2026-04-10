@@ -5,7 +5,7 @@
 
 ## 읽기 규칙
 
-- 이 문서는 `현재 프로젝트 스냅샷`, `현재 전역 결정`, `현재 활성 체크리스트`, `최근 로그`를 함께 유지한다.
+- 이 문서는 `현재 프로젝트 스냅샷`, `현재 전역 결정`, `현재 실행 계획`, `현재 체크포인트`, `현재 활성 체크리스트`, `최근 로그`를 함께 유지한다.
 - 새 로그를 쓰기 전에는 항상 아래 명령을 먼저 실행한다.
   - `python tools/logbook_archive_guard.py --archive-if-needed`
 - active logbook 줄 수가 `1000`을 넘으면 현재 파일을 `docs/logbook_archive/logbook_YYMMDD_HHMM_*.md`로 archive하고, active logbook는 고정 섹션만 남긴 채 다시 시작한다.
@@ -58,6 +58,10 @@
 ## 현재 전역 결정
 
 - 시작 게이트는 항상 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md`다.
+- 새 active plan을 실제 구현으로 옮기기 전에는 이전 active plan의 publish 상태를 먼저 확인한다.
+- 승인된 active plan이 생기면 구현 전에 그 plan 전문을 root `docs/logbook.md`의 `현재 실행 계획`에 먼저 반영한다.
+- 구현은 `현재 체크포인트`와 `현재 활성 체크리스트`를 작은 작업 단위로 갱신하면서 진행한다.
+- plan 마감의 기본 완료 조건은 `canonical 문서 반영 -> commit -> push -> git status clean 확인`이다.
 - stable truth는 `README.md`와 각 모듈 `README.md`, active truth는 `docs/logbook.md`와 각 모듈 `docs/logbook.md`에 둔다.
 - 런타임 데이터 계약은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계를 유지한다.
 - `ExtractedRecord` top-level triage는 `application`, `not_application`, `needs_human_review` 3개 값으로 고정한다.
@@ -73,49 +77,64 @@
 - 공유 워크스페이스에서는 민감한 값도 `secure/secrets.enc.json` 안에 암호화 저장하고, review/dedupe/override/workbook row 상태는 `state/state.sqlite`에 저장한다.
 - 공유 워크스페이스는 단일 작성자 잠금을 기본으로 하고 `locks/write.lock` heartbeat 기준 stale takeover를 허용한다.
 
+## 현재 실행 계획
+
+- plan 제목:
+  - `실제 사용자용 서비스 UI 전환 + 첫사용자 흐름 재설계 v1`
+- plan 요약:
+  - 검증용 도구/데모 UI를 실제 사용자가 매일 쓰는 서비스형 데스크톱 UI로 바꾼다.
+  - 기준 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰/재반영`이다.
+  - 기본 방향은 `경로 중심 UI -> 작업 중심 UI`, `고급 항목 기본 숨김`, `빠른 테스트 후 전체 동기화`, `증분 fetch + 증분 analysis 재사용`이다.
+- 이번 plan의 성공 기준:
+  - 홈/설정/동기화/리뷰가 서비스형 제품 UI 톤으로 재구성된다.
+  - `찾아보기` 브리지 대기 UX가 영구 정지처럼 보이지 않게 정리된다.
+  - 새 세이브 생성 시 기본 템플릿이 자동 준비된다.
+  - 기본 설정만으로 계정 연결 확인과 빠른 테스트 동기화를 시작할 수 있다.
+  - 전체 동기화는 fetch와 analysis 모두 증분 기준으로 재사용된다.
+
+## 현재 체크포인트
+
+- 지금 단계:
+  - 서비스형 홈/설정/동기화/리뷰 흐름 구현과 smoke 확인까지 끝내고, current plan publish를 마감하는 단계
+- 바로 다음 작업:
+  - current plan commit/push와 clean status 확인
+- publish 상태:
+  - 선행 기반 작업 publish 완료
+  - 현재 active plan publish 마감 진행 중
+  - current plan commit/push를 이번 publish 단위에서 함께 마감
+
 ## 현재 활성 체크리스트
 
-- 현재 문서 운영 체계 재편:
-  - 관련 기준 문서:
-    - [`../AGENTS.md`](../AGENTS.md)
-    - [`../README.md`](../README.md)
-    - [`./logbook_archive/logbook_260408_0956_pre_golden_refactor_summary.md`](./logbook_archive/logbook_260408_0956_pre_golden_refactor_summary.md)
-  - 체크리스트:
-    - [x] 루트 운영 문서를 `AGENTS.md + README.md + docs/logbook.md` 체계로 재편
-    - [x] legacy `docs/*` 기준 문서를 archive로 보존
-    - [x] 모듈별 `docs/logbook.md` 시드 추가
-    - [x] repo-local skill 8종 도입
-    - [x] 운영 보조 tool 4종 도입
-    - [x] starter template 운영 팩 추가
-    - [x] sibling `../secrets/README.local.md` 시작 문서 추가
-- 다음 제품 작업:
-  - [x] 실제 이메일 계정 기준 mailbox auth probe 실행
-  - [x] 최신 inbox 1건 fetch smoke로 `MailBundle` 저장 경로 연결
-  - [x] 저장된 최신 bundle 1건을 materialized analysis smoke와 handoff 기준으로 연결
-  - [x] real bundle 기준 unresolved export 컬럼과 summary 품질 개선
-  - [x] INBOX 전체 read-only backfill 경로 추가
-  - [x] 전체 bundle 3-way triage와 HTML review board 추가
-  - [x] application-only batch workbook export 추가
-  - [x] `app/`과 `runtime/`의 실제 디렉토리 도입과 문서 시드
-  - [x] 공유 워크스페이스 save v1, 암호화 secret blob, sqlite state, write lock 도입
-  - [x] 데스크톱 리뷰센터 앱 골격과 sync orchestration 도입
-  - [x] 기능 카탈로그와 관리도구, feature run history 도입
-  - [x] repo-safe 샘플 워크스페이스 seed 도입
-  - [x] 오프라인 포터블 exe 패키징 기준 파일과 로컬 static 자산 도입
-  - [x] feature harness smoke와 Windows portable exe CI workflow 도입
-  - [x] Windows exe `backports` 부팅 오류 복구 기준과 packaged smoke 추가
-  - [x] 세이브 파일 파일탐색기 선택, 세이브 파일 가이드, 설정 저장 배너, 관리도구 예외 복구
-  - [x] Windows build 산출물의 Linux 공유 미러와 Samba 실행 기준 정리
-  - [x] Windows `python310.dll` 부팅 오류 완화용 integrity/로컬 fallback 기준 추가
-  - [x] `/plan` 시작, 실행 직전, 완료 직전 `AGENTS.md` 재독 게이트 명시 강화
-  - [x] onedir 수동 복사 기준과 Linux build 부산물 cleanup 기준 정리
-  - [x] 파일 탐색기 브리지 상태 기계와 로컬 실행 전용 정책 정리
-  - [x] Windows 로컬 D 단일 실행본 publish와 C/D/Z 포터블 산출물 cleanup 기준 정리
-  - [ ] real bundle 2건 이상으로 quality smoke 기준 확대
-  - [ ] mailbox unseen 우선, 폴더 선택, 증분 fetch 순서로 운영성 보강
-  - [ ] UI override 이후 diff/재반영 경험과 진행률 UX 보강
+- `실제 사용자용 서비스 UI 전환 + 첫사용자 흐름 재설계 v1`
+  - [x] 선행 기반 작업 commit/push와 clean status 확인
+  - [x] 문서/운영 규칙에 active plan + publish gate 루프 반영
+  - [x] root `docs/logbook.md`에 active plan 전문과 체크포인트 고정
+  - [x] 홈/가이드/브리지 UX를 서비스형 온보딩 흐름으로 개편
+  - [x] 설정 기본/고급 분리와 모델 선택형 UI 도입
+  - [x] 계정 연결 확인과 폴더 목록 추천 경로 도입
+  - [x] 빠른 테스트/전체 동기화 분리
+  - [x] analysis 증분 재사용 기본화
+  - [x] 리뷰센터 실사용형 개편
+  - [x] 외부 사용자 가이드 추가
+  - [x] UI smoke와 sync 회귀 검증 갱신
+  - [x] current plan commit 완료
+  - [x] current plan push 완료
+  - [x] `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-10 | Human + Codex | 서비스형 홈/설정/동기화/리뷰 UI 1차 전환
+
+- 홈 화면을 관리용 도구 톤에서 벗어나 `세이브 파일 -> 계정 연결 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰` 순서의 서비스형 온보딩 대시보드로 다시 구성했다.
+- `세이브 파일 가이드`는 별도 페이지 이동만 강요하지 않고, 홈 안에서 바로 여닫을 수 있는 모달로 먼저 제공하게 했다. 기존 `/workspace/guide` 페이지는 fallback 문서 경로로 남겼다.
+- 설정 화면은 기본/고급으로 분리했고, 모델은 자유 입력 대신 `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano` 선택형으로 바꿨다.
+- `계정 연결 확인` 버튼을 추가해 실제 IMAP 로그인 가능 여부를 확인하고, 성공 시 폴더 목록과 추천 기본 폴더를 `secure/secrets.enc.json` 설정에 저장하게 했다.
+- 동기화 화면을 따로 만들고, `빠른 테스트 동기화`와 `전체 동기화`를 분리했다. `quick_smoke`는 최근 10건만 대상으로 하고, `incremental_full`은 기존 증분 fetch + 분석 재사용 흐름을 그대로 쓴다.
+- `runtime.feature_registry`에는 `mailbox.connection_check`, `runtime.workspace.sync.quick_smoke`를 추가해 UI/관리도구/CLI에서 같은 기능 카탈로그 언어를 쓰게 했다.
+- 리뷰센터는 테이블 중심 검증판에서 벗어나, 카드형 확장 리스트와 빠른 override 흐름을 가진 실사용 검토 화면으로 다시 정리했다.
+- analysis 재사용은 이미 `analysis_revision + bundle fingerprint` 기준으로 `extracted_record.meta.json`을 남기는 구조를 넣어 둔 상태이고, 이번 sync 경로에서는 이를 기본 재사용 경로로 연결했다.
+- 외부 사용자용 개념 설명은 `app/docs/환경/first_user_save_file_guide.md`로 분리해, 세이브 파일, 로그인 ID, INBOX, 템플릿, 빠른 테스트 동기화 이유를 앱 밖 문서에서 설명하게 했다.
+- 검증은 `py_compile`, `create-sample-workspace`, `app.ui_smoke`, `feature-check-all` 기준으로 통과했다.
 
 ### 2026-04-10 | Human + Codex | Windows 로컬 D 단일 실행본 publish와 C/D/Z cleanup 정리
 

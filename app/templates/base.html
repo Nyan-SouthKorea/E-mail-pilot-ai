@@ -22,9 +22,10 @@
       <div class="brand">Email Pilot AI</div>
       <div class="nav">
         <a href="/" class="{% if (current_path or request.url.path) == '/' %}active{% endif %}">홈</a>
+        <a href="/sync" class="{% if (current_path or request.url.path) == '/sync' %}active{% endif %}">동기화</a>
+        <a href="/review" class="{% if (current_path or request.url.path) == '/review' %}active{% endif %}">리뷰</a>
         <a href="/settings" class="{% if (current_path or request.url.path) == '/settings' %}active{% endif %}">설정</a>
-        <a href="/review" class="{% if (current_path or request.url.path) == '/review' %}active{% endif %}">통합 리뷰센터</a>
-        <a href="/admin/features" class="{% if (current_path or request.url.path) == '/admin/features' %}active{% endif %}">관리도구</a>
+        <a href="/admin/features" class="secondary {% if (current_path or request.url.path) == '/admin/features' %}active{% endif %}">고급 도구</a>
       </div>
     </div>
     {% if notice %}

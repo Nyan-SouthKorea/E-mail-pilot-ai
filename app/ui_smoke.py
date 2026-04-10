@@ -92,9 +92,9 @@ def run_app_ui_smoke(
             response=home_response,
             ok=(
                 home_response.status_code == 200
-                and "세이브 파일 불러오기" in home_response.text
+                and "세이브 파일을 열고 바로 작업을 시작하세요" in home_response.text
                 and "세이브 파일 가이드" in home_response.text
-                and "앱 실행 진단" in home_response.text
+                and "세이브 파일은 이렇게 생각하면 됩니다" in home_response.text
                 and "앱 전용 창 연결 확인 중입니다." in home_response.text
                 and "브라우저 fallback" not in home_response.text
             ),
@@ -117,9 +117,10 @@ def run_app_ui_smoke(
         )
 
         routes = [
-            ("/", "home_with_workspace", "앱 실행 진단"),
-            ("/settings", "settings_page", "공식 실행 파일"),
-            ("/review", "review_page", "통합 리뷰센터"),
+            ("/", "home_with_workspace", "지금 여기서 바로 진행하세요"),
+            ("/sync", "sync_page", "빠른 테스트 동기화"),
+            ("/settings", "settings_page", "계정 연결 확인"),
+            ("/review", "review_page", "운영 workbook 재반영"),
             ("/admin/features", "admin_features_page", "startup.log"),
             ("/jobs/current", "job_status_api", '"status"'),
             ("/workspace/guide", "workspace_guide_page", "세이브 파일 가이드"),
@@ -153,7 +154,7 @@ def run_app_ui_smoke(
             ok=(
                 settings_save_response.status_code == 200
                 and "설정을 저장했다." in settings_save_response.text
-                and "마지막 저장" in settings_save_response.text
+                and "현재 상태" in settings_save_response.text
             ),
             detail="설정 저장 후 성공 배너와 마지막 저장 안내가 보여야 한다.",
         )

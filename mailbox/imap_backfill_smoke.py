@@ -130,6 +130,7 @@ def run_imap_inbox_backfill_smoke(
     profile_root: str | Path | None = None,
     account_config=None,
     folder: str = "INBOX",
+    latest_limit: int | None = None,
     timeout_seconds: float = 8.0,
     max_probes_per_protocol: int = 2,
 ) -> MailboxImapBackfillSmokeReport:
@@ -204,6 +205,9 @@ def run_imap_inbox_backfill_smoke(
     )
     try:
         uid_list = list_imap_message_uids(client=client, folder=folder)
+        if latest_limit is not None and latest_limit > 0:
+            uid_list = uid_list[-latest_limit:]
+            notes.append(f"최근 {latest_limit}건만 빠른 테스트 범위로 backfill 했다.")
         items: list[MailboxImapBackfillItemResult] = []
 
         for index, uid in enumerate(uid_list, start=1):

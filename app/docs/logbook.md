@@ -16,6 +16,7 @@
 - `app/ui_smoke.py`로 핵심 화면과 재반영 버튼까지 반복 검증할 수 있다.
 - Windows portable exe는 CI workflow와 Windows host build script 두 경로를 같이 가진다.
 - 공식 사용자 실행 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
+- 홈은 서비스형 온보딩 대시보드, 설정은 기본/고급, 동기화는 quick/full, 리뷰는 카드형 확장 리스트 기준으로 개편 중이다.
 
 ## 현재 활성 체크리스트
 
@@ -36,6 +37,9 @@
 - [x] onedir 수동 복사 기준과 build 부산물 cleanup helper 정리
 - [x] 파일 탐색기 브리지 상태 기계와 로컬 실행 전용 정책 정리
 - [x] Windows 로컬 D 단일 실행본 publish와 C/D/Z 포터블 산출물 cleanup 정리
+- [x] 서비스형 홈/동기화/설정/리뷰 UI 1차 개편
+- [x] 세이브 파일 가이드 모달과 외부 사용자 가이드 분리
+- [x] 계정 연결 확인, 폴더 추천, quick/full sync 화면 도입
 - [ ] 진행률 표시와 장시간 sync 폴링 UX 보강
 
 ## 최근 로그
@@ -48,6 +52,15 @@
 - `build_portable_exe.ps1`는 publish 성공 후 `repo\build\EmailPilotAI`, `repo\dist\EmailPilotAI`, `repo\dist\windows-portable\EmailPilotAI`, `%LOCALAPPDATA%\EmailPilotAI\portable\EmailPilotAI`를 지워서 오래된 실행본이 다시 남지 않게 했다.
 - A100 원격 빌드 helper는 `build_windows_portable_and_publish.sh`로 교체했고, Linux repo의 `dist/windows-portable/EmailPilotAI`도 기본 cleanup 대상으로 바꿨다.
 - 샘플 워크스페이스 기준 `app.ui_smoke`를 다시 통과시켰고, Windows 실제 빌드 후 `D:\EmailPilotAI` 아래 `EmailPilotAI.exe`는 공식 runtime 1개만 남는 것도 확인했다.
+
+### 2026-04-10 | Human + Codex | 서비스형 UI 1차 전환
+
+- 홈 화면을 `세이브 파일 열기/만들기 -> 계정 연결 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰` 순서가 보이는 서비스형 대시보드로 재구성했다.
+- `세이브 파일 가이드`는 홈에서 바로 여닫는 모달로 먼저 제공하고, 기존 guide route는 fallback 문서 경로로 유지했다.
+- 설정은 기본/고급으로 분리했고, 모델 선택형 UI와 `계정 연결 확인` 버튼, 폴더 목록 추천, 템플릿 고급 설정을 붙였다.
+- 동기화는 별도 `/sync` 화면에서 `빠른 테스트 동기화`와 `전체 동기화`를 구분해 실행하게 했다.
+- 리뷰센터는 테이블 대신 카드형 확장 리스트로 바꾸고, 원본 링크/분류 override/대표 메일 지정 흐름을 한 카드 안에 모았다.
+- `app/ui_smoke.py`는 새 홈, sync, settings, review 구조를 기준으로 다시 통과했다.
 
 ### 2026-04-10 | Human + Codex | 파일 탐색기 브리지 복구와 로컬 실행 전용 정책 정리
 

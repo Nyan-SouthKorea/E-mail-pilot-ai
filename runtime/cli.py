@@ -39,6 +39,7 @@ def main() -> None:
     sync_parser.add_argument("--workspace-password", required=True)
     sync_parser.add_argument("--app-kind", default="server-tool")
     sync_parser.add_argument("--profile-id", default="shared-workspace")
+    sync_parser.add_argument("--sync-mode", choices=["quick_smoke", "incremental_full"], default="incremental_full")
     sync_parser.add_argument("--force-lock-takeover", action="store_true")
 
     sample_parser = subparsers.add_parser("create-sample-workspace")
@@ -120,6 +121,7 @@ def main() -> None:
             workspace_password=args.workspace_password,
             app_kind=args.app_kind,
             profile_id=args.profile_id,
+            sync_mode=args.sync_mode,
             force_lock_takeover=args.force_lock_takeover,
         )
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))

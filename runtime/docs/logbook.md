@@ -16,6 +16,7 @@
 - feature registry와 feature run history가 있다.
 - repo-safe 샘플 워크스페이스 seed를 만들 수 있다.
 - `feature-check-all`과 `feature-harness-smoke`로 카탈로그 전량 점검과 반복 smoke를 수행할 수 있다.
+- sync는 `quick_smoke`와 `incremental_full` 두 모드를 지원하고, analysis revision/fingerprint가 같으면 기존 분석 결과를 재사용한다.
 
 ## 현재 활성 체크리스트
 
@@ -28,6 +29,7 @@
 - [x] feature 카탈로그와 feature run history 도입
 - [x] repo-safe sample workspace seed 도입
 - [x] feature-check-all, feature-harness-smoke, app UI smoke 연동
+- [x] quick/full sync 모드와 analysis 재사용 기준 도입
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
 
@@ -52,3 +54,11 @@
 - 비밀값은 `AES-256-GCM + scrypt` 기반 암호화 blob에 저장하고, review state와 dedupe/representative 상태는 sqlite에 저장한다.
 - `runtime/cli.py`로 workspace 생성, inspect, sync를 텍스트 기반으로 실행할 수 있게 했다.
 - 기존 `mailbox` backfill, `analysis` review board, `exports` workbook append 경로를 그대로 재사용해 stable 운영 workbook과 `검토_인덱스` 시트 재구성 경로를 만들었다.
+
+### 2026-04-10 | Human + Codex | quick/full sync와 analysis 재사용 기본화
+
+- `run_workspace_sync`는 이제 `quick_smoke`, `incremental_full` 두 모드를 지원한다.
+- `quick_smoke`는 IMAP backfill과 review refresh를 최근 10건으로 제한해 첫 연결 확인용 흐름을 빠르게 점검한다.
+- `analysis/materialized_bundle_smoke.py`는 `analysis_revision + bundle fingerprint` 기준 meta sidecar를 남기고, 같은 입력이면 기존 추출 결과를 재사용한다.
+- `analysis.review_board_refresh`와 runtime sync 경로도 이제 기본적으로 `reuse_existing_analysis=True`를 사용해 unchanged bundle의 LLM 재호출을 줄인다.
+- `runtime.feature_registry.py`에는 `mailbox.connection_check`, `runtime.workspace.sync.quick_smoke`를 추가해 UI와 관리도구가 같은 카탈로그 언어를 쓰게 했다.
