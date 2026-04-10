@@ -80,43 +80,38 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `실제 사용자용 서비스 UI 전환 + 첫사용자 흐름 재설계 v1`
+  - `AGENTS 중심 문서/산출물 정리와 cleanup`
 - plan 요약:
-  - 검증용 도구/데모 UI를 실제 사용자가 매일 쓰는 서비스형 데스크톱 UI로 바꾼다.
-  - 기준 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰/재반영`이다.
-  - 기본 방향은 `경로 중심 UI -> 작업 중심 UI`, `고급 항목 기본 숨김`, `빠른 테스트 후 전체 동기화`, `증분 fetch + 증분 analysis 재사용`이다.
+  - 운영 규칙은 root `AGENTS.md` 하나로 고정하고, 다른 문서에는 각 문서의 역할만 남긴다.
+  - 중복된 packaging/guide 문서와 과하게 반복된 읽기 순서 문구를 줄인다.
+  - smoke나 build 이후 남는 비최종 산출물과 cache 디렉토리는 과감히 정리한다.
 - 이번 plan의 성공 기준:
-  - 홈/설정/동기화/리뷰가 서비스형 제품 UI 톤으로 재구성된다.
-  - `찾아보기` 브리지 대기 UX가 영구 정지처럼 보이지 않게 정리된다.
-  - 새 세이브 생성 시 기본 템플릿이 자동 준비된다.
-  - 기본 설정만으로 계정 연결 확인과 빠른 테스트 동기화를 시작할 수 있다.
-  - 전체 동기화는 fetch와 analysis 모두 증분 기준으로 재사용된다.
+  - root `AGENTS.md`가 유일한 운영 규칙 시작점으로 보이도록 문서 중복이 줄어든다.
+  - `README.md`, `docs/feature_catalog.md`, 모듈 `README/logbook`, starter pack이 각자 역할만 남긴다.
+  - 중복 packaging 문서와 불필요한 guide wrapper/template가 제거된다.
+  - repo 안의 불필요한 cache 산출물이 삭제되고, publish까지 clean하게 닫힌다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - 서비스형 홈/설정/동기화/리뷰 흐름 구현과 smoke 확인까지 끝내고, current plan publish를 마감하는 단계
+  - `AGENTS` 중심 문서 축약, 중복 문서 삭제, cache cleanup, publish까지 마감한 상태
 - 바로 다음 작업:
-  - current plan commit/push와 clean status 확인
+  - 다음 active plan을 `docs/logbook.md`에 반영하고 제품 기능 작업으로 넘어가기
 - publish 상태:
-  - 선행 기반 작업 publish 완료
-  - 현재 active plan publish 마감 진행 중
-  - current plan commit/push를 이번 publish 단위에서 함께 마감
+  - current plan commit 완료
+  - current plan push 완료
+  - clean status 확인 완료
 
 ## 현재 활성 체크리스트
 
-- `실제 사용자용 서비스 UI 전환 + 첫사용자 흐름 재설계 v1`
-  - [x] 선행 기반 작업 commit/push와 clean status 확인
-  - [x] 문서/운영 규칙에 active plan + publish gate 루프 반영
-  - [x] root `docs/logbook.md`에 active plan 전문과 체크포인트 고정
-  - [x] 홈/가이드/브리지 UX를 서비스형 온보딩 흐름으로 개편
-  - [x] 설정 기본/고급 분리와 모델 선택형 UI 도입
-  - [x] 계정 연결 확인과 폴더 목록 추천 경로 도입
-  - [x] 빠른 테스트/전체 동기화 분리
-  - [x] analysis 증분 재사용 기본화
-  - [x] 리뷰센터 실사용형 개편
-  - [x] 외부 사용자 가이드 추가
-  - [x] UI smoke와 sync 회귀 검증 갱신
+- `AGENTS 중심 문서/산출물 정리와 cleanup`
+  - [x] root `AGENTS.md`를 운영 규칙의 단일 시작점으로 다시 확인
+  - [x] `README.md`, `docs/feature_catalog.md`, 모듈 `README/logbook`, starter pack의 중복 운영 문구 축약
+  - [x] 중복 packaging 문서를 한 곳으로 정리
+  - [x] 홈에서 별도 가이드 새 창 링크를 제거하고 guide wrapper template 정리
+  - [x] repo 안의 cache/비최종 산출물 cleanup
+  - [x] canonical logbook와 모듈 logbook 갱신
+  - [x] smoke/문법 검증 수행
   - [x] current plan commit 완료
   - [x] current plan push 완료
   - [x] `git status --short --branch` clean 확인
@@ -126,7 +121,7 @@
 ### 2026-04-10 | Human + Codex | 서비스형 홈/설정/동기화/리뷰 UI 1차 전환
 
 - 홈 화면을 관리용 도구 톤에서 벗어나 `세이브 파일 -> 계정 연결 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰` 순서의 서비스형 온보딩 대시보드로 다시 구성했다.
-- `세이브 파일 가이드`는 별도 페이지 이동만 강요하지 않고, 홈 안에서 바로 여닫을 수 있는 모달로 먼저 제공하게 했다. 기존 `/workspace/guide` 페이지는 fallback 문서 경로로 남겼다.
+- `세이브 파일 가이드`는 별도 페이지 이동만 강요하지 않고, 홈 안에서 바로 여닫는 모달을 기본 경로로 바꿨다.
 - 설정 화면은 기본/고급으로 분리했고, 모델은 자유 입력 대신 `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano` 선택형으로 바꿨다.
 - `계정 연결 확인` 버튼을 추가해 실제 IMAP 로그인 가능 여부를 확인하고, 성공 시 폴더 목록과 추천 기본 폴더를 `secure/secrets.enc.json` 설정에 저장하게 했다.
 - 동기화 화면을 따로 만들고, `빠른 테스트 동기화`와 `전체 동기화`를 분리했다. `quick_smoke`는 최근 10건만 대상으로 하고, `incremental_full`은 기존 증분 fetch + 분석 재사용 흐름을 그대로 쓴다.
@@ -136,19 +131,14 @@
 - 외부 사용자용 개념 설명은 `app/docs/환경/first_user_save_file_guide.md`로 분리해, 세이브 파일, 로그인 ID, INBOX, 템플릿, 빠른 테스트 동기화 이유를 앱 밖 문서에서 설명하게 했다.
 - 검증은 `py_compile`, `create-sample-workspace`, `app.ui_smoke`, `feature-check-all` 기준으로 통과했다.
 
-### 2026-04-10 | Human + Codex | Windows 로컬 D 단일 실행본 publish와 C/D/Z cleanup 정리
+### 2026-04-10 | Human + Codex | AGENTS 중심 문서/산출물 정리와 cleanup
 
-- Windows 포터블 exe 기준을 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나로 다시 고정했다.
-- `runtime/local_settings.py`, `app/main.py`, `app/server.py`, UI smoke는 이제 `%LOCALAPPDATA%`가 아니라 위 D 경로를 공식 실행 파일로 보고 진단/차단 메시지를 낸다.
-- frozen exe가 공유 드라이브, UNC, repo 내부 `dist/` 임시 산출물, 비공식 복사본에서 실행되면 초기에 차단하고, 세이브 파일은 공유 폴더에서 열 수 있지만 exe는 D 로컬 경로에서만 실행하라는 안내를 띄우게 했다.
-- packaging helper는 `publish_portable_to_runtime.ps1`와 `build_windows_portable_and_publish.sh` 기준으로 재편했고, Linux shared mirror를 만들던 이전 helper는 active 기준에서 제거했다.
-- 샘플 워크스페이스 기준 `app.ui_smoke`를 다시 실행해 `공식 실행 파일` 진단 문자열과 핵심 화면 흐름을 통과시켰다. 이 과정에서 UI smoke report 디렉토리를 먼저 만드는 누락도 함께 보완했다.
-- reverse SSH 기준 Windows 빌드를 실제로 다시 돌려 packaged smoke와 GUI smoke를 통과시켰고, 최종 runtime bundle은 `D:\EmailPilotAI\portable\EmailPilotAI\`에 생성됐다.
-- 실제 cleanup 결과는 아래와 같다.
-  - Windows 유지: `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`
-  - Windows 제거: `C:\Users\112fk\AppData\Local\EmailPilotAI\portable\EmailPilotAI\`, `D:\EmailPilotAI\repo\dist\EmailPilotAI\`, `D:\EmailPilotAI\repo\dist\windows-portable\EmailPilotAI\`
-  - Linux 제거: `repo/dist/windows-portable/EmailPilotAI/`
-  - 검증: `D:\EmailPilotAI` 아래 `EmailPilotAI.exe`는 공식 runtime 1개만 남았다.
+- root `AGENTS.md`만 운영 규칙을 맡기고, 다른 문서에는 각 문서 역할만 남기도록 `README.md`, `docs/feature_catalog.md`, 모듈 `README/logbook`, starter pack 문구를 일괄 축약했다.
+- `app/packaging/README.md`를 packaging canonical 문서로 남기고, 중복이 크던 `app/docs/환경/windows_portable_exe.md`는 실제로 삭제했다.
+- 홈 화면의 `가이드 새 창으로 보기` 링크를 없애고, `/workspace/guide`는 더 이상 별도 템플릿을 유지하지 않고 홈 모달로 redirect 하게 바꿨다.
+- `app/templates/workspace_guide.html` 같은 guide wrapper template을 제거해 세이브 파일 가이드 표현을 한 군데로 줄였다.
+- repo 내부 `__pycache__` 같은 cache 산출물은 이번 cleanup publish에서 함께 정리했다.
+- 검증은 `app.ui_smoke`, `feature-harness-smoke`, logbook/archive guard, `git status --short --branch` clean 확인 기준으로 닫았다.
 
 ### 2026-04-10 | Human + Codex | 파일 탐색기 브리지 복구와 로컬 실행 전용 정책 정리
 
@@ -199,7 +189,7 @@
 - `runtime/cli.py`에 `feature-check-all`, `feature-harness-smoke`를 추가해 현재 feature 카탈로그를 전량 prerequisite 점검하고 sample workspace smoke를 한 번에 돌릴 수 있게 했다.
 - `app/ui_smoke.py`를 추가해 홈, 설정, 리뷰센터, 관리도구, workbook 재반영 background job까지 `TestClient` 기준으로 반복 검증할 수 있게 했다.
 - 당시에는 GitHub Actions 기반 Windows artifact 경로도 열었지만, 현재 active tracked 기준에서는 workflow scope 제약 때문에 CI workflow 파일을 canonical 경로에서 제외했다.
-- `runtime/docs/환경/feature_harness.md`, `app/docs/환경/windows_portable_exe.md`를 추가해 smoke와 packaging 절차를 공식 위치에 정리했다.
+- `runtime/docs/환경/feature_harness.md`와 `app/packaging/README.md`를 smoke/packaging 절차의 공식 위치로 정리했다.
 
 ### 2026-04-08 | Human + Codex | 포터블 exe 기준과 기능 전수 테스트 구조 도입
 

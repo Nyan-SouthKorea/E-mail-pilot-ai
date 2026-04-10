@@ -14,6 +14,7 @@
 - 변경 사실은 가까운 `docs/logbook.md`에 먼저 반영한다.
 - 안정된 설명과 경계는 `README.md` 또는 모듈 `README.md`에 반영한다.
 - 같은 내용을 여러 문서에 복제하지 않는다.
+- 운영 규칙은 root `AGENTS.md`만 기준으로 두고, 다른 문서에는 각 문서의 역할만 남긴다.
 - 승인된 상위 plan이 있으면 구현 전에 root `docs/logbook.md`에 plan 전문과 current checkpoint가 먼저 있어야 한다.
 
 ## 해야 할 일

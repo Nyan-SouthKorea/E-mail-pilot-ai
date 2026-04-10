@@ -543,22 +543,19 @@ def home(request: Request):
     context = _session_context()
     return TEMPLATES.TemplateResponse(
         "home.html",
-        {"request": request, **context, **_page_feedback(request), **_dialog_context(workspace=context.get("workspace"))},
-    )
-
-
-@app.get("/workspace/guide", response_class=HTMLResponse)
-def workspace_guide(request: Request):
-    context = _session_context()
-    return TEMPLATES.TemplateResponse(
-        "workspace_guide.html",
         {
             "request": request,
+            "auto_open_modal": "save-guide-modal" if request.query_params.get("guide") == "1" else "",
             **context,
             **_page_feedback(request),
             **_dialog_context(workspace=context.get("workspace")),
         },
     )
+
+
+@app.get("/workspace/guide")
+def workspace_guide(request: Request):
+    return RedirectResponse(url="/?guide=1", status_code=303)
 
 
 @app.get("/workspace/inspect-path")

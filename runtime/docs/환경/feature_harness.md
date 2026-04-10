@@ -2,9 +2,9 @@
 
 이 문서는 공유 워크스페이스 기준 기능 smoke와 샘플 세이브 반복 검증 절차를 적는다.
 
-## 읽기 순서
+## 기준
 
-- 비사소한 작업 전에는 `../../../AGENTS.md -> ../../../README.md -> ../../../docs/logbook.md -> ../../../docs/feature_catalog.md -> ../../README.md -> ../logbook.md -> ./feature_harness.md` 순서로 다시 읽는다.
+- 작업 시작 게이트와 읽기 순서는 root `AGENTS.md`를 따른다.
 
 ## 현재 기준
 

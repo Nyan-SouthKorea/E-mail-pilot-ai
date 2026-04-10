@@ -2,8 +2,6 @@
 
 이 디렉토리는 공유 워크스페이스, 장시간 실행 조율, 상태 저장, 운영 workbook 재구성 계층 자리다.
 
-비사소한 작업 전에는 항상 `../AGENTS.md -> ../README.md -> ../docs/logbook.md -> ../docs/feature_catalog.md -> ./README.md -> ./docs/logbook.md` 순서로 다시 읽는다.
-
 현재 상태:
 
 - 공유 워크스페이스 manifest `workspace.epa-workspace.json` 구조가 있다.
@@ -29,10 +27,4 @@
 - 첫 동기화는 `quick_smoke`, 운영 동기화는 `incremental_full`을 기본 모드로 본다.
 - 정적 HTML review board는 fallback/debug 산출물로 남기고, 사용자 검토의 active canonical 상태는 state DB와 앱 UI가 맡는다.
 
-현재 참고 기준:
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../README.md`](../README.md)
-- [`../docs/logbook.md`](../docs/logbook.md)
-- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
-- [`./docs/logbook.md`](./docs/logbook.md)
+운영 규칙과 읽기 게이트는 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

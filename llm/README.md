@@ -37,10 +37,4 @@
 - 이미지 첨부가 있으면 텍스트 요약만 보내지 않고, 가능한 범위에서 실제 이미지 입력도 함께 전달하는 방향을 기본으로 둔다.
 - 템플릿 헤더 의미 해석은 rule로 먼저 처리하고, unresolved header만 작은 structured output 요청으로 fallback 한다.
 
-현재 참고 기준:
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../README.md`](../README.md)
-- [`../docs/logbook.md`](../docs/logbook.md)
-- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
-- [`./docs/logbook.md`](./docs/logbook.md)
+운영 규칙은 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

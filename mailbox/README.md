@@ -72,10 +72,4 @@ secrets/사용자 설정/<이름>/실행결과/받은 메일/
 - 최신 1건 fetch와 INBOX 전체 backfill은 모두 read-only IMAP `BODY.PEEK[]` 기준을 유지한다.
 - 전체 backfill은 기존 valid bundle id를 기준으로 중복 저장을 피하고, schema가 깨진 placeholder는 자동 skip 근거로 쓰지 않는다.
 
-현재 참고 기준:
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../README.md`](../README.md)
-- [`../docs/logbook.md`](../docs/logbook.md)
-- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
-- [`./docs/logbook.md`](./docs/logbook.md)
+운영 규칙은 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

@@ -88,6 +88,15 @@
     });
   }
 
+  function openAutoModal() {
+    var modalId = document.body.dataset.autoOpenModal || '';
+    if (!modalId) return;
+    var modal = document.getElementById(modalId);
+    if (modal && modal.showModal) {
+      modal.showModal();
+    }
+  }
+
   function bindDialogRecheck() {
     document.querySelectorAll('[data-dialog-recheck]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -340,6 +349,7 @@
     bindModalButtons();
     bindDialogRecheck();
     initializeShellContext();
+    openAutoModal();
   }
 
   document.addEventListener('DOMContentLoaded', initializeUi);

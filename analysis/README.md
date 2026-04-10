@@ -59,11 +59,4 @@
 - real bundle 품질 회귀는 `real_bundle_quality_smoke.py`로 확인한다.
 - 전체 inbox 검토 보드는 `inbox_review_board_smoke.py`로 만든다.
 
-현재 참고 기준:
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../README.md`](../README.md)
-- [`../docs/logbook.md`](../docs/logbook.md)
-- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
-- [`./docs/logbook.md`](./docs/logbook.md)
-- [`../llm/README.md`](../llm/README.md)
+운영 규칙은 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다. 공용 모델 transport 책임은 [`../llm/README.md`](../llm/README.md)를 함께 본다.

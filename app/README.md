@@ -2,8 +2,6 @@
 
 이 디렉토리는 Windows exe/installer에서 열릴 전용 데스크톱 창과 로컬 Web UI 진입점 자리다.
 
-비사소한 작업 전에는 항상 `../AGENTS.md -> ../README.md -> ../docs/logbook.md -> ../docs/feature_catalog.md -> ./README.md -> ./docs/logbook.md` 순서로 다시 읽는다.
-
 현재 상태:
 
 - FastAPI 기반 로컬 UI 서버가 있다.
@@ -31,10 +29,4 @@
 - 동기화는 `빠른 테스트`와 `전체 동기화` 두 흐름으로 나누고, quick smoke를 기본 첫 진입점으로 둔다.
 - workbook과 원본 메일 검토의 canonical 상태는 runtime state DB와 workspace 상대경로 링크를 기준으로 본다.
 
-현재 참고 기준:
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../README.md`](../README.md)
-- [`../docs/logbook.md`](../docs/logbook.md)
-- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
-- [`./docs/logbook.md`](./docs/logbook.md)
+운영 규칙과 읽기 게이트는 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

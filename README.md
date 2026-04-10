@@ -2,7 +2,7 @@
 
 이 저장소는 이메일을 받아 필요한 정보를 구조화하고 Excel로 반영하는 개인용 자동화 스택을 만드는 리포지토리다. 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이며, 실제 메일 계정과 프로필별 Excel 템플릿을 안전하게 다루는 방향을 우선한다.
 
-처음 방문한 사람은 이 문서부터 읽으면 된다. 실제 작업을 시작하는 사람은 그다음 [AGENTS.md](./AGENTS.md), [docs/logbook.md](./docs/logbook.md), [docs/feature_catalog.md](./docs/feature_catalog.md), 최신 [docs/logbook_archive](./docs/logbook_archive) 1개, 관련 모듈 `README.md`, 관련 모듈 `docs/logbook.md` 순서로 들어간다.
+처음 방문한 사람은 이 문서부터 읽으면 된다. 실제 작업을 시작할 때의 읽기 게이트와 운영 규칙은 [AGENTS.md](./AGENTS.md)가 단일 기준으로 맡는다.
 
 비공개 자격증명, 실제 메일 원문, 실제 사용자 workbook, 공유 워크스페이스 운영이 포함된 작업은 tracked 문서만 보지 않고 sibling `../secrets/README.local.md`와 그 하위 로컬 문서를 함께 본다.
 
@@ -64,23 +64,6 @@
 - 이 기능은 공용 LLM transport와 로그 문제인가?
 - 이 기능은 GUI나 사용자 실행 흐름 문제인가?
 - 이 기능은 장시간 실행 조율 문제인가?
-
-## 처음 방문한 사람이 읽는 순서
-
-### 1. 이 문서
-
-- 프로젝트가 무엇인지
-- 어떤 모듈이 있고 어디까지 왔는지
-- 전체 구조와 기능 배치 기준이 어떻게 생겼는지
-
-### 2. 작업을 실제로 시작할 때
-
-1. [AGENTS.md](./AGENTS.md)
-2. [docs/logbook.md](./docs/logbook.md)
-3. [docs/feature_catalog.md](./docs/feature_catalog.md)
-4. 최신 [docs/logbook_archive](./docs/logbook_archive) 안의 `logbook_*.md` 1개
-5. 관련 모듈 `README.md`
-6. 관련 모듈 `docs/logbook.md`
 
 ## 어디에 무엇이 기록되는가
 

@@ -4,7 +4,7 @@
 
 ## 읽기 규칙
 
-- 비사소한 작업 전에는 `../../AGENTS.md -> ../../README.md -> ../../docs/logbook.md -> ../../docs/feature_catalog.md -> ../README.md -> ./logbook.md` 순서로 다시 읽는다.
+- 작업 시작 게이트와 읽기 순서는 root `AGENTS.md`를 따른다.
 - 새 로그를 쓰기 전에는 가능하면 `python tools/logbook_archive_guard.py --path llm/docs/logbook.md --archive-if-needed`를 먼저 실행한다.
 
 ## 현재 스냅샷

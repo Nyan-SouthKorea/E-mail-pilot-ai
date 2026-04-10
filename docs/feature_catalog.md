@@ -3,9 +3,10 @@
 > 이 문서는 현재 제품/운영 기능의 canonical 카탈로그다.
 > 세부 runtime registry의 코드 기준은 `runtime/feature_registry.py`이고, 이 문서는 사람이 빠르게 읽는 인덱스 역할을 맡는다.
 
-## 읽기 위치
+## 역할
 
-- 비사소한 작업에서는 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md` 순서로 읽는다.
+- 작업 시작 게이트와 읽기 순서는 root `AGENTS.md`가 맡는다.
+- 이 문서는 기능 인덱스와 공식 접근점 목록만 유지한다.
 - 새 기능 추가나 리팩토링은 이 문서와 `runtime/feature_registry.py`가 함께 갱신되어야 완료로 본다.
 
 ## 현재 기준

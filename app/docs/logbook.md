@@ -4,7 +4,7 @@
 
 ## 읽기 규칙
 
-- 비사소한 작업 전에는 `../../AGENTS.md -> ../../README.md -> ../../docs/logbook.md -> ../../docs/feature_catalog.md -> ../README.md -> ./logbook.md` 순서로 다시 읽는다.
+- 작업 시작 게이트와 읽기 순서는 root `AGENTS.md`를 따른다.
 
 ## 현재 스냅샷
 
@@ -14,7 +14,7 @@
 - 리뷰센터는 sqlite state DB 기준으로 triage, dedupe, 대표 export 상태를 보여준다.
 - 원본 열기 링크는 workspace 상대경로를 기준으로 OS 파일 열기를 시도한다.
 - `app/ui_smoke.py`로 핵심 화면과 재반영 버튼까지 반복 검증할 수 있다.
-- Windows portable exe는 CI workflow와 Windows host build script 두 경로를 같이 가진다.
+- Windows portable exe는 Windows host build script 기준으로 빌드하고 `D:\EmailPilotAI\portable\EmailPilotAI\`에 단일 publish 한다.
 - 공식 사용자 실행 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
 - 홈은 서비스형 온보딩 대시보드, 설정은 기본/고급, 동기화는 quick/full, 리뷰는 카드형 확장 리스트 기준으로 개편 중이다.
 
@@ -86,7 +86,7 @@
 
 - `app/packaging/build_windows_portable_and_mirror.sh`와 `app/packaging/mirror_portable_to_linux.sh`를 추가해, A100에서 reverse SSH로 Windows onedir bundle을 빌드하고 Linux 공유 경로 `repo/dist/windows-portable/EmailPilotAI/`로 다시 미러링하는 운영 경로를 만들었다.
 - 이 경로는 Windows SSH 세션에서 `Z:` 네트워크 드라이브가 보이지 않는 제약을 우회하기 위해, A100이 Windows 산출물을 tar 스트림으로 다시 끌어오는 방식으로 고정했다.
-- `app/docs/환경/windows_portable_exe.md`와 `app/packaging/README.md`에는 공유 폴더 직접 실행 허용, exe 위치와 세이브 파일 위치 분리, fallback Windows 로컬 복사 실행 기준을 함께 정리했다.
+- `app/packaging/README.md`에는 공유 폴더 비실행, exe 위치와 세이브 파일 위치 분리, 공식 Windows 로컬 실행 기준을 정리했다.
 
 ### 2026-04-09 | Human + Codex | 세이브 파일 파일탐색기와 설정/관리도구 UX 복구
 
@@ -107,7 +107,7 @@
 
 - `app/ui_smoke.py`를 추가해 홈, 설정, 리뷰센터, 관리도구, workbook 재반영 버튼까지 FastAPI `TestClient` 기준으로 반복 검증할 수 있게 했다.
 - 당시에는 GitHub Actions 기반 Windows artifact 경로도 열었지만, 현재 active tracked 기준에서는 workflow scope 제약 때문에 CI workflow 파일을 canonical 경로에서 제외했다.
-- `app/docs/환경/windows_portable_exe.md`에 Windows host/CI 기준 빌드 절차와 smoke 기준을 정리했다.
+- Windows 포터블 build와 smoke 기준은 `app/packaging/README.md` 한 곳으로 정리했다.
 
 ### 2026-04-08 | Human + Codex | Windows exe 부팅 오류 복구와 packaged smoke 추가
 

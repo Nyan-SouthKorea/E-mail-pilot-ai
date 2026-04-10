@@ -41,10 +41,4 @@
 - generated 로그와 회귀 보고서는 기본적으로 `secrets/사용자 설정/<이름>/실행결과/로그/exports/`에 둔다.
 - generated workbook과 reference fixture의 차이는 deterministic workbook diff로 회귀 확인하되, 이 비교는 최적화 목표가 아니라 guardrail로 사용한다.
 
-현재 참고 기준:
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../README.md`](../README.md)
-- [`../docs/logbook.md`](../docs/logbook.md)
-- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
-- [`./docs/logbook.md`](./docs/logbook.md)
+운영 규칙은 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

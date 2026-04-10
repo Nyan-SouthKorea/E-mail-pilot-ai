@@ -123,7 +123,6 @@ def run_app_ui_smoke(
             ("/review", "review_page", "운영 workbook 재반영"),
             ("/admin/features", "admin_features_page", "startup.log"),
             ("/jobs/current", "job_status_api", '"status"'),
-            ("/workspace/guide", "workspace_guide_page", "세이브 파일 가이드"),
         ]
         for route, step_name, expected_text in routes:
             response = client.get(route)

@@ -1,6 +1,6 @@
 # Portable EXE Packaging
 
-이 폴더는 Windows에서 검증용 포터블 exe를 만드는 기준 파일을 둔다.
+이 폴더는 Windows 포터블 exe 빌드와 publish의 canonical 문서와 스크립트를 둔다.
 
 현재 기준:
 
@@ -52,7 +52,7 @@ Linux에서 Windows 빌드와 로컬 publish를 한 번에 처리할 때:
 
 비고:
 
-- Windows 포터블 exe는 Windows 호스트 또는 Windows CI runner에서 빌드하는 것을 기본으로 본다.
+- Windows 포터블 exe는 Windows 호스트에서 빌드하는 것을 기본으로 본다.
 - Linux 서버에서는 spec, 오프라인 자산, 런처 구조 검증까지만 수행한다. Linux에서 빌드된 ELF 산출물은 Windows에서 실행할 수 없다.
 - 앱 내부 FastAPI 서버는 항상 해당 Windows 프로세스 안에서 로컬로 뜬다. 서버와 Windows 검증의 연동성은 exe 위치가 아니라 같은 세이브 파일 폴더를 열었는지로 결정된다.
 - 공유 폴더 직접 실행은 `pythonnet / Python.Runtime.dll` 계층에서 불안정할 수 있어 공식 지원 경로에서 제외한다.
