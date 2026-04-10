@@ -77,4 +77,5 @@ secrets/사용자 설정/<이름>/실행결과/받은 메일/
 - [`../AGENTS.md`](../AGENTS.md)
 - [`../README.md`](../README.md)
 - [`../docs/logbook.md`](../docs/logbook.md)
+- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
 - [`./docs/logbook.md`](./docs/logbook.md)

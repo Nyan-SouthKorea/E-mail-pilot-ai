@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}관리도구 | Email Pilot AI{% endblock %}
+{% block body %}
+<section class="hero">
+  <h1>관리도구</h1>
+  <p class="muted">현재 제품 기능을 카탈로그 기준으로 보여주고, 서버와 앱에서 같은 세이브를 기준으로 smoke/debug feature를 직접 실행할 수 있게 합니다.</p>
+  <div class="status-strip" data-job-status></div>
+  {% if readonly %}
+  <div class="field-status warn">읽기 전용 세이브 파일에서는 write lock이 필요한 기능 실행 버튼이 비활성화됩니다.</div>
+  {% endif %}
+</section>
+
+<section class="section">
+  <h2>앱 실행 진단</h2>
+  <div class="details">
+    <div>실행 모드: <span data-shell-mode-value>{{ shell_context.shell_mode_label }}</span></div>
+    <div>파일 탐색기 상태: <span data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</span></div>
+    <div>현재 실행 경로: {{ shell_context.launch_path or "(감지 정보 없음)" }}</div>
+    <div>공식 실행 파일: {{ shell_context.official_local_bundle_path }}</div>
+    <div>startup.log: {{ shell_context.startup_log_path }}</div>
+    <div>지원 경로 여부: {{ shell_context.launch_support_label }}</div>
+    {% if shell_context.unsupported_launch_reason %}
+    <div class="danger">{{ shell_context.unsupported_launch_reason }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <h2>기능 카탈로그 개요</h2>
+  <div class="details">
+    <div>기능 수: {{ feature_catalog_rows|length }}</div>
+    <div>주요 기능은 UI, 세부 smoke/debug 기능은 이 관리도구와 CLI에서 접근한다.</div>
+    <div>모든 기능은 `docs/feature_catalog.md`와 같은 레지스트리를 기준으로 본다.</div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="feature-grid">
+    {% for entry in feature_entries %}
+    <article class="feature-card">
+      <h3>{{ entry.spec.title }}</h3>
+      <div class="feature-meta">
+        <div><strong>ID</strong>: <span class="mono">{{ entry.spec.feature_id }}</span></div>
+        <div><strong>소유 모듈</strong>: {{ entry.spec.owner_module }}</div>
+        <div><strong>접근 모드</strong>: {{ entry.spec.access_modes | join(", ") }}</div>
+        <div><strong>요약</strong>: {{ entry.spec.summary }}</div>
+      </div>
+
+      <div class="checklist">
+        {% for check in entry.checks %}
+        <div class="check-item">
+          <div><strong>{{ check.label }}</strong> <span class="{{ check.status }}">{{ check.status }}</span></div>
+          <div class="details">{{ check.detail }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if entry.latest_run %}
+      <div class="section" style="margin-top:12px;padding:14px">
+        <h2 style="font-size:15px">최근 실행</h2>
+        <div class="details">
+          <div>상태: {{ entry.latest_run.status }}</div>
+          <div>시작: {{ entry.latest_run.started_at }}</div>
+          <div>종료: {{ entry.latest_run.finished_at or "(진행 중)" }}</div>
+          {% if entry.latest_run.error_summary %}
+          <div class="danger">{{ entry.latest_run.error_summary }}</div>
+          {% endif %}
+        </div>
+        {% if entry.latest_run.outputs %}
+        <div class="code-block mono" style="margin-top:10px">{{ entry.latest_run.outputs | tojson(indent=2) }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="feature-actions">
+        {% if entry.spec.supports_run and ('admin' in entry.spec.access_modes) %}
+        <form action="/admin/features/run" method="post">
+          <input type="hidden" name="feature_id" value="{{ entry.spec.feature_id }}">
+          <button class="primary" type="submit" {% if entry.run_disabled %}disabled{% endif %}>실행</button>
+        </form>
+        {% endif %}
+        {% if entry.spec.ui_route %}
+        <a href="{{ entry.spec.ui_route }}">UI 경로 열기</a>
+        {% endif %}
+        {% if entry.spec.cli_command %}
+        <span class="mono">{{ entry.spec.cli_command }}</span>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

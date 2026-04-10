@@ -46,6 +46,20 @@ class WorkspaceStateStore:
                     metadata_json TEXT NOT NULL DEFAULT '{}'
                 );
 
+                CREATE TABLE IF NOT EXISTS feature_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    feature_id TEXT NOT NULL,
+                    app_kind TEXT NOT NULL,
+                    trigger_source TEXT NOT NULL DEFAULT '',
+                    started_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    status TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    outputs_json TEXT NOT NULL DEFAULT '{}',
+                    notes_json TEXT NOT NULL DEFAULT '[]',
+                    error_summary TEXT NOT NULL DEFAULT ''
+                );
+
                 CREATE TABLE IF NOT EXISTS bundle_review_state (
                     bundle_id TEXT PRIMARY KEY,
                     received_at TEXT,
@@ -111,6 +125,9 @@ class WorkspaceStateStore:
 
                 CREATE INDEX IF NOT EXISTS idx_bundle_review_state_triage
                 ON bundle_review_state (triage_label, is_export_representative);
+
+                CREATE INDEX IF NOT EXISTS idx_feature_runs_feature
+                ON feature_runs (feature_id, id DESC);
                 """
             )
 
@@ -159,6 +176,58 @@ class WorkspaceStateStore:
                     status,
                     json.dumps(notes or [], ensure_ascii=False),
                     json.dumps(metadata or {}, ensure_ascii=False),
+                    run_id,
+                ),
+            )
+
+    def start_feature_run(
+        self,
+        *,
+        feature_id: str,
+        app_kind: str,
+        trigger_source: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
+        with self.connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO feature_runs (
+                    feature_id, app_kind, trigger_source, started_at, status, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    feature_id,
+                    app_kind,
+                    trigger_source,
+                    utc_now_iso(),
+                    "running",
+                    json.dumps(metadata or {}, ensure_ascii=False),
+                ),
+            )
+            return int(cursor.lastrowid)
+
+    def finish_feature_run(
+        self,
+        run_id: int,
+        *,
+        status: str,
+        outputs: dict[str, Any] | None = None,
+        notes: list[str] | None = None,
+        error_summary: str = "",
+    ) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                """
+                UPDATE feature_runs
+                SET finished_at = ?, status = ?, outputs_json = ?, notes_json = ?, error_summary = ?
+                WHERE id = ?
+                """,
+                (
+                    utc_now_iso(),
+                    status,
+                    json.dumps(outputs or {}, ensure_ascii=False),
+                    json.dumps(notes or [], ensure_ascii=False),
+                    error_summary,
                     run_id,
                 ),
             )
@@ -471,6 +540,44 @@ class WorkspaceStateStore:
             "metadata": json.loads(row["metadata_json"] or "{}"),
         }
 
+    def latest_feature_runs(self) -> list[dict[str, Any]]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT fr.*
+                FROM feature_runs fr
+                INNER JOIN (
+                    SELECT feature_id, MAX(id) AS max_id
+                    FROM feature_runs
+                    GROUP BY feature_id
+                ) latest
+                ON latest.feature_id = fr.feature_id
+                AND latest.max_id = fr.id
+                ORDER BY fr.feature_id ASC
+                """
+            ).fetchall()
+        return [self._row_to_feature_run(row) for row in rows]
+
+    def feature_run_history(
+        self,
+        *,
+        feature_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        query = [
+            "SELECT * FROM feature_runs WHERE 1=1",
+        ]
+        params: list[Any] = []
+        if feature_id:
+            query.append("AND feature_id = ?")
+            params.append(feature_id)
+        query.append("ORDER BY id DESC LIMIT ?")
+        params.append(limit)
+        sql = " ".join(query)
+        with self.connect() as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [self._row_to_feature_run(row) for row in rows]
+
     def _row_to_review_item(self, row: sqlite3.Row) -> dict[str, Any]:
         return {
             "bundle_id": row["bundle_id"],
@@ -502,4 +609,19 @@ class WorkspaceStateStore:
             "duplicate_of_bundle_id": row["duplicate_of_bundle_id"],
             "workbook_row_index": row["workbook_row_index"],
             "user_override_state": row["user_override_state"] or "",
+        }
+
+    def _row_to_feature_run(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": int(row["id"]),
+            "feature_id": row["feature_id"],
+            "app_kind": row["app_kind"],
+            "trigger_source": row["trigger_source"],
+            "started_at": row["started_at"],
+            "finished_at": row["finished_at"],
+            "status": row["status"],
+            "metadata": json.loads(row["metadata_json"] or "{}"),
+            "outputs": json.loads(row["outputs_json"] or "{}"),
+            "notes": json.loads(row["notes_json"] or "[]"),
+            "error_summary": row["error_summary"] or "",
         }

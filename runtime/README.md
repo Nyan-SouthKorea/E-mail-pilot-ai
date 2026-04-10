@@ -2,16 +2,20 @@
 
 이 디렉토리는 공유 워크스페이스, 장시간 실행 조율, 상태 저장, 운영 workbook 재구성 계층 자리다.
 
-비사소한 작업 전에는 항상 `../AGENTS.md -> ../README.md -> ../docs/logbook.md -> ./README.md -> ./docs/logbook.md` 순서로 다시 읽는다.
+비사소한 작업 전에는 항상 `../AGENTS.md -> ../README.md -> ../docs/logbook.md -> ../docs/feature_catalog.md -> ./README.md -> ./docs/logbook.md` 순서로 다시 읽는다.
 
 현재 상태:
 
 - 공유 워크스페이스 manifest `workspace.epa-workspace.json` 구조가 있다.
 - `secure/secrets.enc.json`에 AES-GCM + scrypt 기반 암호화 secret 저장 경로가 있다.
 - `state/state.sqlite`에 sync run, review state, dedupe, representative, override, workbook row 상태를 저장한다.
+- `state/state.sqlite`에 feature run history도 함께 저장한다.
 - `locks/write.lock` 기반 단일 작성자 잠금 경로가 있다.
 - 기존 `mailbox / analysis / exports / llm` 엔진을 `workspace/profile` 기준으로 다시 묶는 sync service가 있다.
 - 대표 신청 건만 stable 운영 workbook으로 다시 쓰고 `검토_인덱스` 시트를 추가하는 재구성 경로가 있다.
+- `runtime/feature_registry.py`가 제품/운영 기능 카탈로그와 관리도구/CLI 실행 진입점을 같이 맡는다.
+- `runtime/sample_workspace.py`가 repo-safe 샘플 세이브를 만든다.
+- `runtime/feature_harness_smoke.py`가 sample workspace와 앱 UI를 묶어 반복 smoke를 수행한다.
 
 현재 구현 방향:
 
@@ -27,4 +31,5 @@
 - [`../AGENTS.md`](../AGENTS.md)
 - [`../README.md`](../README.md)
 - [`../docs/logbook.md`](../docs/logbook.md)
+- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
 - [`./docs/logbook.md`](./docs/logbook.md)

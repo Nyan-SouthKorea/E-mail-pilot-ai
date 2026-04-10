@@ -4,7 +4,7 @@
 
 ## 읽기 규칙
 
-- 비사소한 작업 전에는 `../../AGENTS.md -> ../../README.md -> ../../docs/logbook.md -> ../README.md -> ./logbook.md` 순서로 다시 읽는다.
+- 비사소한 작업 전에는 `../../AGENTS.md -> ../../README.md -> ../../docs/logbook.md -> ../../docs/feature_catalog.md -> ../README.md -> ./logbook.md` 순서로 다시 읽는다.
 
 ## 현재 스냅샷
 
@@ -13,6 +13,9 @@
 - review report를 state DB로 ingest하고 회사 기준 dedupe를 적용한다.
 - stable 운영 workbook을 다시 만들고 `검토_인덱스` 시트를 함께 쓴다.
 - CLI로 workspace create / inspect / sync를 실행할 수 있다.
+- feature registry와 feature run history가 있다.
+- repo-safe 샘플 워크스페이스 seed를 만들 수 있다.
+- `feature-check-all`과 `feature-harness-smoke`로 카탈로그 전량 점검과 반복 smoke를 수행할 수 있다.
 
 ## 현재 활성 체크리스트
 
@@ -22,10 +25,26 @@
 - [x] 기존 profile import 경로 도입
 - [x] review report -> state DB ingest 경로 도입
 - [x] 대표 신청 건 기준 stable 운영 workbook 재구성 경로 도입
+- [x] feature 카탈로그와 feature run history 도입
+- [x] repo-safe sample workspace seed 도입
+- [x] feature-check-all, feature-harness-smoke, app UI smoke 연동
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
 
 ## 최근 로그
+
+### 2026-04-08 | Human + Codex | feature registry와 샘플 워크스페이스 seed 추가
+
+- `runtime/feature_registry.py`를 추가해 현재 제품/운영 기능의 canonical registry를 만들고, 관리도구/CLI에서 같은 정의를 재사용하게 했다.
+- `feature_runs`를 sqlite에 추가해 기능별 최근 실행 상태와 산출물 요약을 저장하게 했다.
+- `runtime/cli.py`는 `feature-list`, `feature-inspect`, `feature-check`, `feature-run`, `create-sample-workspace` 명령을 지원하게 됐다.
+- `runtime/sample_workspace.py`는 합성 메일 4건으로 review board, dedupe, 운영 workbook을 채운 repo-safe sample save를 생성한다.
+
+### 2026-04-08 | Human + Codex | feature harness smoke와 전체 prerequisite 점검 추가
+
+- `runtime/cli.py`에 `feature-check-all`, `feature-harness-smoke` 명령을 추가해 현재 feature 카탈로그를 전량 점검하고 샘플 워크스페이스 smoke를 한 번에 돌릴 수 있게 했다.
+- `runtime/feature_harness_smoke.py`는 sample workspace와 `app/ui_smoke.py`를 묶어 review center, admin tool, workbook 재반영까지 반복 검증한다.
+- `runtime/docs/환경/feature_harness.md`에 샘플 세이브 생성, 전체 smoke, UI smoke 단독 실행 절차를 정리했다.
 
 ### 2026-04-08 | Human + Codex | 공유 워크스페이스 save v1 도입
 

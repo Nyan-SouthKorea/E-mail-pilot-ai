@@ -2,7 +2,7 @@
 
 이 저장소는 이메일을 받아 필요한 정보를 구조화하고 Excel로 반영하는 개인용 자동화 스택을 만드는 리포지토리다. 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이며, 실제 메일 계정과 프로필별 Excel 템플릿을 안전하게 다루는 방향을 우선한다.
 
-처음 방문한 사람은 이 문서부터 읽으면 된다. 실제 작업을 시작하는 사람은 그다음 [AGENTS.md](./AGENTS.md), [docs/logbook.md](./docs/logbook.md), 최신 [docs/logbook_archive](./docs/logbook_archive) 1개, 관련 모듈 `README.md`, 관련 모듈 `docs/logbook.md` 순서로 들어간다.
+처음 방문한 사람은 이 문서부터 읽으면 된다. 실제 작업을 시작하는 사람은 그다음 [AGENTS.md](./AGENTS.md), [docs/logbook.md](./docs/logbook.md), [docs/feature_catalog.md](./docs/feature_catalog.md), 최신 [docs/logbook_archive](./docs/logbook_archive) 1개, 관련 모듈 `README.md`, 관련 모듈 `docs/logbook.md` 순서로 들어간다.
 
 비공개 자격증명, 실제 메일 원문, 실제 사용자 workbook, 공유 워크스페이스 운영이 포함된 작업은 tracked 문서만 보지 않고 sibling `../secrets/README.local.md`와 그 하위 로컬 문서를 함께 본다.
 
@@ -22,8 +22,8 @@
 | [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke, real-bundle quality smoke, 3-way triage, HTML review board, application-only batch export 구현 |
 | [exports](./exports/README.md) | 템플릿 해석, 열 의미 매핑, projection, workbook append | rule-first mapping, LLM fallback, workbook append, 회귀 guardrail 구현 |
 | [llm](./llm/README.md) | OpenAI wrapper, usage logging, 비용 추정, structured output transport | 공용 wrapper와 usage log 골격 구현 |
-| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace manifest, encrypted secrets, state DB, dedupe/workbook rebuild, CLI 구현 |
-| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, workspace open/create, settings, review center 골격 구현 |
+| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace manifest, encrypted secrets, state DB, feature registry/run history, sample workspace, feature harness smoke, CLI 구현 |
+| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, workspace open/create, settings, review center, 관리도구, UI smoke, 포터블 exe packaging/CI 기준 구현 |
 
 ## 새 기능을 어디에 둘까
 
@@ -77,9 +77,10 @@
 
 1. [AGENTS.md](./AGENTS.md)
 2. [docs/logbook.md](./docs/logbook.md)
-3. 최신 [docs/logbook_archive](./docs/logbook_archive) 안의 `logbook_*.md` 1개
-4. 관련 모듈 `README.md`
-5. 관련 모듈 `docs/logbook.md`
+3. [docs/feature_catalog.md](./docs/feature_catalog.md)
+4. 최신 [docs/logbook_archive](./docs/logbook_archive) 안의 `logbook_*.md` 1개
+5. 관련 모듈 `README.md`
+6. 관련 모듈 `docs/logbook.md`
 
 ## 어디에 무엇이 기록되는가
 
@@ -88,6 +89,7 @@
 | [README.md](./README.md) | 처음 방문자를 위한 프로젝트 소개, 전체 구조, 프로젝트 전역 고정 메모 |
 | [AGENTS.md](./AGENTS.md) | 운영 정책과 작업 방법의 단일 기준 |
 | [docs/logbook.md](./docs/logbook.md) | 현재 상태, 전역 결정, 최근 로그의 단일 기준 |
+| [docs/feature_catalog.md](./docs/feature_catalog.md) | 현재 제품/운영 기능 카탈로그와 공식 접근점 인덱스 |
 | [docs/logbook_archive](./docs/logbook_archive) | 이전 active logbook와 legacy 기준 문서 archive |
 | `.agents/skills/` | 이 저장소 공용 반복 workflow skill 원본 |
 | `templates/codex_starter/` | 새 저장소 시작 때 복사해 쓰는 공통 운영 팩 |
@@ -137,6 +139,13 @@
 
 - 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이다.
 - 제품 주 사용 흐름은 `exe 실행 -> 세이브 파일 불러오기 -> 워크스페이스 암호 입력 -> 동기화 -> 자동 수집/분류/정리/엑셀 반영 -> 같은 창에서 검토/수정`이다.
+- 사용자는 세이브 파일 경로를 직접 외우기보다 앱의 `찾아보기` 버튼으로 고르고, 홈의 `세이브 파일 가이드`에서 폴더 기준을 확인하는 흐름을 기본으로 본다.
+- Windows 실행의 공식 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
+- 제품/운영 기능의 canonical 카탈로그는 `docs/feature_catalog.md`와 `runtime/feature_registry.py`가 함께 맡는다.
+- 반복 기능 검증은 `runtime/feature_harness_smoke.py`, `app/ui_smoke.py`, `runtime/cli.py feature-*` 명령을 기준으로 한다.
+- `Z:` 공유 폴더에서는 세이브 파일만 열고, exe는 절대 실행하지 않는다.
+- Windows 빌드는 `D:\EmailPilotAI\repo`에서 수행하고, 완료 후 최종 실행본은 `D:\EmailPilotAI\portable\EmailPilotAI\`만 남긴다.
+- 서버와 Windows가 결과를 같이 보는 기준은 exe 위치가 아니라 같은 세이브 파일 폴더를 열었는지다.
 - 메일 설정 탐지는 `도메인 규칙 -> provider preset -> autodiscover/autoconfig -> 실제 probe` 순서를 우선한다.
 - `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4층 계약은 유지한다.
 - `ExtractedRecord`는 `application / not_application / needs_human_review` 3분류 triage를 기본으로 가진다.

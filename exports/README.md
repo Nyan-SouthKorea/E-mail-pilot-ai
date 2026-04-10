@@ -46,4 +46,5 @@
 - [`../AGENTS.md`](../AGENTS.md)
 - [`../README.md`](../README.md)
 - [`../docs/logbook.md`](../docs/logbook.md)
+- [`../docs/feature_catalog.md`](../docs/feature_catalog.md)
 - [`./docs/logbook.md`](./docs/logbook.md)

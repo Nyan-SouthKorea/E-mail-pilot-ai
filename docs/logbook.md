@@ -13,9 +13,10 @@
   1. `AGENTS.md`
   2. `README.md`
   3. `docs/logbook.md`
-  4. 최신 `docs/logbook_archive/logbook_*.md` 1개
-  5. 관련 모듈 `README.md`
-  6. 관련 모듈 `docs/logbook.md`
+  4. `docs/feature_catalog.md`
+  5. 최신 `docs/logbook_archive/logbook_*.md` 1개
+  6. 관련 모듈 `README.md`
+  7. 관련 모듈 `docs/logbook.md`
 - 새 파일, 새 폴더, 새 문서, 복사본, 이동 결과, 다운로드 자산처럼 실제 산출물을 만들기 전에는 관련 기준 문서와 디렉토리 인벤토리 출력을 먼저 확인한다.
 - 이 문서에는 프로젝트 레벨 현재 상태와 전역 결정만 둔다.
 - 모듈별 상세 아키텍처, 고정 경로, 비채택 결정, 세부 실행 절차는 각 모듈 `README.md`에 둔다.
@@ -31,6 +32,7 @@
   - 운영 방법과 정책: `AGENTS.md`
   - 프로젝트 소개, 전체 구조, 기능 배치 기준: `README.md`
   - 프로젝트 레벨 현재 상태와 최근 기록: `docs/logbook.md`
+  - 제품/운영 기능 카탈로그: `docs/feature_catalog.md`
   - 저장소 공용 반복 workflow skill 원본: `.agents/skills/`
   - 새 저장소 시작용 공통 운영 팩: `templates/codex_starter/`
   - 모듈별 상세 기준: `mailbox/README.md`, `analysis/README.md`, `exports/README.md`, `llm/README.md`, `runtime/README.md`, `app/README.md`
@@ -50,12 +52,12 @@
   - `analysis`: `NormalizedMessage -> ExtractedRecord` structured output 경로와 multimodal 입력 builder, fixture/runtime bundle smoke, real-bundle quality smoke, 3-way triage, HTML review board, application-only batch export 경로가 있다.
   - `exports`: 템플릿 reader, semantic mapping, projection, workbook append, 회귀 guardrail이 있다.
   - `llm`: OpenAI wrapper, usage logging, 가격표 snapshot 기반 비용 추정, structured output transport가 있다.
-  - `runtime`: 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock, dedupe/workbook rebuild, sync CLI가 있다.
-  - `app`: FastAPI 기반 로컬 UI, pywebview launcher, workspace open/create, settings, review center 골격이 있다.
+  - `runtime`: 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock, dedupe/workbook rebuild, sync CLI, feature harness smoke가 있다.
+  - `app`: FastAPI 기반 로컬 UI, pywebview launcher, workspace open/create, settings, review center, 관리도구, UI smoke가 있다.
 
 ## 현재 전역 결정
 
-- 시작 게이트는 항상 `AGENTS.md -> README.md -> docs/logbook.md`다.
+- 시작 게이트는 항상 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md`다.
 - stable truth는 `README.md`와 각 모듈 `README.md`, active truth는 `docs/logbook.md`와 각 모듈 `docs/logbook.md`에 둔다.
 - 런타임 데이터 계약은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계를 유지한다.
 - `ExtractedRecord` top-level triage는 `application`, `not_application`, `needs_human_review` 3개 값으로 고정한다.
@@ -63,6 +65,8 @@
 - 입력 해석은 multimodal-first로 두고, 이미지나 스캔 문서가 있으면 실제 이미지 입력을 우선 활용한다.
 - 템플릿 해석은 rule-first로 시작하고, unresolved header만 LLM fallback으로 보충한다.
 - `app/`은 전용 데스크톱 창과 로컬 Web UI를 맡고, `runtime/`은 공유 save와 sync orchestration을 맡는다.
+- Windows 포터블 exe의 공식 실행 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나로 고정한다.
+- `Z:` 공유 폴더의 exe와 Linux repo shared mirror는 더 이상 실행본 canonical 위치로 쓰지 않는다.
 - 실제 inbox bundle, 실제 workbook, 실제 usage log는 `../secrets/사용자 설정/<이름>/실행결과/`에 두고, 재현 가능한 작은 smoke 결과와 비교 요약만 repo 내부 공식 위치 후보를 쓴다.
 - batch review HTML/JSON 보드는 `../secrets/사용자 설정/<이름>/실행결과/로그/review/`에 둔다.
 - workbook 자동 반영은 triage가 `application`이고 기업/연락처 신호가 함께 확인된 경우에만 허용한다.
@@ -95,11 +99,98 @@
   - [x] `app/`과 `runtime/`의 실제 디렉토리 도입과 문서 시드
   - [x] 공유 워크스페이스 save v1, 암호화 secret blob, sqlite state, write lock 도입
   - [x] 데스크톱 리뷰센터 앱 골격과 sync orchestration 도입
+  - [x] 기능 카탈로그와 관리도구, feature run history 도입
+  - [x] repo-safe 샘플 워크스페이스 seed 도입
+  - [x] 오프라인 포터블 exe 패키징 기준 파일과 로컬 static 자산 도입
+  - [x] feature harness smoke와 Windows portable exe CI workflow 도입
+  - [x] Windows exe `backports` 부팅 오류 복구 기준과 packaged smoke 추가
+  - [x] 세이브 파일 파일탐색기 선택, 세이브 파일 가이드, 설정 저장 배너, 관리도구 예외 복구
+  - [x] Windows build 산출물의 Linux 공유 미러와 Samba 실행 기준 정리
+  - [x] Windows `python310.dll` 부팅 오류 완화용 integrity/로컬 fallback 기준 추가
+  - [x] `/plan` 시작, 실행 직전, 완료 직전 `AGENTS.md` 재독 게이트 명시 강화
+  - [x] onedir 수동 복사 기준과 Linux build 부산물 cleanup 기준 정리
+  - [x] 파일 탐색기 브리지 상태 기계와 로컬 실행 전용 정책 정리
+  - [x] Windows 로컬 D 단일 실행본 publish와 C/D/Z 포터블 산출물 cleanup 기준 정리
   - [ ] real bundle 2건 이상으로 quality smoke 기준 확대
   - [ ] mailbox unseen 우선, 폴더 선택, 증분 fetch 순서로 운영성 보강
   - [ ] UI override 이후 diff/재반영 경험과 진행률 UX 보강
 
 ## 최근 로그
+
+### 2026-04-10 | Human + Codex | Windows 로컬 D 단일 실행본 publish와 C/D/Z cleanup 정리
+
+- Windows 포터블 exe 기준을 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나로 다시 고정했다.
+- `runtime/local_settings.py`, `app/main.py`, `app/server.py`, UI smoke는 이제 `%LOCALAPPDATA%`가 아니라 위 D 경로를 공식 실행 파일로 보고 진단/차단 메시지를 낸다.
+- frozen exe가 공유 드라이브, UNC, repo 내부 `dist/` 임시 산출물, 비공식 복사본에서 실행되면 초기에 차단하고, 세이브 파일은 공유 폴더에서 열 수 있지만 exe는 D 로컬 경로에서만 실행하라는 안내를 띄우게 했다.
+- packaging helper는 `publish_portable_to_runtime.ps1`와 `build_windows_portable_and_publish.sh` 기준으로 재편했고, Linux shared mirror를 만들던 이전 helper는 active 기준에서 제거했다.
+- 샘플 워크스페이스 기준 `app.ui_smoke`를 다시 실행해 `공식 실행 파일` 진단 문자열과 핵심 화면 흐름을 통과시켰다. 이 과정에서 UI smoke report 디렉토리를 먼저 만드는 누락도 함께 보완했다.
+- reverse SSH 기준 Windows 빌드를 실제로 다시 돌려 packaged smoke와 GUI smoke를 통과시켰고, 최종 runtime bundle은 `D:\EmailPilotAI\portable\EmailPilotAI\`에 생성됐다.
+- 실제 cleanup 결과는 아래와 같다.
+  - Windows 유지: `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`
+  - Windows 제거: `C:\Users\112fk\AppData\Local\EmailPilotAI\portable\EmailPilotAI\`, `D:\EmailPilotAI\repo\dist\EmailPilotAI\`, `D:\EmailPilotAI\repo\dist\windows-portable\EmailPilotAI\`
+  - Linux 제거: `repo/dist/windows-portable/EmailPilotAI/`
+  - 검증: `D:\EmailPilotAI` 아래 `EmailPilotAI.exe`는 공식 runtime 1개만 남았다.
+
+### 2026-04-10 | Human + Codex | 파일 탐색기 브리지 복구와 로컬 실행 전용 정책 정리
+
+- 로컬 Windows exe에서도 `pywebview` 브리지가 준비되기 전에 프런트엔드가 너무 빨리 `브라우저 fallback`으로 단정하던 문제를 기준으로, 앱 런처와 서버가 공유하는 실행 컨텍스트를 새로 추가했다.
+- 홈, 설정, 관리도구는 이제 `shell_mode`, `native_dialog_state`, 현재 실행 경로, 공식 로컬 실행 폴더, `startup.log` 경로를 진단 정보로 같이 보여준다.
+- `찾아보기` 버튼은 기본 비활성화로 렌더링하고, `desktop_ready`가 확인되기 전에는 `전용 창 연결 확인 중` 상태를 유지하도록 바꿨다.
+- Windows 실행 정책은 `공유 폴더는 배포본 보관용`, `실제 실행은 로컬 onedir 복사본`으로 다시 고정했다.
+- 공유 드라이브나 UNC 경로에서 직접 실행하면 `pythonnet / Python.Runtime.dll` 단계까지 가기 전에 친절한 preflight 안내를 띄우고 종료하도록 런처를 보강했다.
+- `app.ui_smoke`는 홈, 설정, 관리도구에서 새 진단 정보와 초기 `브라우저 fallback` 비노출 기준을 같이 확인하도록 업데이트했다.
+
+### 2026-04-09 | Human + Codex | Windows `python310.dll` 부팅 오류 복구 기준과 AGENTS 재독 게이트 강화
+
+- 표준 Windows build bundle과 Linux shared mirror에 `python310.dll`, `python3.dll`, `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll`, `ucrtbase.dll` 같은 필수 실행 파일이 실제로 존재한다는 점을 기준으로, 복구 초점은 `완전 누락`보다 `패키징 안정성`과 `공식 지원 경로 정리`에 맞췄다.
+- `EmailPilotAI.spec`에서 `UPX`를 꺼 검증용 portable exe를 안정성 우선 설정으로 바꿨고, `portable_bundle_manifest.py`로 필수 DLL 검사와 sha256 manifest 생성을 공용화했다.
+- `build_portable_exe.ps1`는 이제 build 후 필수 DLL 검사와 `portable_bundle_manifest.json` 생성까지 통과해야 완료로 본다.
+- `sync_portable_to_local_cache.ps1`를 추가해 공식 fallback 경로 `%LOCALAPPDATA%\\EmailPilotAI\\portable\\EmailPilotAI\\`로 bundle을 동기화하고, source/target manifest 비교와 packaged smoke까지 한 번에 수행하게 했다.
+- Samba 공유 실행에서만 `python310.dll`이 `LoadLibrary: 액세스가 거부되었습니다`로 실패하는 증상을 반영해, Linux shared mirror 생성 시 `.exe`, `.dll`, `.pyd`에 실행 비트를 주도록 보강했다.
+- onedir 수동 복사 기준은 `dist/windows-portable/EmailPilotAI/` 폴더 전체를 통째로 옮기는 것으로 고정했고, `cleanup_portable_artifacts.sh`로 `build/EmailPilotAI/`, `dist/EmailPilotAI/`, `dist/windows-portable.precheck/` 같은 로컬 build 부산물만 기본 정리 대상으로 묶었다.
+- 문서에는 공식 지원 경로를 `공유 폴더 직접 실행`과 `공식 로컬 cache 복사본`으로 고정하고, `D:\\#EmailPilotAI` 같은 임의 수동 복사 경로는 비공식으로 분리했다.
+- `AGENTS.md`, starter `AGENTS.md`, repo-local skill 2종에는 `/plan 시작`, `실행 직전`, `완료 직전`에 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md` 재독 게이트를 더 명시적으로 반영했다.
+
+### 2026-04-09 | Human + Codex | Windows build 산출물 Linux 공유 미러와 Samba 실행 기준 정리
+
+- Windows SSH 세션에서는 사용자의 `Z:` 네트워크 드라이브가 보이지 않는 것을 다시 확인했고, 이를 기준으로 공유 미러 전략을 `Windows가 Samba에 직접 쓰기`가 아니라 `A100이 reverse SSH로 Windows 산출물을 다시 끌어오기`로 고정했다.
+- `app/packaging/build_windows_portable_and_mirror.sh`를 추가해 A100에서 `Windows build -> packaged smoke -> Linux 공유 경로 미러`를 한 번에 실행하게 했고, `app/packaging/mirror_portable_to_linux.sh`는 기존 Windows 산출물만 다시 가져오는 helper로 분리했다.
+- 공유 실행 기준 경로는 `repo/dist/windows-portable/EmailPilotAI/EmailPilotAI.exe`로 정리했고, 이는 tracked release artifact가 아니라 Samba 검증 편의용 미러로 다룬다.
+- 문서에는 “연동성은 exe 위치가 아니라 같은 세이브 파일 폴더를 열었는지로 결정된다”는 기준과, 공유 폴더 직접 실행이 느리거나 막힐 때는 Windows 로컬 복사 실행을 fallback으로 쓰는 정책을 함께 반영했다.
+
+### 2026-04-09 | Human + Codex | 세이브 파일 파일탐색기와 설정/버튼 UX 복구
+
+- 홈 화면의 세이브 파일 열기/생성, 기존 profile import, 설정의 템플릿 경로에 `찾아보기` 버튼을 추가하고, Windows exe에서는 pywebview 네이티브 파일 탐색기를 통해 폴더/파일을 직접 고르게 했다.
+- 홈에 `세이브 파일 가이드`를 추가해 `세이브 파일 = workspace.epa-workspace.json 이 들어 있는 폴더`라는 기준과 공유 폴더 기반 권장 흐름을 앱 안에서 바로 읽게 했다.
+- 입력 경로는 `기존 세이브`, `새 세이브 가능`, `잘못된 경로`, `profile import 가능`, `템플릿 경로 상태`로 분류해 즉시 안내한다.
+- 설정 저장은 성공/실패 배너, 마지막 저장 시각, 템플릿 경로 상태를 함께 보여주고, 워크스페이스 미오픈/읽기 전용/워크스페이스 밖 템플릿 경로를 명시적으로 안내하게 했다.
+- `runtime.feature_registry`의 packaging check가 `backports` 미설치 환경에서도 예외를 던지지 않도록 고쳐 `/admin/features` 페이지가 다시 안정적으로 열린다.
+- 새 샘플 세이브 기준 `app.ui_smoke`를 통과했고, Windows remote build도 다시 돌려 `EmailPilotAI.exe` packaged smoke까지 완료했다.
+
+### 2026-04-08 | Human + Codex | Windows exe 부팅 오류 복구 기준 추가
+
+- Windows에서 `EmailPilotAI.exe`가 시작 직후 `No module named 'backports'`로 죽는 패키징 오류를 확인했다.
+- 원인은 `pkg_resources -> setuptools._vendor.jaraco.context` 경로가 Python 3.10에서 `backports.tarfile`을 요구하는데, PyInstaller bundle에 해당 모듈이 빠져 있던 것이다.
+- `requirements-dev.txt`에 `backports.tarfile`를 추가하고, `EmailPilotAI.spec`에 `backports`, `backports.tarfile` hidden import를 넣는 방향으로 수정했다.
+- `build_portable_exe.ps1`는 이제 `warn-EmailPilotAI.txt`의 `backports` 누락을 검사하고, `smoke_portable_exe.ps1`를 호출해 packaged exe가 `--no-window` 기준 `/jobs/current` endpoint를 실제로 띄우는지 확인한다.
+- 사용자 기준 실행 경로는 계속 `EmailPilotAI.exe` 하나로 유지하고, reverse SSH 스크립트는 개발자 원격 빌드/지원용으로만 다룬다.
+
+### 2026-04-08 | Human + Codex | feature harness smoke와 Windows CI portable exe 경로 추가
+
+- `runtime/cli.py`에 `feature-check-all`, `feature-harness-smoke`를 추가해 현재 feature 카탈로그를 전량 prerequisite 점검하고 sample workspace smoke를 한 번에 돌릴 수 있게 했다.
+- `app/ui_smoke.py`를 추가해 홈, 설정, 리뷰센터, 관리도구, workbook 재반영 background job까지 `TestClient` 기준으로 반복 검증할 수 있게 했다.
+- 당시에는 GitHub Actions 기반 Windows artifact 경로도 열었지만, 현재 active tracked 기준에서는 workflow scope 제약 때문에 CI workflow 파일을 canonical 경로에서 제외했다.
+- `runtime/docs/환경/feature_harness.md`, `app/docs/환경/windows_portable_exe.md`를 추가해 smoke와 packaging 절차를 공식 위치에 정리했다.
+
+### 2026-04-08 | Human + Codex | 포터블 exe 기준과 기능 전수 테스트 구조 도입
+
+- `docs/feature_catalog.md`와 `runtime/feature_registry.py`를 추가해 현재 제품/운영 기능의 canonical 카탈로그를 만들었다.
+- 기능별 `UI / 관리도구 / CLI` 접근점을 고정하고, `feature_runs` 실행 이력을 `state/state.sqlite`에 남기도록 정리했다.
+- `app`에는 관리도구 화면을 추가해 기능 목록, prerequisite check, 최근 실행 결과, 실행 버튼을 한곳에서 보게 했다.
+- `runtime/cli.py`는 `feature-list`, `feature-inspect`, `feature-check`, `feature-run`, `create-sample-workspace` 명령을 지원하게 됐다.
+- `runtime/sample_workspace.py`를 추가해 실메일과 API key 없이도 리뷰센터, dedupe, workbook 재반영을 검증할 수 있는 repo-safe sample save를 만들게 했다.
+- `app/static/` 로컬 자산과 `app/packaging/EmailPilotAI.spec`, `build_portable_exe.ps1`, `requirements-dev.txt`를 추가해 오프라인 포터블 exe 기준을 세웠다.
+- 이 서버에서는 Windows exe 자체를 빌드하지 않았고, 대신 샘플 워크스페이스 생성과 feature CLI, app/server py_compile까지 검증했다.
 
 ### 2026-04-08 | Human + Codex | Windows 데스크톱 리뷰센터와 공유 워크스페이스 save v1 도입
 

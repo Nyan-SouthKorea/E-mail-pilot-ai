@@ -12,9 +12,17 @@
 1. `AGENTS.md`
 2. `README.md`
 3. `docs/logbook.md`
-4. 최신 `docs/logbook_archive/logbook_*.md` 1개
-5. 관련 모듈 `README.md`
-6. 관련 모듈 `docs/logbook.md`
+4. `docs/feature_catalog.md`
+5. 최신 `docs/logbook_archive/logbook_*.md` 1개
+6. 관련 모듈 `README.md`
+7. 관련 모듈 `docs/logbook.md`
+
+## 재독 게이트
+
+- 새 작업 시작, 단계 전환, 문서 구조 변경, 커밋 전, 푸시 전, 후속 실행 전에는 이 읽는 순서를 다시 통과한다.
+- `/plan` 또는 그에 준하는 계획 수립을 시작할 때도 먼저 다시 읽는다.
+- 계획에서 실제 구현이나 실행으로 넘어가기 직전에도 다시 읽는다.
+- 완료 응답, 커밋, 푸시, 마감 정리를 시작하기 직전에도 다시 읽는다.
 
 ## 기본 원칙
 

@@ -31,3 +31,6 @@ venv/
 .runtime/
 local/
 tmp/
+build/
+# Portable Windows mirror under repo/dist/ stays untracked.
+dist/

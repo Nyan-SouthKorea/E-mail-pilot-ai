@@ -4,6 +4,30 @@
 <section class="hero">
   <h1>설정</h1>
   <p class="muted">API key와 메일 계정 정보는 공유 워크스페이스의 암호화 blob에 저장되고, 최근 워크스페이스 목록과 창 상태만 로컬 장치에 저장됩니다.</p>
+  <div class="status-strip">
+    <span class="status-pill" data-dialog-mode>현재 환경: 앱 전용 창 연결 확인 중입니다.</span>
+    {% if readonly %}
+    <span class="status-pill danger">읽기 전용 세션이라 저장은 막혀 있습니다.</span>
+    {% endif %}
+    {% if shared_settings.workspace.settings_saved_at %}
+    <span class="status-pill">마지막 저장: {{ shared_settings.workspace.settings_saved_at }}</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <h2>앱 실행 진단</h2>
+  <div class="details">
+    <div>실행 모드: <span data-shell-mode-value>{{ shell_context.shell_mode_label }}</span></div>
+    <div>파일 탐색기 상태: <span data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</span></div>
+    <div>현재 실행 경로: {{ shell_context.launch_path or "(감지 정보 없음)" }}</div>
+    <div>공식 실행 파일: {{ shell_context.official_local_bundle_path }}</div>
+    <div>startup.log: {{ shell_context.startup_log_path }}</div>
+    <div>지원 경로 여부: {{ shell_context.launch_support_label }}</div>
+    {% if shell_context.unsupported_launch_reason %}
+    <div class="danger">{{ shell_context.unsupported_launch_reason }}</div>
+    {% endif %}
+  </div>
 </section>
 
 <form class="section" action="/settings/save" method="post">
@@ -28,12 +52,17 @@
     </div>
     <div>
       <h2>내보내기 설정</h2>
-      <label>템플릿 relative path</label>
-      <input name="template_workbook_relative_path" value="{{ shared_settings.exports.template_workbook_relative_path }}">
+      <label>템플릿 파일 경로</label>
+      <div class="path-picker">
+        <input id="template_workbook_relative_path" name="template_workbook_relative_path" value="{{ shared_settings.exports.template_workbook_relative_path }}" data-inspect-kind="template_file" data-status-target="template-path-status" data-workspace-root="{{ workspace.root() }}">
+        <button type="button" disabled data-picker-kind="file" data-picker-target="template_workbook_relative_path" data-status-target="template-path-status" data-workspace-root="{{ workspace.root() }}">찾아보기</button>
+      </div>
+      <div id="template-path-status" class="field-status {{ template_status.status }}">{{ template_status.message }}</div>
       <div class="details" style="margin-top:10px">
         <div>공유 저장: 메일 설정, API key, 템플릿 경로, review state, dedupe, 대표 선택</div>
         <div>로컬 저장: 최근 워크스페이스, 창 크기, 마지막 필터</div>
         <div>암호화 대상: API key, 메일 비밀번호</div>
+        <div>템플릿 해석 경로: {{ template_status.resolved_path or "(없음)" }}</div>
       </div>
     </div>
   </div>

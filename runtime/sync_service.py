@@ -55,6 +55,7 @@ def run_workspace_sync(
     app_kind: str = "server-tool",
     profile_id: str = "shared-workspace",
     force_lock_takeover: bool = False,
+    write_lock_handle: WorkspaceWriteLockHandle | None = None,
 ) -> WorkspaceSyncResult:
     """기능: 공유 워크스페이스에서 backfill -> review -> 운영 workbook 재구성을 수행한다."""
 
@@ -67,7 +68,7 @@ def run_workspace_sync(
     )
     secrets_payload = secrets_store.read()
 
-    write_lock = acquire_workspace_write_lock(
+    write_lock = write_lock_handle or acquire_workspace_write_lock(
         lock_path=workspace.lock_path(),
         workspace_id=workspace.manifest.workspace_id,
         app_kind=app_kind,
@@ -116,7 +117,7 @@ def run_workspace_sync(
             reuse_existing_analysis=False,
             wrapper=wrapper,
         )
-        _update_latest_review_pointers(workspace=workspace, review_report=review_report)
+        update_latest_review_pointers(workspace=workspace, review_report=review_report)
         write_lock.refresh()
 
         review_items = ingest_review_report_into_state(
@@ -171,7 +172,8 @@ def run_workspace_sync(
         )
         raise
     finally:
-        write_lock.release()
+        if write_lock_handle is None:
+            write_lock.release()
 
 
 def rebuild_operating_workbook(
@@ -343,7 +345,7 @@ def _write_review_index_sheet(
     workbook.save(workbook_path)
 
 
-def _update_latest_review_pointers(*, workspace: SharedWorkspace, review_report) -> None:
+def update_latest_review_pointers(*, workspace: SharedWorkspace, review_report) -> None:
     review_root = workspace.review_logs_root()
     review_root.mkdir(parents=True, exist_ok=True)
     latest_json = review_root / "latest_inbox_review_board.json"

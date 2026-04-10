@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}세이브 파일 가이드 | Email Pilot AI{% endblock %}
+{% block body %}
+<section class="hero">
+  <h1>세이브 파일 가이드</h1>
+  <p class="muted">앱에서는 사용자가 직접 경로 문자열을 기억하지 않아도 되도록 세이브 파일 폴더 전체를 기준으로 엽니다. 기술적으로는 공유 워크스페이스 폴더지만, 사용자 용어는 세이브 파일로 통일합니다.</p>
+  <div class="status-strip">
+    <span class="status-pill">기본 추천: 공유 폴더 기반 세이브 파일</span>
+    <span class="status-pill">세이브 파일 = `workspace.epa-workspace.json`이 들어 있는 폴더</span>
+  </div>
+</section>
+
+<section class="row">
+  <div class="section">
+    <h2>기존 세이브 파일 열기</h2>
+    <div class="details">
+      <div>이미 `workspace.epa-workspace.json`이 있는 폴더를 고릅니다.</div>
+      <div>예: `Z:\EmailPilotAI\김정민-운영본`</div>
+      <div>암호를 넣으면 같은 세이브 파일을 서버와 Windows 앱이 함께 볼 수 있습니다.</div>
+    </div>
+  </div>
+  <div class="section">
+    <h2>새 세이브 파일 만들기</h2>
+    <div class="details">
+      <div>공유 폴더 안의 전용 빈 폴더를 추천합니다.</div>
+      <div>앱이 그 안에 `secure/`, `state/`, `locks/`, `profile/` 구조를 만듭니다.</div>
+      <div>기존 로컬 profile이 있으면 `기존 profile import`로 `참고자료`, `실행결과`를 가져옵니다.</div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>이런 경로는 피하세요</h2>
+  <div class="details">
+    <div>`repo` 자체를 세이브 파일 폴더로 고르는 경우</div>
+    <div>이미 다른 자료가 많이 들어 있는 큰 루트 폴더</div>
+    <div>`profile/` 하위 폴더만 단독으로 고르는 경우</div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>공유 폴더 권장 이유</h2>
+  <div class="details">
+    <div>서버의 Codex 검증과 Windows 앱 검증이 같은 메일/리뷰 상태/엑셀 결과를 공유할 수 있습니다.</div>
+    <div>사용자가 앱에서 수정한 분류와 대표 메일 선택도 같은 세이브 파일에 저장됩니다.</div>
+    <div>단독 사용도 가능하지만, 교차 검증이 필요하면 네트워크 드라이브 기반이 가장 편합니다.</div>
+    <div>앱 실행은 Windows 로컬 복사본을 기준으로 하고, 공유 폴더는 세이브 파일과 최신 배포본을 보관하는 역할로 나눠서 봅니다.</div>
+  </div>
+</section>
+{% endblock %}

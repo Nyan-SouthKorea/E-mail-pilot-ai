@@ -18,10 +18,14 @@
   1. `AGENTS.md`
   2. `README.md`
   3. `docs/logbook.md`
-  4. 최신 `docs/logbook_archive/logbook_*.md` 1개
-  5. 관련 모듈 `README.md`
-  6. 관련 모듈 `docs/logbook.md`
+  4. `docs/feature_catalog.md`
+  5. 최신 `docs/logbook_archive/logbook_*.md` 1개
+  6. 관련 모듈 `README.md`
+  7. 관련 모듈 `docs/logbook.md`
 - 이 순서는 새 작업 시작, 단계 전환, 문서 구조 변경, 커밋 전, 푸시 전, 후속 실행 전에도 다시 적용한다.
+- `/plan` 또는 그에 준하는 계획 수립을 시작할 때도 먼저 다시 적용한다.
+- 계획을 실제 구현이나 실행으로 넘기는 직전에도 다시 적용한다.
+- 완료 응답 작성, 커밋, 푸시, 마감 정리를 시작하기 직전에도 다시 적용한다.
 - 새 기능 추가, 폴더 이동, 레이어 경계 판단이 포함된 작업은 `README.md`의 `새 기능을 어디에 둘까` 섹션을 반드시 다시 확인한다.
 - 비공개 자산, 계정 정보, 실제 메일/엑셀/로그 경계가 관련된 작업은 sibling `../secrets/README.local.md`를 함께 다시 읽는다.
 
@@ -33,6 +37,8 @@
   - 프로젝트 소개, 전체 구조, 전역 고정 메모, 기능 배치 기준
 - `docs/logbook.md`
   - 프로젝트 레벨 현재 상태, 전역 결정, 활성 체크리스트, 최근 로그
+- `docs/feature_catalog.md`
+  - 현재 제품/운영 기능 카탈로그와 공식 접근점 인덱스
 - `docs/logbook_archive/`
   - 이전 active logbook와 legacy 기준 문서 archive
 - `<module>/README.md`
@@ -59,6 +65,7 @@
 - 현재 무엇이 실제로 돌고 있는지는 대화 맥락이 아니라 `ps`, `pid`, 상태 파일, 진행률 파일을 먼저 확인한다.
 - 사용자가 비효율적인 순서로 요청하면 그대로 잘게 쪼개기보다 더 나은 큰 그림과 권장 순서를 먼저 제안한다.
 - 비사소한 작업을 마칠 때는 active checklist 반영 여부와 canonical 문서 반영 여부를 다시 점검한다.
+- 즉, 계획을 세울 때 시작 게이트, 실행 시작 직전 게이트, 완료 직전 final gate를 모두 통과한 뒤에만 응답을 마무리한다.
 
 ## 5. 핵심 개발 원칙
 

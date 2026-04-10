@@ -41,6 +41,29 @@ def default_local_settings_path() -> Path:
     return Path.home() / ".config" / "email-pilot-ai" / "local_settings.json"
 
 
+def default_startup_log_path() -> Path:
+    """기능: 데스크톱 런처 startup log의 기본 경로를 반환한다."""
+
+    if os.name == "nt":
+        appdata = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+        return appdata / "EmailPilotAI" / "startup.log"
+    return Path.home() / ".config" / "email-pilot-ai" / "startup.log"
+
+
+def default_local_portable_bundle_root() -> Path:
+    """기능: 공식 Windows 로컬 portable bundle 루트를 반환한다."""
+
+    if os.name == "nt":
+        return Path("D:/EmailPilotAI/portable/EmailPilotAI")
+    return Path.home() / ".local" / "share" / "email-pilot-ai" / "portable" / "EmailPilotAI"
+
+
+def default_local_portable_exe_path() -> Path:
+    """기능: 공식 Windows 로컬 portable exe 경로를 반환한다."""
+
+    return default_local_portable_bundle_root() / "EmailPilotAI.exe"
+
+
 def load_local_app_settings(path: str | Path | None = None) -> LocalAppSettings:
     """기능: 로컬 장치 전용 설정을 읽는다."""
 

@@ -4,6 +4,14 @@
 <section class="hero">
   <h1>통합 리뷰센터</h1>
   <p class="muted">세이브 파일 기반 review state를 보여줍니다. 여기서 분류를 검토하고, 대표 메일을 고르면 운영 workbook이 다시 계산됩니다.</p>
+  <div class="toolbar" style="margin-top:12px">
+    <form action="/review/rebuild" method="post"><button class="primary" type="submit" {% if readonly %}disabled{% endif %}>운영 workbook 재반영</button></form>
+    <a href="/admin/features">관리도구 열기</a>
+  </div>
+  <div class="status-strip" data-job-status></div>
+  {% if readonly %}
+  <div class="field-status warn">읽기 전용 세이브 파일이라 override 저장과 workbook 재반영이 비활성화됩니다.</div>
+  {% endif %}
   <div class="cards">
     <div class="card"><span class="label">총 메일 수</span><span class="value">{{ counts.total }}</span></div>
     <div class="card"><span class="label">application</span><span class="value">{{ counts.application }}</span></div>
@@ -96,15 +104,15 @@
           <form action="/review/override/triage" method="post" style="margin-bottom:8px">
             <input type="hidden" name="bundle_id" value="{{ item.bundle_id }}">
             <select name="triage_label">
-              <option value="application">application</option>
-              <option value="not_application">not_application</option>
-              <option value="needs_human_review">needs_human_review</option>
+              <option value="application" {% if item.triage_label == 'application' %}selected{% endif %}>application</option>
+              <option value="not_application" {% if item.triage_label == 'not_application' %}selected{% endif %}>not_application</option>
+              <option value="needs_human_review" {% if item.triage_label == 'needs_human_review' %}selected{% endif %}>needs_human_review</option>
             </select>
-            <button type="submit">분류 저장</button>
+            <button type="submit" {% if readonly %}disabled{% endif %}>분류 저장</button>
           </form>
           <form action="/review/override/representative" method="post">
             <input type="hidden" name="bundle_id" value="{{ item.bundle_id }}">
-            <button type="submit">대표로 지정</button>
+            <button type="submit" {% if readonly %}disabled{% endif %}>대표로 지정</button>
           </form>
           {% if item.user_override_state %}
             <div class="details">{{ item.user_override_state }}</div>
