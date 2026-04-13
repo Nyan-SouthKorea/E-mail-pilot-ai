@@ -95,6 +95,36 @@
 - 즉, 구현 결과만 보고하지 않고, 검증 과정에서 드러난 실제 문제와 그 뒤의 추가 수정 흐름도 함께 보고한다.
 - 공식 exe가 있는 작업은 `최신 pushed main 기준 공식 exe 재빌드 + 공식 exe smoke`까지 닫히기 전에는 완료라고 보고하지 않는다.
 
+## 4-2. 서브 에이전트 운영
+
+- 비사소한 작업에서는 항상 `지금 sub agent를 병렬로 써서 더 안전하고 빠르게 닫을 수 있는지`를 먼저 검토한다.
+- 독립된 하위 질문, 병렬 검증, 쓰기 범위가 분리되는 구현 작업, 문서 동기화, 회귀 확인은 가능한 한 적극적으로 sub agent를 활용한다.
+- 단, immediate critical path에서 바로 다음 행동이 그 결과에 막혀 있으면 main agent가 직접 처리하고, sub agent는 sidecar/병렬 작업에 우선 배치한다.
+- sub agent를 띄울 때는 아래를 반드시 명시한다.
+  - 역할
+  - 책임 범위
+  - 읽기/쓰기 소유 범위
+  - 기대 산출물
+  - 다른 agent와 충돌하면 안 되는 파일 또는 모듈
+- 코드 변경을 맡기는 sub agent는 서로 write scope가 겹치지 않게 나눈다.
+- 각 sub agent에는 `다른 agent도 같은 코드베이스에서 일하고 있으니, 남의 변경을 되돌리지 말고 현재 상태를 존중하라`는 원칙을 같이 준다.
+- explorer 성격의 sub agent는 코드베이스 질문, bounded 조사, 비교 검증에 우선 쓰고, worker 성격의 sub agent는 실제 수정/실행/테스트에 쓴다.
+- 완료가 급하지 않은 장기 작업을 맡긴 sub agent는 background로 돌리고, main agent는 기다리지 말고 다른 비충돌 작업을 바로 진행한다.
+- wait는 정말로 막혔을 때만 한다. reflex처럼 반복 대기하지 않는다.
+- 작은 작업 단위로 넘어갈 때마다 현재 살아 있는 sub agent를 점검한다.
+  - 아직 필요한 agent인지
+  - 막혀 있는지
+  - 이미 결과가 충분한지
+  - write scope 충돌 위험이 없는지
+- 더 이상 필요 없는 sub agent는 바로 정리한다. 열어둔 agent를 습관적으로 방치하지 않는다.
+- 기본 운영 기록에는 최소 아래를 남긴다.
+  - 현재 활성 sub agent 수
+  - 각 agent의 역할
+  - 상태(`running / blocked / completed / closed`)
+  - main agent와의 충돌 여부
+- 비사소한 완료 보고에는 `sub agent 사용 여부`와 `닫지 않은 agent가 남아 있지 않은지`를 함께 적는다.
+- 이 규칙은 OpenAI sub-agent 운영 원칙에 맞춰 `local planning first`, `bounded delegation`, `disjoint ownership`, `wait sparingly`, `close idle agents`를 지키는 방식으로 해석한다.
+
 ## 5. 핵심 개발 원칙
 
 - 운영 규칙은 `AGENTS.md`, 현재 상태는 `docs/logbook.md`, 프로젝트 구조는 `README.md`, 모듈 상세 기준은 각 모듈 `README.md`로 분리한다.

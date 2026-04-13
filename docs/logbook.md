@@ -64,6 +64,9 @@
 - plan 마감의 기본 완료 조건은 `canonical 문서 반영 -> commit -> push -> git status clean 확인`이다.
 - 비사소한 작업의 완료 보고는 항상 `요청 내용 -> 계획 -> 결과와 자가 평가` 3단 구조를 따르고, `검증 중 새로 발견한 문제`, `추가 수정`, `재검증`, `AGENTS 확인 기록`을 함께 남긴다.
 - 공식 exe가 있는 작업은 `최신 pushed main 기준 공식 exe 재빌드 + 공식 exe smoke`까지 닫히기 전에는 완료 보고로 보지 않는다.
+- 비사소한 작업에서는 sub agent를 적극적으로 활용하되, main agent는 먼저 local planning을 하고 sub agent에는 bounded scope와 disjoint ownership을 준다.
+- 작은 작업 단위로 넘어갈 때마다 현재 살아 있는 sub agent를 점검하고, 필요 없는 agent는 닫은 뒤 진행한다.
+- 완료 보고에는 `sub agent 사용 여부`, `역할/상태`, `미종료 agent 유무`를 함께 남긴다.
 - stable truth는 `README.md`와 각 모듈 `README.md`, active truth는 `docs/logbook.md`와 각 모듈 `docs/logbook.md`에 둔다.
 - 런타임 데이터 계약은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계를 유지한다.
 - `ExtractedRecord` top-level triage는 `application`, `not_application`, `needs_human_review` 3개 값으로 고정한다.
@@ -234,6 +237,13 @@
 - `결과와 내가 스스로 평가한 내용`에는 구현 결과만이 아니라 `검증 중 새로 발견한 문제`, `그 문제를 위해 추가로 수정한 내용`, `그 수정 뒤 다시 돌린 검증`을 반드시 함께 적도록 고정했다.
 - 동시에 `AGENTS 확인 기록`도 완료 보고의 필수 항목으로 올려, 이번 턴에 `AGENTS.md`를 총 몇 번, 어느 게이트에서 다시 읽었는지를 항상 남기도록 했다.
 - starter `AGENTS.md`와 `docs/feature_catalog.md`에도 같은 규칙을 반영해, 새 저장소를 시작해도 같은 운영 습관이 유지되게 맞췄다.
+
+### 2026-04-13 | Human + Codex | 서브 에이전트 적극 활용과 agent 정리 규칙 추가
+
+- 비사소한 작업에서는 sub agent를 적극적으로 검토하고, 독립된 조사/병렬 검증/분리 가능한 write scope는 우선 sub agent로 분해하도록 운영 규칙을 강화했다.
+- 단, OpenAI sub-agent 운영 원칙에 맞춰 main agent가 먼저 local planning을 하고, immediate critical path는 직접 처리하며, sub agent에는 bounded scope와 disjoint ownership을 주도록 기준을 고정했다.
+- 작은 작업 단위로 넘어갈 때마다 현재 살아 있는 sub agent를 점검하고, 더 이상 필요 없는 agent는 닫은 뒤 진행하도록 `AGENTS.md`, starter `AGENTS.md`, `docs/feature_catalog.md`, `docs/logbook.md`에 같은 규칙을 넣었다.
+- 앞으로 완료 보고에는 `sub agent 사용 여부`, `역할/상태`, `남아 있는 agent 유무`도 함께 적는다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review service 경량화
 
