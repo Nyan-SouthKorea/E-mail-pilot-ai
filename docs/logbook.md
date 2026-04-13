@@ -94,12 +94,14 @@
 ## 현재 체크포인트
 
 - 지금 단계:
-  - 서비스형 고객 UI 리팩터 v2 구현과 smoke 검증을 마치고 canonical 문서 반영까지 진행한 상태
+  - 서비스형 고객 UI 리팩터 v2 구현, smoke 검증, Windows runtime publish, 첫 publish까지 마친 상태
 - 바로 다음 작업:
-  - 마지막 문서 재확인 후 current plan commit과 push를 진행한다
+  - 다음 사용자 검증 피드백을 받아 후속 UX 리팩터 항목을 고른다
 - publish 상태:
   - 이전 plan publish 완료
-  - current plan 구현/검증 완료, publish 전
+  - current plan commit 완료
+  - current plan push 완료
+  - current plan clean status 마감 반영 중
 
 ## 현재 활성 체크리스트
 
@@ -115,9 +117,9 @@
   - [x] 리뷰센터 리스트/상세 가독성 재정리
   - [x] `app.ui_smoke`와 관련 검증 갱신
   - [x] canonical 문서 반영
-  - [ ] current plan commit 완료
-  - [ ] current plan push 완료
-  - [ ] `git status --short --branch` clean 확인
+  - [x] current plan commit 완료
+  - [x] current plan push 완료
+  - [x] `git status --short --branch` clean 확인
 
 ## 최근 로그
 
@@ -130,6 +132,7 @@
 - 색상과 컴포넌트 토큰은 베이지 데모 톤에서 벗어나 슬레이트/네이비 기반 업무용 프로앱 스타일로 재정의했다.
 - 세이브 파일 오픈/생성 성공 후에는 홈으로 돌아가기보다 `/settings`로 이동시켜, 첫실행 Step 2인 계정 연결 확인으로 자연스럽게 이어지게 했다.
 - `app/README.md`와 `docs/feature_catalog.md`는 새 용어와 홈 흐름에 맞춰 갱신했다.
+- 원격 Windows 빌드도 다시 실행했고, 최종 사용자 실행본 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 최신 UI 기준으로 다시 publish 했다.
 - 검증은 `python tools/logbook_archive_guard.py --archive-if-needed`, `python -m py_compile app/server.py app/main.py app/ui_smoke.py`, `python -m app.ui_smoke --workspace-root /tmp/epa_ui_v2_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_ui_v2_smoke --workspace-password SampleWorkspace260408` 기준으로 통과했다.
 
 ### 2026-04-10 | Human + Codex | 서비스형 홈/설정/동기화/리뷰 UI 1차 전환
