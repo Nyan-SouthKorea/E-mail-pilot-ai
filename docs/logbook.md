@@ -143,12 +143,13 @@
 ## 현재 체크포인트
 
 - 지금 단계:
-  - service/CLI 골격과 picker server-side diagnostics route는 로컬 코드와 자동 smoke 기준으로 올라왔고, 다음 blocker는 이 변경을 pushed head 기준 Windows 공식 exe에 실제 반영해 사용자 눈검증까지 닫는 것이다.
+  - service/CLI 골격, 로컬 smoke, pushed head 기준 Windows 포터블 재빌드, Windows service self-test, 실제 세이브 기준 `recent 10` sync 자동 검증까지 끝났고, 남은 blocker는 Windows 실제 폴더 선택창과 exe 아이콘/창 브랜딩의 수동 acceptance다.
 - 바로 다음 작업:
-  - root/app/runtime logbook를 실제 blocker 상태에 맞게 정정하고, current plan batch를 commit/push 한 뒤, pushed head 기준으로 Windows 포터블을 다시 빌드해 실제 picker/manual acceptance를 다시 확인한다
+  - 사용자 기준으로 `찾아보기`를 실제 클릭해 폴더 선택창이 뜨는지, 새 exe 아이콘/브랜딩이 의도대로 보이는지 확인하고, 그 다음 live-required staged verification `100 / 500 / 550 / all`을 순서대로 누적한다.
 - publish 상태:
   - 이전 plan publish 완료
-  - 현재 plan 작업 중
+  - 현재 plan 중간 publish 완료
+  - 최종 manual acceptance 대기
 
 ## 현재 활성 체크리스트
 
@@ -162,18 +163,35 @@
   - [x] sync 범위 프리셋 `10 / 100 / 500 / 1000 / 직접 입력 / 전체` UI+서버 반영
   - [x] `app.ui_smoke`에 picker route와 sync preset 회귀 추가
   - [x] `runtime.feature_harness_smoke`에 service smoke 추가
-  - [ ] `runtime/feature_registry.py`와 `docs/feature_catalog.md`의 대응 관계 마무리
-  - [ ] root/module README, module logbook를 CLI-first 기준으로 최종 정리
-  - [ ] live-required 검증 범위 10/100/500/550/all 실행 전략 정리
-  - [ ] Windows 포터블 재빌드
+  - [x] `runtime/feature_registry.py`와 `docs/feature_catalog.md`의 대응 관계 마무리
+  - [x] root/module README, module logbook를 CLI-first 기준으로 최종 정리
+  - [x] live-required 검증 범위 10/100/500/550/all 실행 전략 정리
+  - [x] Windows 포터블 재빌드
+  - [x] live-required smoke: 실제 세이브 기준 `recent 10` sync service 검증
+  - [ ] live-required staged verification: `100 / 500 / 550 / all`
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
-  - [ ] canonical 문서 최종 반영
-  - [ ] current plan commit 완료
-  - [ ] current plan push 완료
-  - [ ] `git status --short --branch` clean 확인
+  - [x] canonical 문서 최종 반영
+  - [ ] current plan final commit 완료
+  - [ ] current plan final push 완료
+  - [ ] final `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | pushed head 기준 Windows 재빌드와 자동 검증 완료, manual acceptance만 남김
+
+- `Introduce CLI-first runtime services and diagnostics` 커밋 `98ea75f`를 GitHub `main`에 push 한 뒤, `bash app/packaging/build_windows_portable_and_publish.sh --clean`으로 Windows 공식 실행본을 다시 빌드했다.
+- Windows 공식 실행본은 `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`에 다시 publish 되었고, 갱신 시각은 `2026-04-13 13:21:25`로 확인했다.
+- Windows packaged smoke는 `/jobs/current`와 `/app-meta`를 함께 통과했고, GUI startup log에는 아래 핵심 줄이 남았다.
+  - `preferred port 8765 is occupied by another process`
+  - `selected fallback port 51051`
+  - `confirmed app-meta at http://127.0.0.1:51051`
+- 즉, 고정 포트 `8765`를 다른 앱이 잡고 있어도 launcher가 다른 포트를 고르고, 실제 Email Pilot AI 서버인지 `/app-meta`로 확인한 뒤 창을 열도록 동작함을 확인했다.
+- Windows service self-test 기준 `diagnostics picker-bridge`는 `powershell-native`, `native_dialog_supported=true`로 통과했다.
+- 실제 저장된 세이브 기준 `run_pipeline_sync_service(scope='recent', limit=10)`도 Windows에서 직접 실행해 검증했고, 결과는 `status=completed`, `fetched_count=0`, `skipped_existing_count=10`이었다. 즉 이전에 보이던 `update_latest_review_pointers` / 후속 단계 NameError는 재현되지 않았다.
+- 현재 남은 항목은 자동 검증이 아니라 수동 acceptance 2개다.
+  - `찾아보기`를 실제 클릭했을 때 폴더 선택창이 뜨는지
+  - exe 아이콘/창 브랜딩이 새 기준대로 보이는지
 
 ### 2026-04-13 | Human + Codex | CLI-first 전환 착수: service/CLI 골격, picker route, sync presets
 

@@ -55,11 +55,23 @@
 - [x] 진행률 표시와 장시간 sync 폴링 UX 보강
 - [x] picker self-test / pick-folder / pick-file route 도입
 - [x] sync 최근 N 프리셋 UI와 서버 파라미터 반영
+- [x] launcher `/app-meta` 확인과 동적 포트 fallback 도입
+- [x] pushed head 기준 Windows 공식 exe 재빌드와 packaged smoke 재검증
+- [x] 실제 세이브 기준 Windows quick sync 자동 검증
 - [ ] Windows 실제 native dialog 수동 acceptance
 - [ ] launcher app-meta 확인 포함 Windows 공식 exe 최종 acceptance
 - [ ] service/CLI 전환 완료 기준으로 app 문서/diagnostics 문구 최종 정리
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | Windows 공식 exe 재빌드와 실제 세이브 quick sync 자동 검증
+
+- `build_windows_portable_and_publish.sh --clean`을 pushed head 기준으로 다시 실행했고, 공식 runtime `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`를 최신 코드로 다시 publish 했다.
+- packaged smoke는 `/jobs/current`, `/app-meta`, GUI startup log를 모두 통과했다.
+- startup log에는 `preferred port 8765 is occupied by another process`, `selected fallback port 51051`, `confirmed app-meta at http://127.0.0.1:51051`이 남아, 다른 로컬 앱과의 포트 충돌을 자동으로 피해 간 것을 확인했다.
+- Windows service self-test로는 `diagnostics picker-bridge`가 `powershell-native`, `native_dialog_supported=true`로 통과했다.
+- 실제 저장된 세이브 기준 `run_pipeline_sync_service(scope='recent', limit=10)`도 Windows에서 직접 실행해 `status=completed`, `skipped_existing_count=10`까지 확인했다.
+- 따라서 자동 검증 범위 안에서 남아 있는 blocker는 아니고, 실제 사용자가 `찾아보기`를 눌렀을 때 폴더 선택창이 보이는지의 수동 acceptance만 남았다.
 
 ### 2026-04-13 | Human + Codex | Windows picker blocker 재추적: 고정 포트 충돌과 stale exe 원인 확인
 

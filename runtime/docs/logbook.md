@@ -35,11 +35,19 @@
 - [x] 명시적 CLI 하위 명령 도입
 - [x] diagnostics picker self-test/test override 도입
 - [x] feature harness에 service smoke 추가
+- [x] Windows saved workspace 기준 `pipeline sync --scope recent --limit 10` 자동 검증
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
 - [ ] live-required staged verification 10/100/500/550/all 실행 결과 축적
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | Windows saved workspace 기준 service 자동 검증
+
+- Windows 로컬 장치 비밀 저장소에서 마지막 세이브 경로와 암호를 읽고, 같은 값으로 `run_pipeline_sync_service(scope='recent', limit=10)`를 직접 실행했다.
+- 결과는 `status=completed`, `fetched_count=0`, `skipped_existing_count=10`, `analysis_reused_count=0`, `analysis_rerun_count=0`이었다.
+- 즉 실제 세이브 기준으로도 pipeline service가 끝까지 실행됐고, 이전에 보이던 `update_latest_review_pointers` / 후속 단계 NameError는 재현되지 않았다.
+- 아직 누적해야 할 것은 staged live verification `100 / 500 / 550 / all` 결과다.
 
 ### 2026-04-13 | Human + Codex | service/CLI 단일 진실 강화와 picker diagnostics 계약 정리
 
