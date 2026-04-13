@@ -1,13 +1,15 @@
-"""리뷰보드 재생성과 분석 재사용 통계를 위한 service."""
+"""리뷰보드 재생성과 리뷰센터 조회를 위한 service."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from math import ceil
 
 from analysis import run_inbox_review_board_smoke
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
 from runtime.review_state import ingest_review_report_into_state
 from runtime.secrets_store import WorkspaceSecretsStore
+from runtime.state_store import WorkspaceStateStore
 from runtime.sync_service import update_latest_review_pointers
 from runtime.workspace import load_shared_workspace
 
@@ -26,6 +28,32 @@ class ReviewRefreshServiceResult:
     analysis_reused_count: int
     analysis_rerun_count: int
     notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ReviewCenterPageServiceResult:
+    items: list[dict[str, object]]
+    page: int
+    page_size: int
+    page_count: int
+    filtered_total_count: int
+    selected_bundle_id: str
+    sort: str
+    search: str
+    triage_label: str
+    export_only: bool
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ReviewDetailServiceResult:
+    item: dict[str, object] | None
+    bundle_id: str
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -97,6 +125,68 @@ def refresh_review_board_service(
     )
 
 
+def load_review_center_page_service(
+    *,
+    workspace_root: str,
+    search: str = "",
+    triage_label: str = "",
+    export_only: bool = False,
+    page: int = 1,
+    page_size: int = 50,
+    sort: str = "received_desc",
+    selected_bundle_id: str = "",
+) -> ReviewCenterPageServiceResult:
+    workspace = load_shared_workspace(workspace_root)
+    state_store = WorkspaceStateStore(workspace.state_db_path())
+    state_store.ensure_schema()
+    resolved_page_size = _normalize_review_page_size(page_size)
+    resolved_page = max(1, int(page or 1))
+    filtered_total_count = state_store.count_review_items(
+        search=search,
+        triage_label=triage_label,
+        export_only=export_only,
+    )
+    page_count = max(1, ceil(filtered_total_count / resolved_page_size)) if filtered_total_count else 1
+    resolved_page = min(resolved_page, page_count)
+    items = state_store.list_review_items(
+        search=search,
+        triage_label=triage_label,
+        export_only=export_only,
+        limit=resolved_page_size,
+        offset=(resolved_page - 1) * resolved_page_size,
+        sort=sort,
+    )
+    selected_id = selected_bundle_id.strip()
+    if not selected_id and items:
+        selected_id = str(items[0]["bundle_id"])
+    return ReviewCenterPageServiceResult(
+        items=items,
+        page=resolved_page,
+        page_size=resolved_page_size,
+        page_count=page_count,
+        filtered_total_count=filtered_total_count,
+        selected_bundle_id=selected_id,
+        sort=sort or "received_desc",
+        search=search,
+        triage_label=triage_label,
+        export_only=export_only,
+    )
+
+
+def load_review_detail_service(
+    *,
+    workspace_root: str,
+    bundle_id: str,
+) -> ReviewDetailServiceResult:
+    workspace = load_shared_workspace(workspace_root)
+    state_store = WorkspaceStateStore(workspace.state_db_path())
+    state_store.ensure_schema()
+    return ReviewDetailServiceResult(
+        item=state_store.get_review_item(bundle_id.strip()) if bundle_id.strip() else None,
+        bundle_id=bundle_id.strip(),
+    )
+
+
 def _resolve_template_workbook_path(*, workspace: str, export_settings: dict[str, object]) -> str:
     shared_workspace = load_shared_workspace(workspace)
     relative_path = str(export_settings.get("template_workbook_relative_path") or "").strip()
@@ -106,3 +196,13 @@ def _resolve_template_workbook_path(*, workspace: str, export_settings: dict[str
     if default_template.exists():
         return str(default_template)
     raise RuntimeError("세이브 파일에 엑셀 양식 경로가 없습니다.")
+
+
+def _normalize_review_page_size(page_size: int) -> int:
+    try:
+        normalized = int(page_size)
+    except (TypeError, ValueError):
+        normalized = 50
+    if normalized not in {25, 50, 100}:
+        return 50
+    return normalized

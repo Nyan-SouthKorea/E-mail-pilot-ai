@@ -24,7 +24,10 @@
 | `mailbox.connect_check` | 계정 연결 확인 | `/settings` | `python -m runtime.cli mailbox connect-check ...` | `runtime.mailbox_service:run_mailbox_connection_check_service` | mailbox status, 추천 받은편지함, 폴더 목록 | live-required |
 | `mailbox.fetch` | 메일 가져오기 | `/sync` | `python -m runtime.cli mailbox fetch ... --limit N|--all` | `runtime.mailbox_service:run_mailbox_fetch_service` | `mail/bundles/`, `logs/mailbox/` | live-required |
 | `analysis.review_refresh` | 리뷰/분석 재생성 | `/review`, `관리도구` | `python -m runtime.cli analysis review-refresh ... --limit N|--all` | `runtime.analysis_service:refresh_review_board_service` | `logs/review/`, `state/state.sqlite` | smoke-safe, live-optional |
+| `analysis.review_list` | 리뷰 목록 조회 | `/review` | `python -m runtime.cli analysis review-list ... --page 1 --page-size 50 --sort received_desc` | `runtime.analysis_service:load_review_center_page_service` | `state/state.sqlite` 읽기 | smoke-safe |
+| `analysis.review_item` | 리뷰 상세 조회 | `/review` | `python -m runtime.cli analysis review-item ... --bundle-id <id>` | `runtime.analysis_service:load_review_detail_service` | `state/state.sqlite`, `mail/bundles/`, `logs/analysis/` 읽기 | smoke-safe |
 | `exports.rebuild` | 운영 엑셀 재반영 | `/review` | `python -m runtime.cli exports rebuild ...` | `runtime.exports_service:rebuild_operating_workbook_service` | `exports/output/operating_workbook.xlsx`, `exports/output/snapshots/` | smoke-safe |
+| `exports.summary` | 엑셀 반영 요약 | `/review` | `python -m runtime.cli exports summary ...` | `runtime.exports_service:load_exports_summary_service` | `exports/output/`, `state/state.sqlite` 읽기 | smoke-safe |
 | `pipeline.sync.recent` | 최근 N건 동기화 | `/sync` | `python -m runtime.cli pipeline sync ... --scope recent --limit N` | `runtime.pipeline_service:run_pipeline_sync_service` | fetch/report/review/workbook 종합 결과 | live-required |
 | `pipeline.sync.all` | 전체 동기화 | `/sync` | `python -m runtime.cli pipeline sync ... --all` | `runtime.pipeline_service:run_pipeline_sync_service` | fetch/report/review/workbook 종합 결과 | live-required |
 | `diagnostics.picker_bridge` | 파일 탐색기 진단 | `/`, `/settings` | `python -m runtime.cli diagnostics picker-bridge` | `runtime.diagnostics_service:picker_bridge_self_test` | diagnostics payload only | smoke-safe |
@@ -60,6 +63,44 @@
   - 이미 fetch한 UID는 다시 가져오지 않는다.
   - 같은 bundle fingerprint + `analysis_revision`이면 분석 결과를 재사용한다.
   - fetch만 성공하고 후속 단계가 실패하면 `partial_success`로 남긴다.
+
+## 리뷰센터 계약
+
+- 기본 구조:
+  - `페이지 기반 목록 + 우측 상세패널`
+  - 기본 페이지 크기 `50`, 옵션 `25 / 50 / 100`
+- 목록 조회 입력:
+  - `search`
+  - `triage_label`
+  - `export_only`
+  - `page`
+  - `page_size`
+  - `sort`
+  - `selected_bundle_id`
+- 정렬 옵션:
+  - `received_desc`
+  - `company_asc`
+  - `sender_asc`
+- 사용자 노출 용어:
+  - `대표 export만` -> `엑셀 반영 대상만`
+  - `preview` -> `메일 미리보기`
+  - `raw.eml` -> `원본 메일 파일`
+  - `summary` -> `요약 메모`
+  - `record` -> `추출 결과 원본`
+  - `projected` -> `엑셀 반영 미리보기`
+  - `attachments` -> `첨부파일 폴더`
+- 상태 유지 기준:
+  - 필터, 현재 페이지, 정렬, 선택 항목은 URL query와 로컬 설정 둘 다에 저장한다.
+  - 외부 파일 열기 뒤에도 같은 리뷰 상태로 돌아와야 한다.
+
+## 엑셀 역할 계약
+
+- 앱이 검토의 정본이고, 엑셀은 외부 전달/참고용 보조 산출물이다.
+- 앱 안에서는 아래를 분리해 설명한다.
+  - `기본 양식`
+  - `현재 운영본`
+  - `스냅샷`
+- `엑셀 반영 대상만`은 dedupe 묶음 안에서 실제 운영 엑셀에 들어가는 대표 메일만 뜻한다.
 
 ## 저장 위치 계약
 
@@ -119,7 +160,13 @@
   - `EPA_PICKER_TEST_RESPONSE=<path> python -m runtime.cli diagnostics pick-folder --workspace-root <path>`
 - 리뷰 재생성:
   - `python -m runtime.cli analysis review-refresh --workspace-root <path> --workspace-password <pw> --limit 10`
+- 리뷰 목록 1페이지:
+  - `python -m runtime.cli analysis review-list --workspace-root <path> --page 1 --page-size 50 --sort received_desc`
+- 리뷰 상세 1건:
+  - `python -m runtime.cli analysis review-item --workspace-root <path> --bundle-id <bundle_id>`
 - 엑셀 재반영:
   - `python -m runtime.cli exports rebuild --workspace-root <path> --workspace-password <pw>`
+- 엑셀 요약:
+  - `python -m runtime.cli exports summary --workspace-root <path>`
 - 전체 smoke:
   - `EPA_PICKER_TEST_RESPONSE=<path> python -m runtime.cli feature-harness-smoke --workspace-root <path> --workspace-password <pw> --create-sample-if-missing`

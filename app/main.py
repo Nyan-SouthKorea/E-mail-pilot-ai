@@ -86,6 +86,18 @@ class DesktopBridge:
         file_types: tuple[str, ...],
     ) -> dict[str, object]:
         try:
+            pywebview_result = self._pick_with_pywebview(
+                dialog_type_name=dialog_type_name,
+                current_path=current_path,
+                workspace_root=workspace_root,
+                file_types=file_types,
+            )
+            if pywebview_result is not None:
+                _append_startup_log(
+                    f"bridge: {dialog_type_name} "
+                    + ("selected path via pywebview" if pywebview_result.path else pywebview_result.error or "cancelled via pywebview")
+                )
+                return pywebview_result.to_dict()
             if dialog_type_name == "OPEN_DIALOG":
                 native_result = pick_file_native(
                     current_path=current_path,
@@ -108,6 +120,54 @@ class DesktopBridge:
                 "error": f"{exc.__class__.__name__}: {exc}",
                 "path": "",
             }
+
+    def _pick_with_pywebview(
+        self,
+        *,
+        dialog_type_name: str,
+        current_path: str,
+        workspace_root: str,
+        file_types: tuple[str, ...],
+    ) -> dict[str, object] | None:
+        if self.window is None:
+            return None
+        try:
+            import webview
+        except Exception as exc:
+            _append_startup_log(f"bridge: pywebview import unavailable: {exc.__class__.__name__}: {exc}")
+            return None
+        directory = _resolve_picker_directory(
+            current_path=current_path,
+            workspace_root=workspace_root,
+        )
+        kwargs: dict[str, Any] = {
+            "allow_multiple": False,
+        }
+        if directory:
+            kwargs["directory"] = directory
+        if dialog_type_name == "OPEN_DIALOG":
+            kwargs["file_types"] = list(file_types)
+            dialog_type = webview.OPEN_DIALOG
+        else:
+            dialog_type = webview.FOLDER_DIALOG
+        selected = self.window.create_file_dialog(dialog_type, **kwargs)
+        if not selected:
+            return {
+                "ok": False,
+                "path": "",
+                "error": "선택이 취소되었습니다.",
+                "backend": "pywebview",
+            }
+        if isinstance(selected, (list, tuple)):
+            chosen = str(selected[0]) if selected else ""
+        else:
+            chosen = str(selected)
+        return {
+            "ok": bool(chosen),
+            "path": chosen,
+            "error": "" if chosen else "선택이 취소되었습니다.",
+            "backend": "pywebview",
+        }
 
 
 def _startup_log_path() -> Path:
@@ -145,6 +205,25 @@ def _is_remote_windows_launch_path(path: Path) -> bool:
 
 def _normalized_windows_path(path: Path) -> str:
     return os.path.normcase(os.path.abspath(str(path)))
+
+
+def _resolve_picker_directory(*, current_path: str, workspace_root: str) -> str:
+    default_root = Path(workspace_root).expanduser() if workspace_root else Path.home()
+    text = current_path.strip()
+    if not text:
+        return str(default_root if default_root.exists() else Path.home())
+    candidate = Path(text).expanduser()
+    if not candidate.is_absolute() and workspace_root:
+        candidate = Path(workspace_root) / candidate
+    if candidate.is_file():
+        candidate = candidate.parent
+    if candidate.exists():
+        return str(candidate)
+    if candidate.parent.exists():
+        return str(candidate.parent)
+    if default_root.exists():
+        return str(default_root)
+    return str(Path.home())
 
 
 def _is_official_local_launch_path(*, launch_path: Path, official_local_bundle_root: Path) -> bool:

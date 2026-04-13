@@ -16,6 +16,8 @@
 - `runtime/feature_registry.py`가 제품/운영 기능 카탈로그와 관리도구/CLI 실행 진입점을 같이 맡는다.
 - `runtime service`는 `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 그룹으로 나눈다.
 - 명시적 CLI는 `workspace`, `settings`, `mailbox`, `analysis`, `exports`, `pipeline`, `diagnostics` 하위 명령을 지원한다.
+- 리뷰 조회는 `analysis.review-list`와 `analysis.review-item` service/CLI로 분리해, GUI가 목록 1페이지와 선택한 상세만 따로 읽을 수 있게 한다.
+- 엑셀 쪽은 `exports.summary`로 운영본/스냅샷/반영 대상 수를 따로 읽어, 앱 안에서 엑셀을 보조 결과물로 설명할 수 있게 한다.
 - `runtime/sample_workspace.py`가 repo-safe 샘플 세이브를 만든다.
 - `runtime/feature_harness_smoke.py`가 sample workspace와 앱 UI를 묶어 반복 smoke를 수행한다.
 - 새 세이브는 legacy `profile/참고자료/실행결과` 구조를 만들지 않고, v1 세이브는 자동 변환하지 않는다.
@@ -31,5 +33,6 @@
 - 첫 동기화는 작은 recent scope부터 시작하고, 마지막에 `all` scope로 넓혀 가는 흐름을 기본으로 본다.
 - 정적 HTML review board는 fallback/debug 산출물로 남기고, 사용자 검토의 active canonical 상태는 state DB와 앱 UI가 맡는다.
 - 새 세이브 canonical 구조는 `workspace.epa-workspace.json + secure/ + state/ + locks/ + mail/ + exports/ + logs/`를 기준으로 본다.
+- 리뷰 화면이 커져도 GUI가 전체 항목을 한 번에 렌더링하지 않도록, 목록 조회는 `page / page_size / sort / selected_bundle_id` 계약으로 가볍게 유지한다.
 
 운영 규칙과 읽기 게이트는 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

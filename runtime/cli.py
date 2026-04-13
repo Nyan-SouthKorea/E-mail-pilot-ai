@@ -14,12 +14,19 @@ from runtime import (
     run_feature,
 )
 from runtime.analysis_service import refresh_review_board_service
+from runtime.analysis_service import (
+    load_review_center_page_service,
+    load_review_detail_service,
+)
 from runtime.diagnostics_service import (
     pick_file_native,
     pick_folder_native,
     picker_bridge_self_test,
 )
-from runtime.exports_service import rebuild_operating_workbook_service
+from runtime.exports_service import (
+    load_exports_summary_service,
+    rebuild_operating_workbook_service,
+)
 from runtime.mailbox_service import (
     run_mailbox_connection_check_service,
     run_mailbox_fetch_service,
@@ -117,12 +124,29 @@ def main() -> None:
     review_refresh.add_argument("--limit", type=int)
     review_refresh.add_argument("--all", action="store_true")
 
+    review_list = analysis_sub.add_parser("review-list")
+    review_list.add_argument("--workspace-root", required=True)
+    review_list.add_argument("--search", default="")
+    review_list.add_argument("--triage-label", default="")
+    review_list.add_argument("--export-only", action="store_true")
+    review_list.add_argument("--page", type=int, default=1)
+    review_list.add_argument("--page-size", type=int, default=50)
+    review_list.add_argument("--sort", default="received_desc")
+    review_list.add_argument("--selected-bundle-id", default="")
+
+    review_item = analysis_sub.add_parser("review-item")
+    review_item.add_argument("--workspace-root", required=True)
+    review_item.add_argument("--bundle-id", required=True)
+
     exports_parser = subparsers.add_parser("exports")
     exports_sub = exports_parser.add_subparsers(dest="exports_command", required=True)
 
     exports_rebuild = exports_sub.add_parser("rebuild")
     exports_rebuild.add_argument("--workspace-root", required=True)
     exports_rebuild.add_argument("--workspace-password", required=True)
+
+    exports_summary = exports_sub.add_parser("summary")
+    exports_summary.add_argument("--workspace-root", required=True)
 
     pipeline_parser = subparsers.add_parser("pipeline")
     pipeline_sub = pipeline_parser.add_subparsers(dest="pipeline_command", required=True)
@@ -283,12 +307,41 @@ def main() -> None:
             ).to_dict()
         )
         return
+    if args.command == "analysis" and args.analysis_command == "review-list":
+        _print(
+            load_review_center_page_service(
+                workspace_root=args.workspace_root,
+                search=args.search,
+                triage_label=args.triage_label,
+                export_only=args.export_only,
+                page=args.page,
+                page_size=args.page_size,
+                sort=args.sort,
+                selected_bundle_id=args.selected_bundle_id,
+            ).to_dict()
+        )
+        return
+    if args.command == "analysis" and args.analysis_command == "review-item":
+        _print(
+            load_review_detail_service(
+                workspace_root=args.workspace_root,
+                bundle_id=args.bundle_id,
+            ).to_dict()
+        )
+        return
 
     if args.command == "exports" and args.exports_command == "rebuild":
         _print(
             rebuild_operating_workbook_service(
                 workspace_root=args.workspace_root,
                 workspace_password=args.workspace_password,
+            ).to_dict()
+        )
+        return
+    if args.command == "exports" and args.exports_command == "summary":
+        _print(
+            load_exports_summary_service(
+                workspace_root=args.workspace_root,
             ).to_dict()
         )
         return

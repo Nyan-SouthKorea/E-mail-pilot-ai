@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime
 
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
 from runtime.secrets_store import WorkspaceSecretsStore
@@ -15,6 +16,19 @@ from runtime.workspace import load_shared_workspace
 class WorkbookRebuildServiceResult:
     operating_workbook_path: str
     representative_count: int
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ExportsSummaryServiceResult:
+    operating_workbook_relpath: str
+    operating_workbook_exists: bool
+    operating_workbook_updated_at: str
+    representative_count: int
+    workbook_row_count: int
+    snapshot_items: list[dict[str, str]]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -55,6 +69,37 @@ def rebuild_operating_workbook_service(
     return WorkbookRebuildServiceResult(
         operating_workbook_path=str(result["operating_workbook_relpath"]),
         representative_count=int(result["representative_count"]),
+    )
+
+
+def load_exports_summary_service(*, workspace_root: str) -> ExportsSummaryServiceResult:
+    workspace = load_shared_workspace(workspace_root)
+    state_store = WorkspaceStateStore(workspace.state_db_path())
+    state_store.ensure_schema()
+    operating_path = workspace.operating_workbook_path()
+    snapshot_root = workspace.operating_snapshot_root()
+    snapshot_items: list[dict[str, str]] = []
+    if snapshot_root.exists():
+        for path in sorted(snapshot_root.glob("*.xlsx"), key=lambda item: item.stat().st_mtime, reverse=True)[:20]:
+            snapshot_items.append(
+                {
+                    "name": path.name,
+                    "relative_path": workspace.to_workspace_relative(path),
+                    "updated_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
+                }
+            )
+    counts = state_store.summary_counts()
+    representative_items = state_store.list_review_items(export_only=True)
+    updated_at = ""
+    if operating_path.exists():
+        updated_at = datetime.fromtimestamp(operating_path.stat().st_mtime).isoformat(timespec="seconds")
+    return ExportsSummaryServiceResult(
+        operating_workbook_relpath=workspace.to_workspace_relative(operating_path),
+        operating_workbook_exists=operating_path.exists(),
+        operating_workbook_updated_at=updated_at,
+        representative_count=int(counts.get("representative_application") or 0),
+        workbook_row_count=len([item for item in representative_items if item.get("workbook_row_index")]),
+        snapshot_items=snapshot_items,
     )
 
 

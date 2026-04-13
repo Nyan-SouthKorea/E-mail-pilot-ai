@@ -55,6 +55,21 @@
     return '이 환경에서는 파일 탐색기를 열 수 없어 경로를 직접 입력해야 합니다.';
   }
 
+  function getPywebviewApi() {
+    if (!window.pywebview || !window.pywebview.api) return null;
+    return window.pywebview.api;
+  }
+
+  function hasReadyPywebviewBridge() {
+    var api = getPywebviewApi();
+    return !!(
+      api &&
+      typeof api.dialog_capabilities === 'function' &&
+      typeof api.pick_folder === 'function' &&
+      typeof api.pick_file === 'function'
+    );
+  }
+
   function getTooltipElement() {
     if (tooltipEl) return tooltipEl;
     tooltipEl = document.createElement('div');
@@ -290,6 +305,25 @@
       setNativeDialogState('desktop_failed');
       return Promise.resolve(false);
     }
+    if (hasReadyPywebviewBridge()) {
+      return getPywebviewApi().dialog_capabilities()
+        .then(function (payload) {
+          if (payload && payload.native_dialog_supported) {
+            setNativeDialogState('desktop_ready');
+            return true;
+          }
+          setNativeDialogState(
+            'desktop_failed',
+            (payload && payload.message) || '전용 창 연결은 되었지만 파일 탐색기를 열 수 없습니다.'
+          );
+          return false;
+        })
+        .catch(function () {
+          setNativeDialogState('desktop_pending', '전용 창 연결을 다시 확인하고 있습니다.');
+          queueNativeDialogDetection(300);
+          return false;
+        });
+    }
     return fetch('/diagnostics/picker-bridge')
       .then(function (response) { return response.json(); })
       .then(function (payload) {
@@ -337,14 +371,24 @@
     });
     detectNativeDialogs().finally(function () {
       var pickerKind = button.dataset.pickerKind || 'folder';
-      var form = new FormData();
-      form.append('current_path', input.value || '');
-      form.append('workspace_root', workspaceRoot || '');
-      fetch(pickerKind === 'file' ? '/diagnostics/pick-file' : '/diagnostics/pick-folder', {
-        method: 'POST',
-        body: form,
-      })
-        .then(function (response) { return response.json(); })
+      var bridgeApi = hasReadyPywebviewBridge() ? getPywebviewApi() : null;
+      var pickerPromise;
+      if (bridgeApi) {
+        pickerPromise = (
+          pickerKind === 'file'
+            ? bridgeApi.pick_file(input.value || '', workspaceRoot || '', ['Excel (*.xlsx;*.xlsm;*.xltx;*.xltm)'])
+            : bridgeApi.pick_folder(input.value || '', workspaceRoot || '')
+        );
+      } else {
+        var form = new FormData();
+        form.append('current_path', input.value || '');
+        form.append('workspace_root', workspaceRoot || '');
+        pickerPromise = fetch(pickerKind === 'file' ? '/diagnostics/pick-file' : '/diagnostics/pick-folder', {
+          method: 'POST',
+          body: form,
+        }).then(function (response) { return response.json(); });
+      }
+      pickerPromise
         .then(function (payload) {
           if (payload && payload.ok && payload.path) {
             setNativeDialogState('desktop_ready');
@@ -359,7 +403,7 @@
           }
           renderPathStatus(statusTarget, {
             status: (payload && payload.error === '선택이 취소되었습니다.') ? 'quiet' : 'warn',
-            message: (payload && payload.error) || '경로 선택이 취소되었습니다.',
+            message: (payload && payload.error) || '전용 창 연결이 아직 준비되지 않았습니다. 다시 시도하거나 경로를 직접 입력해 주세요.',
           });
         })
         .catch(function () {

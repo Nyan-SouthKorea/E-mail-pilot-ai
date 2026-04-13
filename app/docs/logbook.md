@@ -12,20 +12,20 @@
 - 워크스페이스 열기/생성, 설정, 통합 리뷰센터, 동기화 시작 버튼이 있다.
 - 최근 세이브 바로 다시 열기, 세이브 닫기, 다른 세이브 열기, 마지막 세이브 자동 재개가 있다.
 - 관리도구 화면에서 현재 feature 카탈로그와 직접 실행 가능한 smoke/debug 기능을 보여준다.
-- 리뷰센터는 sqlite state DB 기준으로 triage, dedupe, 대표 export 상태를 보여준다.
+- 리뷰센터는 sqlite state DB 기준으로 triage, dedupe, 엑셀 반영 대상 상태를 보여준다.
 - 원본 열기 링크는 workspace 상대경로를 기준으로 OS 파일 열기를 시도한다.
 - `app/ui_smoke.py`로 핵심 화면과 재반영 버튼까지 반복 검증할 수 있다.
 - Windows portable exe는 Windows host build script 기준으로 빌드하고 `D:\EmailPilotAI\portable\EmailPilotAI\`에 단일 publish 한다.
 - 공식 사용자 실행 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
-- 홈은 3단계 시작 마법사 + 세이브 오픈 후 작업 대시보드 2상태로 운영하고, 설정은 기본/고급, 동기화는 quick/full, 리뷰는 카드형 확장 리스트 기준으로 본다.
-- 새 세이브는 v2 영문 구조를 만들고, `찾아보기`는 이제 pywebview 추정보다 server-side diagnostics route를 통해 native picker를 호출한다.
+- 홈은 3단계 시작 마법사 + 세이브 오픈 후 작업 대시보드 2상태로 운영하고, 설정은 기본/고급, 동기화는 quick/full, 리뷰는 페이지 기반 목록 + 우측 상세패널 기준으로 본다.
+- 새 세이브는 v2 영문 구조를 만들고, `찾아보기`는 pywebview native dialog를 우선 시도하고 필요 시 diagnostics route로 fallback 한다.
 - 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 프리셋을 지원한다.
 
 ## 현재 활성 체크리스트
 
 - [x] blocker hotfix: picker self-test / server-side diagnostics route 도입
 - [x] blocker hotfix: quick sync `notes referenced before assignment` 예외 복구
-- [ ] blocker hotfix: pushed head 기준 Windows 재빌드와 실제 exe blocker 재검증
+- [x] blocker hotfix: pushed head 기준 Windows 재빌드와 실제 exe blocker 재검증
 - [x] 데스크톱 셸과 로컬 Web UI 골격 도입
 - [x] 세이브 파일 불러오기 / 새 워크스페이스 만들기 화면 도입
 - [x] 설정 화면과 저장 위치 안내 도입
@@ -60,9 +60,21 @@
 - [x] 실제 세이브 기준 Windows quick sync 자동 검증
 - [ ] Windows 실제 native dialog 수동 acceptance
 - [ ] launcher app-meta 확인 포함 Windows 공식 exe 최종 acceptance
-- [ ] service/CLI 전환 완료 기준으로 app 문서/diagnostics 문구 최종 정리
+- [x] 리뷰센터를 페이지 기반 목록 + 우측 상세패널로 전환
+- [x] 리뷰 필터/페이지/선택 상태 유지와 외부 파일 열기 복귀 경로 정리
+- [x] 한국어 artifact 용어와 엑셀 보조화 패널 정리
+- [x] service/CLI 전환 완료 기준으로 app 문서/diagnostics 문구 최종 정리
+- [ ] Windows 실제 native dialog 수동 acceptance 재확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | 리뷰센터를 페이지 기반 목록 + 상세패널로 재편
+
+- `review` 화면을 전체 카드 렌더에서 페이지 기반 목록 + 우측 상세패널 구조로 바꿨다.
+- 기본 50건만 먼저 렌더링하고, 상세는 선택한 메일만 따로 읽어 앱 안 미리보기 탭으로 보여준다.
+- `대표 export만`을 `엑셀 반영 대상만`으로 바꾸고, 원본/산출물 버튼은 한국어 이름으로 정리했다.
+- 외부 파일 열기 뒤에도 필터/페이지/선택 상태가 유지되도록 `return_to`와 URL query 보존 흐름을 도입했다.
+- `찾아보기`는 pywebview native dialog를 우선 시도하도록 bridge를 보강했다.
 
 ### 2026-04-13 | Human + Codex | Windows 공식 exe 재빌드와 실제 세이브 quick sync 자동 검증
 

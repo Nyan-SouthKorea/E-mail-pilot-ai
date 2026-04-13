@@ -82,45 +82,36 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `CLI-우선 제품 구조 전환 + blocker 정리 + 전기능 문서/검증 체계 고정`
+  - `리뷰 성능/사용성 개선 + 앱 정본화 + CLI 우선 검증 체계 재편`
 - summary:
-  - GUI 전용 로직을 줄이고 `runtime service + 명시적 CLI`를 제품의 단일 실행 진실로 삼는다.
-  - 현재 blocker 2개를 먼저 닫는다.
-    - `찾아보기`가 실제 폴더 선택창을 못 여는 문제
-    - quick sync 이후 `update_latest_review_pointers`/후속 단계 예외로 부분 완료에 떨어지는 문제
-  - 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 프리셋으로 고정한다.
-  - 제품 핵심 기능은 CLI와 service로 거의 전부 자동 검증하고, Windows 네이티브 파일 탐색기와 exe 아이콘만 수동 acceptance로 남긴다.
+  - 병목은 기능 하나가 아니라 구조 문제다. `리뷰`가 전체 항목을 한 번에 읽고 카드형 DOM을 전부 렌더링하던 구조를 페이지 기반 목록 + 선택 상세 기준으로 바꾼다.
+  - 앱을 검토의 정본으로 두고, 엑셀은 외부 전달/참고용 보조 결과물로 재정의한다.
+  - GUI는 계속 thin wrapper로 두고, 공용 진실은 `runtime service + 명시적 CLI`로 유지한다.
+  - 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 전체 / 직접 입력 N` 프리셋으로 고정하고, `10 -> 100 -> 500 -> 550 -> 전체` 순차 검증 흐름을 운영 기준으로 문서화한다.
 - key changes:
-  - `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 service 그룹을 공용 API로 유지한다.
-  - GUI와 CLI는 공용 service만 호출하고, 화면별 임의 비즈니스 로직을 줄인다.
-  - `찾아보기`는 pywebview bridge 추정 대신 `diagnostics self-test -> server-side picker route -> 결과/오류 기록` 흐름으로 바꾼다.
-  - `mailbox fetch`, `analysis review-refresh`, `exports rebuild`, `pipeline sync`를 명시적 CLI로 유지한다.
-  - `feature_catalog`와 `logbook`는 기능 정의, 입력/출력, 검증 계약, 수동 acceptance 경계를 같이 기록한다.
+  - 리뷰센터는 기본 50건 페이지네이션 + 우측 상세패널 + 앱 안 미리보기 탭으로 바꾼다.
+  - `대표 export만`은 `엑셀 반영 대상만`으로 바꾸고, `preview/raw.eml/summary/record/projected/attachments`는 한국어 용어로 정리한다.
+  - 외부 파일 열기 뒤에도 필터/페이지/선택 상태가 유지되도록 URL query와 로컬 설정에 상태를 같이 저장한다.
+  - `analysis review-list`, `analysis review-item`, `exports summary`를 공용 service/CLI 계약으로 올린다.
+  - `docs/feature_catalog.md`에는 기능 id, UI/CLI/service, 입력/출력, 저장 위치, smoke 가능 여부, 수동 acceptance 필요 여부를 빠짐없이 반영한다.
 - public interfaces / types:
-  - `runtime.workspace_service:*`
-  - `runtime.settings_service:*`
-  - `runtime.mailbox_service:*`
-  - `runtime.analysis_service:*`
-  - `runtime.exports_service:*`
+  - `runtime.analysis_service:{load_review_center_page_service, load_review_detail_service, refresh_review_board_service}`
+  - `runtime.exports_service:{load_exports_summary_service, rebuild_operating_workbook_service}`
   - `runtime.pipeline_service:run_pipeline_sync_service`
-  - `runtime.diagnostics_service:{picker_bridge_self_test,pick_folder_native,pick_file_native}`
   - `runtime.cli`
-    - `workspace create/open/close/status/recent`
-    - `settings show/save`
-    - `mailbox connect-check`
-    - `mailbox fetch --limit N|--all`
-    - `analysis review-refresh --limit N|--all`
-    - `exports rebuild`
-    - `pipeline sync --scope recent --limit N | --scope all`
-    - `diagnostics picker-bridge`
-    - `diagnostics pick-folder`
-    - `diagnostics pick-file`
+    - `analysis review-list --page --page-size --sort`
+    - `analysis review-item --bundle-id`
+    - `exports summary`
+    - `pipeline sync --scope recent --limit N`
+    - `pipeline sync --scope all`
 - test plan:
   - smoke-safe
     - 세이브 생성/열기/닫기/최근 세이브
     - 설정 저장/읽기
     - picker diagnostics + picker route test override
     - review refresh
+    - review list/detail paging
+    - exports summary
     - workbook rebuild
     - `app.ui_smoke`
     - `runtime.feature_harness_smoke`
@@ -137,46 +128,55 @@
 - assumptions:
   - 공식 실행 경로는 계속 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
   - GUI는 thin wrapper, 공용 진실은 service/CLI다.
+  - 리뷰 UX는 `페이지 기반 목록 + 우측 상세패널`을 기본으로 하고, 앱이 검토의 정본이다.
   - 기존 beta 세이브의 자동 마이그레이션은 하지 않는다.
   - Windows 네이티브 picker와 exe shell integration만 마지막 수동 acceptance로 남긴다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - service/CLI 골격, 로컬 smoke, pushed head 기준 Windows 포터블 재빌드, Windows service self-test, 실제 세이브 기준 `recent 10` sync 자동 검증까지 끝났고, 남은 blocker는 Windows 실제 폴더 선택창과 exe 아이콘/창 브랜딩의 수동 acceptance다.
+  - service/CLI 골격과 기존 blocker 정리는 끝났고, `리뷰 1000건 이상에서도 버벅이지 않는 구조`로 실제 화면과 공용 조회 계약을 재편하는 1차 구현과 smoke 검증까지 마쳤다.
 - 바로 다음 작업:
-  - 사용자 기준으로 `찾아보기`를 실제 클릭해 폴더 선택창이 뜨는지, 새 exe 아이콘/브랜딩이 의도대로 보이는지 확인하고, 그 다음 live-required staged verification `100 / 500 / 550 / all`을 순서대로 누적한다.
+  - staged live verification `100 / 500 / 550 / all`을 실제 세이브 기준으로 누적 기록하고, 그 결과를 review/export summary와 같은 진실로 맞춘다.
+  - Windows 수동 acceptance 2개인 `실제 picker dialog`, `exe 아이콘/창 브랜딩`을 닫는다.
 - publish 상태:
   - 이전 plan publish 완료
-  - 현재 plan 중간 publish 완료
-  - 최종 manual acceptance 대기
+  - 현재 plan 구현 중
+  - 이번 턴 마감 시 commit/push 예정
 
 ## 현재 활성 체크리스트
 
-- `CLI-우선 제품 구조 전환 + blocker 정리 + 전기능 문서/검증 체계 고정`
+- `리뷰 성능/사용성 개선 + 앱 정본화 + CLI 우선 검증 체계 재편`
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
-  - [x] runtime service 골격 `workspace/settings/mailbox/analysis/exports/pipeline/diagnostics` 추가
-  - [x] 명시적 CLI `workspace/settings/mailbox/analysis/exports/pipeline/diagnostics` 하위 명령 추가
-  - [x] blocker: quick sync 후속 단계 예외 경로를 공용 pipeline service로 정리
-  - [x] blocker: picker를 server-side diagnostics route로 전환
-  - [x] sync 범위 프리셋 `10 / 100 / 500 / 1000 / 직접 입력 / 전체` UI+서버 반영
-  - [x] `app.ui_smoke`에 picker route와 sync preset 회귀 추가
-  - [x] `runtime.feature_harness_smoke`에 service smoke 추가
-  - [x] `runtime/feature_registry.py`와 `docs/feature_catalog.md`의 대응 관계 마무리
-  - [x] root/module README, module logbook를 CLI-first 기준으로 최종 정리
-  - [x] live-required 검증 범위 10/100/500/550/all 실행 전략 정리
-  - [x] Windows 포터블 재빌드
-  - [x] live-required smoke: 실제 세이브 기준 `recent 10` sync service 검증
-  - [ ] live-required staged verification: `100 / 500 / 550 / all`
+  - [x] review list/detail/export summary용 공용 service/CLI 추가
+  - [x] review 목록을 전체 카드 렌더에서 페이지 기반 목록으로 전환
+  - [x] 우측 상세패널과 앱 안 미리보기 탭 도입
+  - [x] `대표 export만` -> `엑셀 반영 대상만` 용어 정리
+  - [x] 외부 파일 열기 뒤 필터/페이지/선택 상태 유지
+  - [x] sync 범위 프리셋 `10 / 100 / 500 / 1000 / 직접 입력 / 전체` 유지
+  - [x] `app.ui_smoke`, `feature_harness_smoke`, CLI review/export summary 회귀 추가
+  - [x] `exports summary`와 리뷰 상세패널에서 엑셀을 보조 산출물로 표시
+  - [x] canonical 문서에 review/service/CLI 기준 반영
+  - [ ] staged live verification: `100 / 500 / 550 / all`
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
-  - [x] canonical 문서 최종 반영
   - [ ] current plan final commit 완료
   - [ ] current plan final push 완료
   - [ ] final `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | 리뷰 성능/사용성 개선 1차: 페이지 기반 목록, 상태 유지, 앱 안 미리보기
+
+- `review` 화면을 전체 카드 렌더에서 `페이지 기반 목록 + 우측 상세패널` 구조로 바꿨다. 기본 페이지 크기는 50이고, 25/50/100 옵션과 정렬(`받은 시각 최신순 / 회사명순 / 발신자순`)을 함께 지원한다.
+- 리뷰 상세는 선택한 bundle 1건만 별도 service 호출로 읽고, `메일 미리보기 / 원본 메일 파일 / 요약 메모 / 추출 결과 원본 / 엑셀 반영 미리보기`를 앱 안 iframe 미리보기로 먼저 보여주도록 바꿨다.
+- 외부 파일 열기는 `/actions/open-path` form post로 정리해, 파일이나 폴더를 열고 돌아와도 필터/페이지/선택 상태가 그대로 유지되게 했다.
+- 사용자 용어는 `대표 export만` 대신 `엑셀 반영 대상만`, `대표` 대신 `엑셀 반영 대상`, `preview/raw.eml/summary/...` 대신 한국어 artifact 이름으로 다시 정리했다.
+- `runtime.analysis_service`에는 `load_review_center_page_service`, `load_review_detail_service`를, `runtime.exports_service`에는 `load_exports_summary_service`를 추가해 GUI와 CLI가 같은 조회 계약을 쓰게 했다.
+- `runtime.cli`는 `analysis review-list`, `analysis review-item`, `exports summary`를 제공하고, `feature_harness_smoke`는 이 service 결과를 함께 검증하도록 보강했다.
+- `app/main.py`의 picker bridge는 이제 pywebview native dialog를 우선 시도하고, 필요 시 diagnostics route/native helper로 fallback 하도록 바꿨다.
+- 검증은 `py_compile`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_perf_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.cli analysis review-list --workspace-root /tmp/epa_review_perf_smoke --page 1 --page-size 50 --sort received_desc`, `python -m runtime.cli exports summary --workspace-root /tmp/epa_review_perf_smoke`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_review_perf_smoke --workspace-password SampleWorkspace260408` 기준으로 통과했다.
 
 ### 2026-04-13 | Human + Codex | pushed head 기준 Windows 재빌드와 자동 검증 완료, manual acceptance만 남김
 

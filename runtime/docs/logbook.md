@@ -13,6 +13,8 @@
 - review report를 state DB로 ingest하고 회사 기준 dedupe를 적용한다.
 - stable 운영 workbook을 다시 만들고 `검토_인덱스` 시트를 함께 쓴다.
 - CLI로 workspace/settings/mailbox/analysis/exports/pipeline/diagnostics 명령을 실행할 수 있다.
+- analysis service는 리뷰 목록 1페이지와 선택 상세 1건을 따로 읽는 조회 계약을 지원한다.
+- exports service는 운영본/스냅샷/반영 대상 수를 따로 읽는 요약 계약을 지원한다.
 - feature registry와 feature run history가 있다.
 - repo-safe 샘플 워크스페이스 seed를 만들 수 있다.
 - `feature-check-all`과 `feature-harness-smoke`로 카탈로그 전량 점검과 반복 smoke를 수행할 수 있다.
@@ -35,12 +37,21 @@
 - [x] 명시적 CLI 하위 명령 도입
 - [x] diagnostics picker self-test/test override 도입
 - [x] feature harness에 service smoke 추가
+- [x] review list/detail paging service와 exports summary service 추가
 - [x] Windows saved workspace 기준 `pipeline sync --scope recent --limit 10` 자동 검증
+- [ ] staged live verification 결과를 review/export summary와 함께 누적 기록
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
 - [ ] live-required staged verification 10/100/500/550/all 실행 결과 축적
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | 리뷰 목록/상세/엑셀 요약 조회 계약 추가
+
+- `runtime.analysis_service`에 `load_review_center_page_service`, `load_review_detail_service`를 추가해 GUI와 CLI가 같은 페이지 기반 리뷰 조회 계약을 쓰게 했다.
+- `runtime.exports_service`에는 `load_exports_summary_service`를 추가해 운영본/스냅샷/반영 대상 수를 별도 조회할 수 있게 했다.
+- `runtime.cli`는 `analysis review-list`, `analysis review-item`, `exports summary` 명령을 지원하게 됐다.
+- `feature_harness_smoke`는 위 service 결과를 함께 확인하도록 보강했고, 샘플 세이브 기준 자동 검증도 다시 통과했다.
 
 ### 2026-04-13 | Human + Codex | Windows saved workspace 기준 service 자동 검증
 

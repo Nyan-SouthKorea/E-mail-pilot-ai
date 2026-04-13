@@ -12,9 +12,13 @@ import tempfile
 
 from analysis.inbox_review_board_smoke import run_inbox_review_board_smoke
 from app.ui_smoke import run_app_ui_smoke
-from runtime.analysis_service import refresh_review_board_service
+from runtime.analysis_service import (
+    load_review_center_page_service,
+    load_review_detail_service,
+    refresh_review_board_service,
+)
 from runtime.diagnostics_service import pick_folder_native, picker_bridge_self_test
-from runtime.exports_service import rebuild_operating_workbook_service
+from runtime.exports_service import load_exports_summary_service, rebuild_operating_workbook_service
 from runtime.feature_registry import check_feature, list_feature_specs, run_feature
 from runtime.settings_service import load_workspace_settings_summary
 from runtime.sample_workspace import create_sample_workspace
@@ -91,6 +95,16 @@ def run_feature_harness_smoke(
     previous_picker_test_response = os.environ.get("EPA_PICKER_TEST_RESPONSE")
     os.environ["EPA_PICKER_TEST_RESPONSE"] = str(workspace.root())
     try:
+        review_page = load_review_center_page_service(
+            workspace_root=str(workspace.root()),
+            page=1,
+            page_size=50,
+            sort="received_desc",
+        )
+        review_detail = load_review_detail_service(
+            workspace_root=str(workspace.root()),
+            bundle_id=review_page.selected_bundle_id,
+        )
         service_smokes = {
             "workspace_status": inspect_workspace_entry(
                 workspace_root=str(workspace.root()),
@@ -117,9 +131,14 @@ def run_feature_harness_smoke(
                 limit=10,
                 reuse_existing_analysis=True,
             ).to_dict(),
+            "analysis_review_list": review_page.to_dict(),
+            "analysis_review_item": review_detail.to_dict(),
             "exports_rebuild": rebuild_operating_workbook_service(
                 workspace_root=str(workspace.root()),
                 workspace_password=workspace_password,
+            ).to_dict(),
+            "exports_summary": load_exports_summary_service(
+                workspace_root=str(workspace.root()),
             ).to_dict(),
         }
     finally:

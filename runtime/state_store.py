@@ -447,33 +447,56 @@ class WorkspaceStateStore:
         export_only: bool = False,
         include_duplicates: bool = True,
         limit: int | None = None,
+        offset: int = 0,
+        sort: str = "received_desc",
     ) -> list[dict[str, Any]]:
-        query = [
-            "SELECT * FROM bundle_review_state WHERE 1=1",
-        ]
-        params: list[Any] = []
-        if search.strip():
-            query.append(
-                "AND (subject LIKE ? OR sender LIKE ? OR company_name LIKE ?)"
-            )
-            pattern = f"%{search.strip()}%"
-            params.extend([pattern, pattern, pattern])
-        if triage_label.strip():
-            query.append("AND triage_label = ?")
-            params.append(triage_label.strip())
-        if export_only:
-            query.append("AND is_export_representative = 1")
-        if not include_duplicates:
-            query.append("AND duplicate_of_bundle_id IS NULL")
-        query.append("ORDER BY COALESCE(received_at, '') DESC, bundle_id DESC")
+        query, params = self._build_review_items_query(
+            search=search,
+            triage_label=triage_label,
+            export_only=export_only,
+            include_duplicates=include_duplicates,
+        )
+        query.append(self._review_sort_clause(sort))
         if limit is not None:
             query.append("LIMIT ?")
             params.append(limit)
+        if offset > 0:
+            query.append("OFFSET ?")
+            params.append(offset)
 
         sql = " ".join(query)
         with self.connect() as connection:
             rows = connection.execute(sql, params).fetchall()
         return [self._row_to_review_item(row) for row in rows]
+
+    def count_review_items(
+        self,
+        *,
+        search: str = "",
+        triage_label: str = "",
+        export_only: bool = False,
+        include_duplicates: bool = True,
+    ) -> int:
+        query, params = self._build_review_items_query(
+            search=search,
+            triage_label=triage_label,
+            export_only=export_only,
+            include_duplicates=include_duplicates,
+            select_clause="SELECT COUNT(*) FROM bundle_review_state WHERE 1=1",
+        )
+        sql = " ".join(query)
+        with self.connect() as connection:
+            return int(connection.execute(sql, params).fetchone()[0])
+
+    def get_review_item(self, bundle_id: str) -> dict[str, Any] | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM bundle_review_state WHERE bundle_id = ?",
+                (bundle_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_review_item(row)
 
     def summary_counts(self) -> dict[str, int]:
         with self.connect() as connection:
@@ -516,6 +539,40 @@ class WorkspaceStateStore:
             "duplicate_application": duplicate_application,
             "representative_application": representatives,
         }
+
+    def _build_review_items_query(
+        self,
+        *,
+        search: str = "",
+        triage_label: str = "",
+        export_only: bool = False,
+        include_duplicates: bool = True,
+        select_clause: str = "SELECT * FROM bundle_review_state WHERE 1=1",
+    ) -> tuple[list[str], list[Any]]:
+        query = [select_clause]
+        params: list[Any] = []
+        if search.strip():
+            query.append(
+                "AND (subject LIKE ? OR sender LIKE ? OR company_name LIKE ?)"
+            )
+            pattern = f"%{search.strip()}%"
+            params.extend([pattern, pattern, pattern])
+        if triage_label.strip():
+            query.append("AND triage_label = ?")
+            params.append(triage_label.strip())
+        if export_only:
+            query.append("AND is_export_representative = 1")
+        if not include_duplicates:
+            query.append("AND duplicate_of_bundle_id IS NULL")
+        return query, params
+
+    def _review_sort_clause(self, sort: str) -> str:
+        normalized = (sort or "received_desc").strip().lower()
+        if normalized == "company_asc":
+            return "ORDER BY LOWER(COALESCE(company_name, '')), COALESCE(received_at, '') DESC, bundle_id DESC"
+        if normalized == "sender_asc":
+            return "ORDER BY LOWER(COALESCE(sender, '')), COALESCE(received_at, '') DESC, bundle_id DESC"
+        return "ORDER BY COALESCE(received_at, '') DESC, bundle_id DESC"
 
     def latest_sync_run(self) -> dict[str, Any] | None:
         with self.connect() as connection:

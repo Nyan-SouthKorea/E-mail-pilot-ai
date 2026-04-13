@@ -152,7 +152,7 @@ def run_app_ui_smoke(
             ("/", "home_with_workspace", "다음 행동"),
             ("/sync", "sync_page", "선택한 개수로 동기화"),
             ("/settings", "settings_page", "계정 연결 확인"),
-            ("/review", "review_page", "운영 workbook 재반영"),
+            ("/review", "review_page", "엑셀 반영 대상만"),
             ("/admin/features", "admin_features_page", "고급 도구"),
             ("/jobs/current", "job_status_api", '"status"'),
             ("/app-meta", "app_meta_api", '"app_id":"email_pilot_ai_desktop"'),
@@ -252,7 +252,7 @@ def run_app_ui_smoke(
             step="review_rebuild_trigger",
             response=rebuild_response,
             ok=rebuild_response.status_code == 303,
-            detail="리뷰센터에서 운영 workbook 재반영 job을 시작해야 한다.",
+            detail="리뷰센터에서 운영 엑셀 재반영 job을 시작해야 한다.",
         )
 
         final_job_status = "running"
