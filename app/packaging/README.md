@@ -47,6 +47,7 @@ Linux에서 Windows 빌드와 로컬 publish를 한 번에 처리할 때:
 2. Windows build와 로컬 publish를 한 번에 실행한다.
    - `bash ./app/packaging/build_windows_portable_and_publish.sh`
    - 이 helper는 먼저 Windows `D:\EmailPilotAI\repo`를 현재 GitHub `main` 기준으로 맞춘 뒤 빌드를 실행한다.
+   - 따라서 Linux repo가 dirty 상태이거나 `HEAD != origin/main`이면 stale build를 막기 위해 먼저 실패한다. 이 경우 commit/push를 끝낸 뒤 다시 실행해야 한다.
 3. 기존 Windows 산출물만 다시 publish할 때는 아래 helper를 쓴다.
    - `powershell -ExecutionPolicy Bypass -File .\\app\\packaging\\publish_portable_to_runtime.ps1`
    - publish 전에 현재 실행 중인 공식 runtime `EmailPilotAI.exe`가 있으면 자동으로 종료하고 교체한다.
@@ -58,6 +59,7 @@ Linux에서 Windows 빌드와 로컬 publish를 한 번에 처리할 때:
 - Windows 포터블 exe는 Windows 호스트에서 빌드하는 것을 기본으로 본다.
 - Linux 서버에서는 spec, 오프라인 자산, 런처 구조 검증까지만 수행한다. Linux에서 빌드된 ELF 산출물은 Windows에서 실행할 수 없다.
 - 앱 내부 FastAPI 서버는 항상 해당 Windows 프로세스 안에서 로컬로 뜬다. 서버와 Windows 검증의 연동성은 exe 위치가 아니라 같은 세이브 파일 폴더를 열었는지로 결정된다.
+- launcher는 기본 포트가 점유돼 있으면 다른 로컬 포트를 자동 선택하고, `/app-meta`로 실제 Email Pilot AI 서버인지 확인한 뒤 창을 연다.
 - 공유 폴더 직접 실행은 `pythonnet / Python.Runtime.dll` 계층에서 불안정할 수 있어 공식 지원 경로에서 제외한다.
 - 실제 실행은 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나를 기준으로 한다.
 - `portable_bundle_manifest.json`은 Windows build 임시 폴더와 공식 D runtime publish 결과가 같은 bundle인지 확인하는 기준 파일이다.

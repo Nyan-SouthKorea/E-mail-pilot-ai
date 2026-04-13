@@ -13,6 +13,29 @@ DO_BUILD=1
 DO_SYNC=1
 BUILD_ARGS=()
 
+ensure_publishable_sync_source() {
+  local repo_root="$1"
+  local git_ref="$2"
+
+  if ! git -C "${repo_root}" diff --quiet || ! git -C "${repo_root}" diff --cached --quiet; then
+    echo "[sync] Local working tree has uncommitted changes." >&2
+    echo "[sync] This Windows build script syncs from GitHub, not from the local dirty tree." >&2
+    echo "[sync] Commit/push first, or intentionally skip sync only if the Windows mirror is already updated." >&2
+    exit 1
+  fi
+
+  if git -C "${repo_root}" rev-parse --verify "origin/${git_ref}" >/dev/null 2>&1; then
+    local local_head remote_head
+    local_head="$(git -C "${repo_root}" rev-parse HEAD)"
+    remote_head="$(git -C "${repo_root}" rev-parse "origin/${git_ref}")"
+    if [[ "${local_head}" != "${remote_head}" ]]; then
+      echo "[sync] Local HEAD (${local_head}) is not the same as origin/${git_ref} (${remote_head})." >&2
+      echo "[sync] Push the current commit first so the Windows mirror does not build stale code." >&2
+      exit 1
+    fi
+  fi
+}
+
 join_windows_args() {
   local joined=""
   local arg
@@ -137,6 +160,7 @@ if (Test-Path (Join-Path \$repoRoot '.git')) { \
 }
 
 if [[ ${DO_SYNC} -eq 1 ]]; then
+  ensure_publishable_sync_source "${REPO_ROOT}" "${WINDOWS_GIT_REF}"
   sync_repo_to_windows "${WINDOWS_REPO_ROOT}" "${WINDOWS_GIT_REF}" "${WINDOWS_GIT_REMOTE_URL}"
 else
   echo "[sync] Skipping Windows repo sync and reusing the existing Windows mirror."

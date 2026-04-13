@@ -6,6 +6,7 @@ import argparse
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -83,6 +84,7 @@ def run_app_ui_smoke(
         if device_secrets_path.exists()
         else None
     )
+    previous_picker_test_response = os.environ.get("EPA_PICKER_TEST_RESPONSE")
 
     steps: list[AppUiSmokeStep] = []
     if SERVER_STATE.current_session is not None and SERVER_STATE.current_session.lock_handle is not None:
@@ -109,6 +111,7 @@ def run_app_ui_smoke(
         )
 
     try:
+        os.environ["EPA_PICKER_TEST_RESPONSE"] = str(workspace.root())
         save_local_app_settings(LocalAppSettings(), path=local_settings_path)
         save_local_device_secrets(LocalDeviceSecrets(), path=device_secrets_path)
         home_response = client.get("/")
@@ -147,11 +150,12 @@ def run_app_ui_smoke(
 
         routes = [
             ("/", "home_with_workspace", "다음 행동"),
-            ("/sync", "sync_page", "빠른 테스트 동기화"),
+            ("/sync", "sync_page", "선택한 개수로 동기화"),
             ("/settings", "settings_page", "계정 연결 확인"),
             ("/review", "review_page", "운영 workbook 재반영"),
             ("/admin/features", "admin_features_page", "고급 도구"),
             ("/jobs/current", "job_status_api", '"status"'),
+            ("/app-meta", "app_meta_api", '"app_id":"email_pilot_ai_desktop"'),
         ]
         for route, step_name, expected_text in routes:
             response = client.get(route)
@@ -202,6 +206,45 @@ def run_app_ui_smoke(
                 ) is None
             ),
             detail="설정 화면의 엑셀 양식 찾아보기 버튼도 기본 disabled가 아니어야 한다.",
+        )
+
+        picker_diag_response = client.get("/diagnostics/picker-bridge")
+        picker_diag_payload = picker_diag_response.json()
+        _record(
+            step="picker_bridge_diagnostics",
+            response=picker_diag_response,
+            ok=picker_diag_response.status_code == 200 and "native_dialog_supported" in picker_diag_payload,
+            detail="파일 탐색기 self-test endpoint가 진단 결과를 반환해야 한다.",
+        )
+
+        picker_folder_response = client.post(
+            "/diagnostics/pick-folder",
+            data={
+                "current_path": "",
+                "workspace_root": str(workspace.root()),
+            },
+        )
+        picker_folder_payload = picker_folder_response.json()
+        _record(
+            step="picker_folder_endpoint",
+            response=picker_folder_response,
+            ok=picker_folder_response.status_code == 200 and bool(picker_folder_payload.get("ok")) and bool(picker_folder_payload.get("path")),
+            detail="파일 탐색기 route가 테스트 override 기준으로 선택 경로를 반환해야 한다.",
+        )
+
+        sync_page_response = client.get("/sync")
+        sync_text = sync_page_response.text
+        _record(
+            step="sync_scope_presets",
+            response=sync_page_response,
+            ok=(
+                sync_page_response.status_code == 200
+                and "최근 100건" in sync_text
+                and "최근 500건" in sync_text
+                and "최근 1000건" in sync_text
+                and "직접 입력" in sync_text
+            ),
+            detail="동기화 화면에 preset + 직접입력 옵션이 보여야 한다.",
         )
 
         rebuild_response = client.post("/review/rebuild", follow_redirects=False)
@@ -273,6 +316,10 @@ def run_app_ui_smoke(
         else:
             device_secrets_path.parent.mkdir(parents=True, exist_ok=True)
             device_secrets_path.write_text(previous_device_secrets, encoding="utf-8")
+        if previous_picker_test_response is None:
+            os.environ.pop("EPA_PICKER_TEST_RESPONSE", None)
+        else:
+            os.environ["EPA_PICKER_TEST_RESPONSE"] = previous_picker_test_response
 
     report = AppUiSmokeReport(
         generated_at=datetime.now().isoformat(timespec="seconds"),
@@ -283,6 +330,7 @@ def run_app_ui_smoke(
         notes=[
             "이 smoke는 앱 핵심 화면과 관리도구 접근, 재반영 버튼, background job polling을 함께 확인한다.",
             "실메일이 없는 샘플 워크스페이스에서도 반복 실행할 수 있다.",
+            "파일 탐색기 route는 EPA_PICKER_TEST_RESPONSE override로 GUI wrapper 경로를 자동 검증한다.",
         ],
     )
     report_path.parent.mkdir(parents=True, exist_ok=True)

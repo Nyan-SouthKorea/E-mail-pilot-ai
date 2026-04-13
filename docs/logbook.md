@@ -82,56 +82,116 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `고객 서비스형 UI/세이브 구조 리팩터 v3`
-- plan 요약:
-  - 세이브 파일 열기/만들기를 경로 입력형이 아니라 실제 폴더 선택 기반으로 바꾸고, 새 세이브는 v2 영문 구조만 사용한다.
-  - 설정, 계정 연결 확인, 빠른 테스트/전체 동기화는 오래 걸려도 상태가 보이는 서비스형 진행 카드와 진행률을 가진다.
-  - 로컬 장치 전용 암호화 저장소를 도입해 마지막 세이브 파일과 암호, 기본 OpenAI API key를 이 PC에만 저장하고 자동 재개/자동 채움을 지원한다.
-  - 앱을 다시 켜면 마지막 세이브를 자동으로 다시 열고, 현재 세이브 닫기/다른 세이브 열기/최근 세이브 선택을 자연스럽게 지원한다.
-- 이번 plan의 성공 기준:
-  - `찾아보기`는 경로 선입력 없이도 바로 폴더 선택기가 열려야 하고, 최근 세이브는 클릭 가능한 목록이어야 한다.
-  - 새 세이브는 `mail / exports / logs / secure / state / locks` 기준의 v2 구조만 만들고 legacy `profile/참고자료/실행결과/기대되는 산출물`은 만들지 않는다.
-  - `(i)` 도움말은 hover/focus/click 모두 동작하는 실제 tooltip/popover가 되어야 한다.
-  - 계정 연결 확인과 동기화는 진행 상태, 단계, 진행률, 부분 완료/실패 이유와 다음 행동을 보여야 한다.
-  - 앱 재실행 시 마지막 세이브 자동 재개, OpenAI API key 자동 채움, 세이브 닫기/전환이 동작해야 한다.
-  - exe 아이콘과 전체 톤이 실제 고객 서비스용 Windows 프로그램처럼 정리돼야 한다.
+  - `CLI-우선 제품 구조 전환 + blocker 정리 + 전기능 문서/검증 체계 고정`
+- summary:
+  - GUI 전용 로직을 줄이고 `runtime service + 명시적 CLI`를 제품의 단일 실행 진실로 삼는다.
+  - 현재 blocker 2개를 먼저 닫는다.
+    - `찾아보기`가 실제 폴더 선택창을 못 여는 문제
+    - quick sync 이후 `update_latest_review_pointers`/후속 단계 예외로 부분 완료에 떨어지는 문제
+  - 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 프리셋으로 고정한다.
+  - 제품 핵심 기능은 CLI와 service로 거의 전부 자동 검증하고, Windows 네이티브 파일 탐색기와 exe 아이콘만 수동 acceptance로 남긴다.
+- key changes:
+  - `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 service 그룹을 공용 API로 유지한다.
+  - GUI와 CLI는 공용 service만 호출하고, 화면별 임의 비즈니스 로직을 줄인다.
+  - `찾아보기`는 pywebview bridge 추정 대신 `diagnostics self-test -> server-side picker route -> 결과/오류 기록` 흐름으로 바꾼다.
+  - `mailbox fetch`, `analysis review-refresh`, `exports rebuild`, `pipeline sync`를 명시적 CLI로 유지한다.
+  - `feature_catalog`와 `logbook`는 기능 정의, 입력/출력, 검증 계약, 수동 acceptance 경계를 같이 기록한다.
+- public interfaces / types:
+  - `runtime.workspace_service:*`
+  - `runtime.settings_service:*`
+  - `runtime.mailbox_service:*`
+  - `runtime.analysis_service:*`
+  - `runtime.exports_service:*`
+  - `runtime.pipeline_service:run_pipeline_sync_service`
+  - `runtime.diagnostics_service:{picker_bridge_self_test,pick_folder_native,pick_file_native}`
+  - `runtime.cli`
+    - `workspace create/open/close/status/recent`
+    - `settings show/save`
+    - `mailbox connect-check`
+    - `mailbox fetch --limit N|--all`
+    - `analysis review-refresh --limit N|--all`
+    - `exports rebuild`
+    - `pipeline sync --scope recent --limit N | --scope all`
+    - `diagnostics picker-bridge`
+    - `diagnostics pick-folder`
+    - `diagnostics pick-file`
+- test plan:
+  - smoke-safe
+    - 세이브 생성/열기/닫기/최근 세이브
+    - 설정 저장/읽기
+    - picker diagnostics + picker route test override
+    - review refresh
+    - workbook rebuild
+    - `app.ui_smoke`
+    - `runtime.feature_harness_smoke`
+  - live-required
+    - 실제 계정 연결 확인
+    - `sync --limit 10`
+    - `sync --limit 100`
+    - `sync --limit 500`
+    - 필요 시 `sync --limit 550`
+    - 마지막으로 `sync --all`
+  - manual acceptance
+    - Windows exe에서 실제 폴더 선택창이 뜨는지
+    - exe 아이콘/창 브랜딩이 새 기준대로 보이는지
+- assumptions:
+  - 공식 실행 경로는 계속 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
+  - GUI는 thin wrapper, 공용 진실은 service/CLI다.
+  - 기존 beta 세이브의 자동 마이그레이션은 하지 않는다.
+  - Windows 네이티브 picker와 exe shell integration만 마지막 수동 acceptance로 남긴다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - v3 blocker hotfix 구현, 검증, Windows 재빌드까지 마친 상태
+  - service/CLI 골격과 picker server-side diagnostics route는 로컬 코드와 자동 smoke 기준으로 올라왔고, 다음 blocker는 이 변경을 pushed head 기준 Windows 공식 exe에 실제 반영해 사용자 눈검증까지 닫는 것이다.
 - 바로 다음 작업:
-  - 남아 있는 서비스형 polish와 실제 사용자 흐름 개선으로 다시 이어간다
+  - root/app/runtime logbook를 실제 blocker 상태에 맞게 정정하고, current plan batch를 commit/push 한 뒤, pushed head 기준으로 Windows 포터블을 다시 빌드해 실제 picker/manual acceptance를 다시 확인한다
 - publish 상태:
   - 이전 plan publish 완료
-  - blocker hotfix publish 완료
+  - 현재 plan 작업 중
 
 ## 현재 활성 체크리스트
 
-- `고객 서비스형 UI/세이브 구조 리팩터 v3`
-  - [x] blocker checkpoint: `찾아보기` 브리지 복구
-  - [x] blocker checkpoint: quick sync `notes` 예외 복구
-  - [x] blocker checkpoint: Windows exe 재빌드와 사용자 재검증 기준 반영
+- `CLI-우선 제품 구조 전환 + blocker 정리 + 전기능 문서/검증 체계 고정`
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
-  - [x] v2 세이브 구조 helper와 manifest 버전 교체
-  - [x] 로컬 장치 전용 암호화 저장소 추가
-  - [x] 홈의 세이브 열기/만들기 흐름 재설계
-  - [x] 최근 세이브 파일 클릭/정리 동작 추가
-  - [x] `(i)` tooltip/popover 시스템 전역 적용
-  - [x] 계정 연결 확인 background job + 진행 카드
-  - [x] 빠른 테스트/전체 동기화 진행 카드 + 부분 완료 처리
-  - [x] 세이브 닫기/전환/자동 재개 추가
-  - [x] OpenAI API key 자동 채움 추가
-  - [x] legacy 내부 폴더 제거와 문서/가이드 반영
-  - [x] exe 아이콘 및 브랜딩 갱신
-  - [x] `app.ui_smoke`와 관련 검증 갱신
-  - [x] canonical 문서 반영
-  - [x] current plan commit 완료
-  - [x] current plan push 완료
-  - [x] `git status --short --branch` clean 확인
+  - [x] runtime service 골격 `workspace/settings/mailbox/analysis/exports/pipeline/diagnostics` 추가
+  - [x] 명시적 CLI `workspace/settings/mailbox/analysis/exports/pipeline/diagnostics` 하위 명령 추가
+  - [x] blocker: quick sync 후속 단계 예외 경로를 공용 pipeline service로 정리
+  - [x] blocker: picker를 server-side diagnostics route로 전환
+  - [x] sync 범위 프리셋 `10 / 100 / 500 / 1000 / 직접 입력 / 전체` UI+서버 반영
+  - [x] `app.ui_smoke`에 picker route와 sync preset 회귀 추가
+  - [x] `runtime.feature_harness_smoke`에 service smoke 추가
+  - [ ] `runtime/feature_registry.py`와 `docs/feature_catalog.md`의 대응 관계 마무리
+  - [ ] root/module README, module logbook를 CLI-first 기준으로 최종 정리
+  - [ ] live-required 검증 범위 10/100/500/550/all 실행 전략 정리
+  - [ ] Windows 포터블 재빌드
+  - [ ] Windows 수동 acceptance: 실제 picker dialog
+  - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
+  - [ ] canonical 문서 최종 반영
+  - [ ] current plan commit 완료
+  - [ ] current plan push 완료
+  - [ ] `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | CLI-first 전환 착수: service/CLI 골격, picker route, sync presets
+
+- 현재 blocker였던 `찾아보기` 문제는 pywebview JS bridge에 덜 의존하게 구조를 바꾸는 쪽으로 전환했다. 이제 GUI는 `/diagnostics/picker-bridge`, `/diagnostics/pick-folder`, `/diagnostics/pick-file` 서버 route를 호출하고, 실제 picker 호출은 `runtime.diagnostics_service`가 맡는다.
+- `runtime.diagnostics_service`에는 Windows native dialog self-test와 함께 `EPA_PICKER_TEST_RESPONSE / ERROR / CANCEL` override를 추가해, 실제 Windows 수동 acceptance 전에도 picker route를 자동 smoke로 검증할 수 있게 했다.
+- `runtime.cli`는 `workspace`, `settings`, `mailbox`, `analysis`, `exports`, `pipeline`, `diagnostics` 명시적 하위 명령을 갖는 제품 CLI로 확장했다.
+- `runtime.pipeline_service`는 `scope=recent|all`, `limit=N` 기준 recent/all sync를 같은 결과 계약으로 반환하고, reuse count를 함께 남기게 보강했다.
+- `/sync` 화면과 서버 입력은 이제 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 범위를 받는다.
+- `app.ui_smoke`는 picker diagnostics route, picker folder route, sync preset UI를 자동 검증하고, `runtime.feature_harness_smoke`는 workspace/settings/diagnostics/analysis/exports service를 직접 호출하는 smoke를 추가했다.
+- 아직 남은 일은 Windows 포터블 재빌드와 실제 native dialog/manual acceptance, 그리고 feature catalog/module 문서 마감 정리다.
+
+### 2026-04-13 | Human + Codex | Windows blocker 재정의: 고정 포트 충돌과 stale Windows 빌드 원인 확인
+
+- 사용자 검증에서 `찾아보기`가 여전히 안 열리는 이유를 다시 추적한 결과, Windows localhost의 고정 포트 `8765`에는 다른 로컬 앱 `voice_clone_desktop_sidecar`가 붙어 있을 수 있다는 점을 확인했다.
+- 즉, 기존 launcher는 같은 포트를 쓰는 다른 앱을 잘못 바라볼 수 있었고, 그 상태에서는 새 UI/diagnostics 코드가 들어 있어도 실제 창은 엉뚱한 서버와 연결될 위험이 있었다.
+- `app/main.py`에는 이제 포트 점유 시 다른 로컬 포트를 자동 선택하고, `/app-meta`의 `app_id=email_pilot_ai_desktop`를 확인한 뒤에만 창을 여는 방어 로직을 넣었다.
+- 동시에 Windows build helper는 GitHub `origin/main` 기준 미러 sync를 사용하므로, dirty working tree나 미push HEAD 상태에서 빌드하면 stale exe가 생길 수 있었다. `build_windows_portable_and_publish.sh`는 이제 dirty tree 또는 `HEAD != origin/<branch>` 상태면 빌드를 거부한다.
+- 이번 checkpoint의 핵심은 이 로컬 수정들을 먼저 commit/push 한 뒤, pushed head 기준으로 Windows 공식 실행본 `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`를 다시 빌드해 실제 picker/manual acceptance를 확인하는 것이다.
 
 ### 2026-04-13 | Human + Codex | blocker hotfix 완료: `찾아보기` 브리지와 quick sync `notes` 예외 복구
 

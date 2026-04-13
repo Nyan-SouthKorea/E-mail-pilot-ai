@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
+import socket
 from pathlib import Path
 import threading
 import time
 import traceback
+import urllib.error
+import urllib.request
 import webbrowser
 import sys
 import os
@@ -24,7 +28,12 @@ from runtime import (
     default_local_portable_bundle_root,
     default_startup_log_path,
     load_local_app_settings,
+    pick_file_native,
+    pick_folder_native,
+    picker_bridge_self_test,
 )
+
+APP_ID = "email_pilot_ai_desktop"
 
 
 class DesktopBridge:
@@ -37,13 +46,15 @@ class DesktopBridge:
         self.window = window
 
     def dialog_capabilities(self) -> dict[str, object]:
+        diagnostics = picker_bridge_self_test(
+            shell_mode="desktop_window",
+            window_attached=self.window is not None,
+        )
         _append_startup_log(
             "bridge: dialog_capabilities called "
             + ("with window" if self.window is not None else "without window")
         )
-        return {
-            "native_dialog": self.window is not None,
-        }
+        return diagnostics.to_dict()
 
     def pick_folder(self, current_path: str = "", workspace_root: str = "") -> dict[str, object]:
         return self._pick_dialog(
@@ -74,36 +85,22 @@ class DesktopBridge:
         workspace_root: str,
         file_types: tuple[str, ...],
     ) -> dict[str, object]:
-        if self.window is None:
-            _append_startup_log("bridge: create_file_dialog requested before window attach")
-            return {
-                "ok": False,
-                "error": "이 환경에서는 네이티브 파일 탐색기를 열 수 없다.",
-                "path": "",
-            }
         try:
-            import webview
-
-            directory = self._resolve_dialog_directory(
-                current_path=current_path,
-                workspace_root=workspace_root,
-            )
-            result = self.window.create_file_dialog(
-                getattr(webview, dialog_type_name),
-                directory=directory,
-                allow_multiple=False,
-                file_types=file_types,
-            )
-            selected = str(result[0]) if result else ""
+            if dialog_type_name == "OPEN_DIALOG":
+                native_result = pick_file_native(
+                    current_path=current_path,
+                    workspace_root=workspace_root,
+                )
+            else:
+                native_result = pick_folder_native(
+                    current_path=current_path,
+                    workspace_root=workspace_root,
+                )
             _append_startup_log(
                 f"bridge: {dialog_type_name} "
-                + ("selected path" if selected else "cancelled")
+                + ("selected path" if native_result.path else native_result.error or "cancelled")
             )
-            return {
-                "ok": bool(selected),
-                "error": "" if selected else "선택이 취소되었다.",
-                "path": selected,
-            }
+            return native_result.to_dict()
         except Exception as exc:
             _append_startup_log(f"bridge: {dialog_type_name} failed: {exc.__class__.__name__}: {exc}")
             return {
@@ -111,24 +108,6 @@ class DesktopBridge:
                 "error": f"{exc.__class__.__name__}: {exc}",
                 "path": "",
             }
-
-    def _resolve_dialog_directory(self, *, current_path: str, workspace_root: str) -> str:
-        default_root = Path(workspace_root).expanduser() if workspace_root else Path.home()
-        text = current_path.strip()
-        if not text:
-            return str(default_root if default_root.exists() else Path.home())
-        candidate = Path(text).expanduser()
-        if not candidate.is_absolute() and workspace_root:
-            candidate = Path(workspace_root) / candidate
-        if candidate.is_file():
-            candidate = candidate.parent
-        if candidate.exists():
-            return str(candidate)
-        if candidate.parent.exists():
-            return str(candidate.parent)
-        if default_root.exists():
-            return str(default_root)
-        return str(Path.home())
 
 
 def _startup_log_path() -> Path:
@@ -212,6 +191,68 @@ def _show_windows_error_dialog(*, title: str, message: str) -> None:
         _append_startup_log("launcher: failed to open Windows message box")
 
 
+def _can_bind_port(*, host: str, port: int) -> bool:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind((host, port))
+        return True
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def _find_free_port(*, host: str) -> int:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+    finally:
+        sock.close()
+
+
+def _fetch_remote_app_meta(*, url: str, timeout_seconds: float = 0.6) -> dict[str, Any] | None:
+    request = urllib.request.Request(f"{url}/app-meta", method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _select_launch_port(*, host: str, preferred_port: int) -> int:
+    if preferred_port > 0 and _can_bind_port(host=host, port=preferred_port):
+        return preferred_port
+    if preferred_port > 0:
+        remote_meta = _fetch_remote_app_meta(url=f"http://{host}:{preferred_port}")
+        if remote_meta and remote_meta.get("app_id") == APP_ID:
+            _append_startup_log(
+                f"launcher: preferred port {preferred_port} is already used by another Email Pilot AI instance"
+            )
+        else:
+            _append_startup_log(
+                f"launcher: preferred port {preferred_port} is occupied by another process"
+            )
+    selected = _find_free_port(host=host)
+    _append_startup_log(f"launcher: selected fallback port {selected}")
+    return selected
+
+
+def _wait_for_server_ready(*, url: str, timeout_seconds: float = 8.0) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        payload = _fetch_remote_app_meta(url=url, timeout_seconds=0.5)
+        if payload and payload.get("app_id") == APP_ID:
+            _append_startup_log(f"launcher: confirmed app-meta at {url}")
+            return True
+        time.sleep(0.2)
+    _append_startup_log(f"launcher: failed to confirm app-meta at {url}")
+    return False
+
+
 def main() -> None:
     _append_startup_log("launcher: entered main()")
     parser = argparse.ArgumentParser(description="Email Pilot AI desktop launcher")
@@ -259,6 +300,12 @@ def main() -> None:
         )
         return
 
+    selected_port = _select_launch_port(host=args.host, preferred_port=args.port)
+    if selected_port != args.port:
+        _append_startup_log(
+            f"launcher: using port {selected_port} instead of requested {args.port}"
+        )
+
     from app.server import app as fastapi_app, set_shell_context
     _append_startup_log("launcher: imported app.server")
     if args.no_window:
@@ -284,13 +331,13 @@ def main() -> None:
     config = uvicorn.Config(
         fastapi_app,
         host=args.host,
-        port=args.port,
+        port=selected_port,
         reload=False,
         log_level="info",
         log_config=None,
     )
     server = uvicorn.Server(config)
-    url = f"http://{args.host}:{args.port}"
+    url = f"http://{args.host}:{selected_port}"
     _append_startup_log(f"launcher: created uvicorn config for {url}")
 
     if args.no_window:
@@ -300,7 +347,11 @@ def main() -> None:
 
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    time.sleep(1.2)
+    time.sleep(0.4)
+    if not _wait_for_server_ready(url=url):
+        raise RuntimeError(
+            "Email Pilot AI 로컬 서버를 확인하지 못했습니다. startup.log를 확인해 주세요."
+        )
     _append_startup_log("launcher: background server thread started")
 
     try:

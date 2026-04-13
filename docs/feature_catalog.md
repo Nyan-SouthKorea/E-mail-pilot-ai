@@ -1,82 +1,125 @@
 # Feature Catalog
 
-> 이 문서는 현재 제품/운영 기능의 canonical 카탈로그다.
-> 세부 runtime registry의 코드 기준은 `runtime/feature_registry.py`이고, 이 문서는 사람이 빠르게 읽는 인덱스 역할을 맡는다.
+> 이 문서는 현재 제품/운영 기능의 canonical 인덱스다.
+> 코드 기준 registry는 `runtime/feature_registry.py`이고, GUI/CLI/service 계약은 이 문서와 함께 유지한다.
 
-## 역할
+## 운영 원칙
 
-- 작업 시작 게이트와 읽기 순서는 root `AGENTS.md`가 맡는다.
-- 이 문서는 기능 인덱스와 공식 접근점 목록만 유지한다.
-- 새 기능 추가나 리팩토링은 이 문서와 `runtime/feature_registry.py`가 함께 갱신되어야 완료로 본다.
+- 비사소한 변경은 항상 `AGENTS.md -> README.md -> docs/logbook.md -> docs/feature_catalog.md` 순서로 다시 읽는다.
+- 기능을 새로 추가하거나 기존 동작을 바꾸면 같은 턴에 이 문서를 함께 갱신한다.
+- GUI는 제품용 wrapper고, 공용 실행 진실은 `runtime service + 명시적 CLI`다.
+- 자동 검증 가능한 기능은 CLI/service smoke로 확인하고, Windows 수동 acceptance가 필요한 항목은 별도로 표시한다.
 
-## 현재 기준
+## 제품 핵심 기능
 
-| feature_id | 제목 | 소유 모듈 | 접근 | 핵심 출력 |
-|---|---|---|---|---|
-| `app.desktop.launch` | 데스크톱 앱 실행 | `app` | UI, CLI | 전용 창, 파일 탐색기, 실행 진단 |
-| `mailbox.connection_check` | 계정 연결 확인 | `mailbox` | UI | 로그인 성공 여부, 추천 받은편지함, 폴더 목록 |
-| `runtime.workspace.create_sample` | 샘플 워크스페이스 생성 | `runtime` | CLI | repo-safe sample save, review board, workbook |
-| `runtime.workspace.inspect` | 워크스페이스 점검 | `runtime` | 관리도구, CLI | manifest/state/settings 요약 |
-| `mailbox.live_backfill` | 실메일 INBOX backfill | `mailbox` | 관리도구, CLI | mailbox report, runtime bundles |
-| `analysis.review_board_refresh` | 리뷰보드 재생성 | `analysis` | 관리도구, CLI | review JSON/HTML, sqlite review state |
-| `exports.operating_workbook.rebuild` | 운영 workbook 재반영 | `exports` | UI, 관리도구, CLI | 운영 workbook, 검토 인덱스 |
-| `runtime.workspace.sync.quick_smoke` | 빠른 테스트 동기화 | `runtime` | UI, 관리도구, CLI | 최근 10건 sync, review 갱신, workbook 반영 |
-| `runtime.workspace.sync` | 전체 동기화 | `runtime` | UI, 관리도구, CLI | backfill + review board + workbook |
-| `packaging.portable_exe.build` | 포터블 exe 빌드 | `app` | 관리도구, CLI, 문서 | Windows onedir bundle, D 로컬 publish runtime, bundle manifest |
+| feature_id | 제목 | UI | CLI | service_entry | 저장/출력 위치 | 검증 방식 |
+|---|---|---|---|---|---|---|
+| `workspace.create` | 새 세이브 만들기 | `/` | `python -m runtime.cli workspace create ...` | `runtime.workspace_service:create_workspace_entry` | `workspace.epa-workspace.json`, `secure/`, `state/`, `mail/`, `exports/`, `logs/` | smoke-safe |
+| `workspace.open` | 기존 세이브 열기 | `/` | `python -m runtime.cli workspace open ...` | `runtime.workspace_service:open_workspace_entry` | 현재 세션, 로컬 최근 세이브 목록 | smoke-safe |
+| `workspace.close` | 세이브 닫기 | `/workspace/close` | `python -m runtime.cli workspace close ...` | `runtime.workspace_service:close_workspace_entry` | 로컬 최근 세이브/자동 재개 정보 | smoke-safe |
+| `workspace.status` | 세이브 상태 점검 | `관리도구` | `python -m runtime.cli workspace status ...` | `runtime.workspace_service:inspect_workspace_entry` | `state/state.sqlite`, `secure/secrets.enc.json` 요약 | smoke-safe |
+| `workspace.recent` | 최근 세이브 목록 | `/` | `python -m runtime.cli workspace recent` | `runtime.workspace_service:list_recent_workspaces` | 로컬 설정 저장소 | smoke-safe |
+| `settings.show` | 현재 설정 읽기 | `/settings` | `python -m runtime.cli settings show ...` | `runtime.settings_service:load_workspace_settings_summary` | masked settings summary | smoke-safe |
+| `settings.save` | 설정 저장 | `/settings` | `python -m runtime.cli settings save ...` | `runtime.settings_service:save_workspace_settings` | `secure/secrets.enc.json`, 로컬 기본 API key | smoke-safe |
+| `mailbox.connect_check` | 계정 연결 확인 | `/settings` | `python -m runtime.cli mailbox connect-check ...` | `runtime.mailbox_service:run_mailbox_connection_check_service` | mailbox status, 추천 받은편지함, 폴더 목록 | live-required |
+| `mailbox.fetch` | 메일 가져오기 | `/sync` | `python -m runtime.cli mailbox fetch ... --limit N|--all` | `runtime.mailbox_service:run_mailbox_fetch_service` | `mail/bundles/`, `logs/mailbox/` | live-required |
+| `analysis.review_refresh` | 리뷰/분석 재생성 | `/review`, `관리도구` | `python -m runtime.cli analysis review-refresh ... --limit N|--all` | `runtime.analysis_service:refresh_review_board_service` | `logs/review/`, `state/state.sqlite` | smoke-safe, live-optional |
+| `exports.rebuild` | 운영 엑셀 재반영 | `/review` | `python -m runtime.cli exports rebuild ...` | `runtime.exports_service:rebuild_operating_workbook_service` | `exports/output/operating_workbook.xlsx`, `exports/output/snapshots/` | smoke-safe |
+| `pipeline.sync.recent` | 최근 N건 동기화 | `/sync` | `python -m runtime.cli pipeline sync ... --scope recent --limit N` | `runtime.pipeline_service:run_pipeline_sync_service` | fetch/report/review/workbook 종합 결과 | live-required |
+| `pipeline.sync.all` | 전체 동기화 | `/sync` | `python -m runtime.cli pipeline sync ... --all` | `runtime.pipeline_service:run_pipeline_sync_service` | fetch/report/review/workbook 종합 결과 | live-required |
+| `diagnostics.picker_bridge` | 파일 탐색기 진단 | `/`, `/settings` | `python -m runtime.cli diagnostics picker-bridge` | `runtime.diagnostics_service:picker_bridge_self_test` | diagnostics payload only | smoke-safe |
+| `diagnostics.pick_folder` | 폴더 선택 호출 | `찾아보기` 버튼 | `python -m runtime.cli diagnostics pick-folder ...` | `runtime.diagnostics_service:pick_folder_native` | 선택 경로 결과 | smoke-safe with test override, manual acceptance on Windows |
+| `diagnostics.pick_file` | 파일 선택 호출 | `엑셀 양식 찾아보기` | `python -m runtime.cli diagnostics pick-file ...` | `runtime.diagnostics_service:pick_file_native` | 선택 경로 결과 | smoke-safe with test override, manual acceptance on Windows |
+| `app.meta` | 앱 정체성 확인 | 내부 diagnostics | `GET /app-meta` | `app.server:app_meta` | app id, version, shell mode | smoke-safe |
 
-## 기능 접근 원칙
+## 운영/검증 기능
 
-- 사용자 핵심 흐름은 UI에서 접근한다.
-  - `세이브 파일 불러오기`
-  - `처음 사용하는 방법`
-  - `설정`
-  - `계정 연결 확인`
-  - `빠른 테스트 동기화`
-  - `전체 동기화`
-  - `리뷰`
-  - `운영 workbook 재반영`
-- 세부 smoke/debug 기능은 고급 도구와 CLI에서 접근한다.
-  - `실메일 backfill`
-  - `review board 재생성`
-  - `workspace 점검`
-  - `샘플 워크스페이스 생성`
-  - `포터블 exe 빌드`
-- 기능 실행 이력은 공유 워크스페이스 `state/state.sqlite`의 `feature_runs`를 기준으로 남긴다.
+| feature_id | 제목 | 접근 | CLI | service_entry / 코드 기준 | 검증 방식 |
+|---|---|---|---|---|---|
+| `runtime.workspace.create_sample` | 샘플 세이브 생성 | CLI | `python -m runtime.cli create-sample-workspace ...` | `runtime.sample_workspace:create_sample_workspace` | smoke-safe |
+| `runtime.feature.check_all` | feature prerequisite 전량 점검 | CLI, 관리도구 | `python -m runtime.cli feature-check-all ...` | `runtime.feature_registry:check_feature` | smoke-safe |
+| `runtime.feature.harness_smoke` | 전기능 smoke 하네스 | CLI | `python -m runtime.cli feature-harness-smoke ...` | `runtime.feature_harness_smoke:run_feature_harness_smoke` | smoke-safe |
+| `app.ui_smoke` | 앱 UI 반복 smoke | CLI | `python -m app.ui_smoke ...` | `app.ui_smoke:run_app_ui_smoke` | smoke-safe |
+| `packaging.portable_exe.build` | Windows 포터블 exe 빌드 | 문서, 관리도구, CLI | `bash app/packaging/build_windows_portable_and_publish.sh --clean` | `app/packaging/*` | Windows host required, pushed Git required |
+| `app.desktop.launch` | 데스크톱 앱 실행 | exe, CLI | `python app/main.py` | `app.main:main` | manual acceptance 포함 |
+
+## 동기화 범위 계약
+
+- GUI preset:
+  - `최근 10건`
+  - `최근 100건`
+  - `최근 500건`
+  - `최근 1000건`
+  - `직접 입력`
+  - `전체`
+- CLI 계약:
+  - `python -m runtime.cli pipeline sync --workspace-root <path> --workspace-password <pw> --scope recent --limit 10`
+  - `python -m runtime.cli pipeline sync --workspace-root <path> --workspace-password <pw> --scope recent --limit 500`
+  - `python -m runtime.cli pipeline sync --workspace-root <path> --workspace-password <pw> --all`
+- 동작 기준:
+  - 이미 fetch한 UID는 다시 가져오지 않는다.
+  - 같은 bundle fingerprint + `analysis_revision`이면 분석 결과를 재사용한다.
+  - fetch만 성공하고 후속 단계가 실패하면 `partial_success`로 남긴다.
+
+## 저장 위치 계약
+
+- 세이브 내부 canonical 구조:
+  - `workspace.epa-workspace.json`
+  - `secure/secrets.enc.json`
+  - `state/state.sqlite`
+  - `locks/write.lock`
+  - `mail/bundles/`
+  - `exports/template/export_template.xlsx`
+  - `exports/output/operating_workbook.xlsx`
+  - `exports/output/snapshots/`
+  - `logs/app/`
+  - `logs/mailbox/`
+  - `logs/analysis/`
+  - `logs/review/`
+  - `logs/llm/`
+- 더 이상 새 세이브에서 만들지 않는 legacy 구조:
+  - `profile/`
+  - `참고자료/`
+  - `실행결과/`
+  - `기대되는 산출물/`
+
+## 검증 계약
+
+- smoke-safe 자동 검증:
+  - 세이브 생성/열기/닫기/최근 세이브
+  - 설정 저장/읽기
+  - picker diagnostics + picker route test override
+  - review refresh
+  - workbook rebuild
+  - UI smoke
+  - feature harness smoke
+- live-required 검증:
+  - 실제 계정 연결 확인
+  - 실제 메일 fetch
+  - 실제 OpenAI 호출
+  - 실제 recent N / all sync
+- Windows 수동 acceptance 2개:
+  - `찾아보기`를 눌렀을 때 실제 폴더/파일 선택창이 뜨는지
+  - exe 아이콘/창 브랜딩이 새 기준대로 보이는지
+- Windows 빌드 전제:
+  - `build_windows_portable_and_publish.sh`는 GitHub 기준 mirror sync를 쓰므로, dirty working tree 또는 미push HEAD 상태에서는 빌드를 거부한다.
+  - launcher는 고정 포트가 점유돼 있으면 다른 로컬 포트를 자동 선택하고, `/app-meta`로 실제 Email Pilot AI 서버인지 확인한 뒤 창을 연다.
 
 ## 반복 검증 명령
 
-- feature 카탈로그 목록:
+- 기능 목록:
   - `python -m runtime.cli feature-list`
-- feature prerequisite 전량 점검:
-  - `python -m runtime.cli feature-check-all --workspace-root <path> --workspace-password <pw>`
-- feature 단건 실행:
-  - `python -m runtime.cli feature-run --feature-id <id> --workspace-root <path> --workspace-password <pw>`
-- 샘플 워크스페이스 기반 전체 smoke:
-  - `python -m runtime.cli feature-harness-smoke --workspace-root <path> --workspace-password <pw> --create-sample-if-missing`
-- 앱 UI smoke:
-  - `python -m app.ui_smoke --workspace-root <path> --workspace-password <pw>`
-
-## 테스트 기준
-
-- 모든 기능은 최소 하나의 실제 접근점이 있어야 한다.
-  - UI 경로
-  - 관리도구 경로
-  - CLI 명령
-- 모든 기능은 최소 하나의 결과 위치 또는 상태 저장 위치가 있어야 한다.
-- 구현은 있는데 카탈로그에 없는 기능, 카탈로그는 있는데 실행 진입점이 없는 기능은 허용하지 않는다.
-- 샘플 워크스페이스만으로 재현 가능한 기능과 실메일/API key가 필요한 live 기능을 구분해 적는다.
-
-## 샘플 워크스페이스 기준
-
-- 샘플 세이브는 실메일과 비밀값 없이도 리뷰센터, dedupe, workbook 재반영, 관리도구 동작을 검증하는 기본 fixture다.
-- live 의존 기능은 아래처럼 명시한다.
-  - `mailbox.connection_check`: 실메일 credential 필요
-  - `mailbox.live_backfill`: 실메일 credential 필요
-  - `analysis.review_board_refresh`: OpenAI API key 필요
-  - `runtime.workspace.sync.quick_smoke`: 실메일 credential + OpenAI API key 필요
-  - `runtime.workspace.sync`: 실메일 credential + OpenAI API key 필요
-- Windows 포터블 exe는 아래 중 하나로 검증한다.
-  - Windows host에서 `packaging.portable_exe.build` 실행
-  - A100에서 `bash ./app/packaging/build_windows_portable_and_publish.sh` 실행
-- 공식 실행 경로는 `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe` 하나다.
-- `Z:` 공유 폴더의 exe, repo 내부 `dist/` 임시 산출물, 임의 수동 복사 폴더는 공식 지원 경로가 아니다.
+- 세이브 상태:
+  - `python -m runtime.cli workspace status --workspace-root <path> --workspace-password <pw>`
+- 설정 요약:
+  - `python -m runtime.cli settings show --workspace-root <path> --workspace-password <pw>`
+- picker 진단:
+  - `python -m runtime.cli diagnostics picker-bridge`
+- picker route smoke:
+  - `EPA_PICKER_TEST_RESPONSE=<path> python -m runtime.cli diagnostics pick-folder --workspace-root <path>`
+- 리뷰 재생성:
+  - `python -m runtime.cli analysis review-refresh --workspace-root <path> --workspace-password <pw> --limit 10`
+- 엑셀 재반영:
+  - `python -m runtime.cli exports rebuild --workspace-root <path> --workspace-password <pw>`
+- 전체 smoke:
+  - `EPA_PICKER_TEST_RESPONSE=<path> python -m runtime.cli feature-harness-smoke --workspace-root <path> --workspace-password <pw> --create-sample-if-missing`

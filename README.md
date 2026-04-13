@@ -22,8 +22,8 @@
 | [analysis](./analysis/README.md) | `NormalizedMessage -> ExtractedRecord` 해석, 분류, 요약, 멀티모달 추출 | fixture/runtime bundle smoke, real-bundle quality smoke, 3-way triage, HTML review board, application-only batch export 구현 |
 | [exports](./exports/README.md) | 템플릿 해석, 열 의미 매핑, projection, workbook append | rule-first mapping, LLM fallback, workbook append, 회귀 guardrail 구현 |
 | [llm](./llm/README.md) | OpenAI wrapper, usage logging, 비용 추정, structured output transport | 공용 wrapper와 usage log 골격 구현 |
-| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace manifest, encrypted secrets, state DB, feature registry/run history, sample workspace, quick/full sync, analysis reuse 기본화, feature harness smoke, CLI 구현 |
-| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, 3단계 시작 마법사, sync 화면, 기본/고급 설정, 리뷰센터, 고급 도구, UI smoke, 포터블 exe packaging 기준 구현 |
+| [runtime](./runtime/README.md) | 공유 워크스페이스 save, sqlite state, write lock, sync orchestration | workspace/settings/mailbox/analysis/exports/pipeline/diagnostics service, explicit CLI, sample workspace, analysis reuse, feature harness smoke 구현 |
+| [app](./app/README.md) | Windows 데스크톱 셸과 로컬 Web UI | FastAPI UI, pywebview launcher, 3단계 시작 마법사, service wrapper 기반 settings/sync/review 화면, 고급 도구, UI smoke, 포터블 exe packaging 기준 구현 |
 
 ## 새 기능을 어디에 둘까
 
@@ -128,9 +128,10 @@
 - 제품 주 사용 흐름은 `exe 실행 -> 세이브 파일 불러오기 -> 워크스페이스 암호 입력 -> 동기화 -> 자동 수집/분류/정리/엑셀 반영 -> 같은 창에서 검토/수정`이다.
 - 사용자는 세이브 파일 경로를 직접 외우기보다 앱의 `찾아보기` 버튼과 `처음 사용하는 방법` 안내를 통해 폴더를 고르는 흐름을 기본으로 본다.
 - 제품 기본 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 확인 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰 -> 운영 workbook 재반영`이다.
+- 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 기준으로 넓혀 가는 것을 기본으로 본다.
 - Windows 실행의 공식 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
 - 제품/운영 기능의 canonical 카탈로그는 `docs/feature_catalog.md`와 `runtime/feature_registry.py`가 함께 맡는다.
-- 반복 기능 검증은 `runtime/feature_harness_smoke.py`, `app/ui_smoke.py`, `runtime/cli.py feature-*` 명령을 기준으로 한다.
+- 반복 기능 검증은 `runtime/feature_harness_smoke.py`, `app/ui_smoke.py`, 명시적 `runtime.cli` 명령을 기준으로 한다.
 - `Z:` 공유 폴더에서는 세이브 파일만 열고, exe는 절대 실행하지 않는다.
 - Windows 빌드는 `D:\EmailPilotAI\repo`에서 수행하고, 완료 후 최종 실행본은 `D:\EmailPilotAI\portable\EmailPilotAI\`만 남긴다.
 - 서버와 Windows가 결과를 같이 보는 기준은 exe 위치가 아니라 같은 세이브 파일 폴더를 열었는지다.

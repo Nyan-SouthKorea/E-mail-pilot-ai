@@ -18,13 +18,14 @@
 - Windows portable exe는 Windows host build script 기준으로 빌드하고 `D:\EmailPilotAI\portable\EmailPilotAI\`에 단일 publish 한다.
 - 공식 사용자 실행 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
 - 홈은 3단계 시작 마법사 + 세이브 오픈 후 작업 대시보드 2상태로 운영하고, 설정은 기본/고급, 동기화는 quick/full, 리뷰는 카드형 확장 리스트 기준으로 본다.
-- 새 세이브는 v2 영문 구조를 만들고, 사용자는 홈에서 경로를 먼저 치지 않아도 `찾아보기`로 바로 폴더를 고를 수 있다.
+- 새 세이브는 v2 영문 구조를 만들고, `찾아보기`는 이제 pywebview 추정보다 server-side diagnostics route를 통해 native picker를 호출한다.
+- 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 프리셋을 지원한다.
 
 ## 현재 활성 체크리스트
 
-- [x] blocker hotfix: 홈/설정 `찾아보기`가 실제 exe에서 즉시 브라우징을 열게 복구
+- [x] blocker hotfix: picker self-test / server-side diagnostics route 도입
 - [x] blocker hotfix: quick sync `notes referenced before assignment` 예외 복구
-- [x] blocker hotfix: Windows 재빌드와 packaged smoke 재검증
+- [ ] blocker hotfix: pushed head 기준 Windows 재빌드와 실제 exe blocker 재검증
 - [x] 데스크톱 셸과 로컬 Web UI 골격 도입
 - [x] 세이브 파일 불러오기 / 새 워크스페이스 만들기 화면 도입
 - [x] 설정 화면과 저장 위치 안내 도입
@@ -52,8 +53,28 @@
 - [x] 최근 세이브 바로 다시 열기와 세이브 닫기/전환 UX 추가
 - [x] 설정 도움말 tooltip/popover와 진행 카드 UX 추가
 - [x] 진행률 표시와 장시간 sync 폴링 UX 보강
+- [x] picker self-test / pick-folder / pick-file route 도입
+- [x] sync 최근 N 프리셋 UI와 서버 파라미터 반영
+- [ ] Windows 실제 native dialog 수동 acceptance
+- [ ] launcher app-meta 확인 포함 Windows 공식 exe 최종 acceptance
+- [ ] service/CLI 전환 완료 기준으로 app 문서/diagnostics 문구 최종 정리
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | Windows picker blocker 재추적: 고정 포트 충돌과 stale exe 원인 확인
+
+- 사용자 검증에서는 `찾아보기`가 여전히 안 열렸고, 역추적 결과 Windows localhost의 고정 포트 `8765`에 다른 앱 `voice_clone_desktop_sidecar`가 붙어 있을 수 있음을 확인했다.
+- 따라서 기존 launcher는 올바른 FastAPI 앱이 아니라 다른 로컬 앱에 연결될 가능성이 있었고, 이 경우 최신 diagnostics/picker 코드가 있어도 실제 창은 오래된 동작처럼 보일 수 있었다.
+- `app/server.py`에는 `/app-meta`를 추가해 현재 창이 실제 Email Pilot AI 서버인지 확인할 수 있게 했고, `app/main.py`는 포트가 점유돼 있으면 다른 로컬 포트를 자동 선택한 뒤 `/app-meta`의 `app_id=email_pilot_ai_desktop`를 확인해야만 창을 연다.
+- `app/packaging/smoke_portable_exe.ps1`도 `/jobs/current`뿐 아니라 `/app-meta`까지 검사하게 바꿨고, GUI startup log에는 `launcher: confirmed app-meta ...` 로그가 남아야 packaged smoke를 통과한다.
+- 이 수정은 아직 local batch 상태이므로, current plan commit/push 후 Windows 공식 exe를 다시 빌드해야 사용자 눈검증과 실제 picker acceptance를 닫을 수 있다.
+
+### 2026-04-13 | Human + Codex | picker route와 sync 프리셋 기준으로 app wrapper 재정리
+
+- `app/static/js/app.js`는 더 이상 pywebview bridge 존재 여부만 보고 `찾아보기` 가능 여부를 추정하지 않고, 로컬 서버의 diagnostics route를 호출해 picker self-test와 실제 pick 요청을 보낸다.
+- 홈/설정의 `찾아보기`는 경로 선입력 없이도 route 호출을 먼저 시도하고, 실패 시 인라인 상태 메시지와 직접 입력 대안을 보여준다.
+- `/sync` 화면은 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 범위를 선택하게 바뀌었고, 서버도 같은 계약으로 받는다.
+- `app.ui_smoke`는 picker diagnostics route, picker folder route, sync preset UI까지 자동 검증한다.
 
 ### 2026-04-13 | Human + Codex | blocker hotfix 완료
 

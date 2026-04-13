@@ -6,13 +6,19 @@ import argparse
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 import tempfile
 
 from analysis.inbox_review_board_smoke import run_inbox_review_board_smoke
 from app.ui_smoke import run_app_ui_smoke
+from runtime.analysis_service import refresh_review_board_service
+from runtime.diagnostics_service import pick_folder_native, picker_bridge_self_test
+from runtime.exports_service import rebuild_operating_workbook_service
 from runtime.feature_registry import check_feature, list_feature_specs, run_feature
+from runtime.settings_service import load_workspace_settings_summary
 from runtime.sample_workspace import create_sample_workspace
+from runtime.workspace_service import inspect_workspace_entry, list_recent_workspaces
 from runtime.workspace import WORKSPACE_MANIFEST_FILENAME, load_shared_workspace
 
 
@@ -26,6 +32,7 @@ class FeatureHarnessSmokeReport:
     created_sample_workspace: bool
     feature_checks: dict[str, list[dict[str, object]]] = field(default_factory=dict)
     executed_feature_runs: list[dict[str, object]] = field(default_factory=list)
+    service_smokes: dict[str, dict[str, object]] = field(default_factory=dict)
     ui_smoke: dict[str, object] | None = None
     quick_review_regression: dict[str, object] | None = None
     notes: list[str] = field(default_factory=list)
@@ -61,8 +68,8 @@ def run_feature_harness_smoke(
     for spec in list_feature_specs():
         checks = check_feature(
             feature_id=spec.feature_id,
-            workspace_root=str(workspace.root()) if spec.requires_workspace else None,
-            workspace_password=workspace_password if spec.requires_workspace else None,
+            workspace_root=str(workspace.root()),
+            workspace_password=workspace_password,
         )
         feature_checks[spec.feature_id] = [item.to_dict() for item in checks]
 
@@ -77,8 +84,49 @@ def run_feature_harness_smoke(
             workspace_password=workspace_password,
             app_kind="feature-harness-smoke",
             trigger_source="feature-harness-smoke",
+            force_lock_takeover=True,
         )
         executed_feature_runs.append(result.to_dict())
+
+    previous_picker_test_response = os.environ.get("EPA_PICKER_TEST_RESPONSE")
+    os.environ["EPA_PICKER_TEST_RESPONSE"] = str(workspace.root())
+    try:
+        service_smokes = {
+            "workspace_status": inspect_workspace_entry(
+                workspace_root=str(workspace.root()),
+                workspace_password=workspace_password,
+            ).to_dict(),
+            "settings_show": load_workspace_settings_summary(
+                workspace_root=str(workspace.root()),
+                workspace_password=workspace_password,
+            ).to_dict(),
+            "recent_workspaces": {
+                "items": [item.to_dict() for item in list_recent_workspaces()],
+            },
+            "picker_bridge": picker_bridge_self_test(
+                shell_mode="desktop_window",
+                window_attached=True,
+            ).to_dict(),
+            "picker_folder": pick_folder_native(
+                current_path="",
+                workspace_root=str(workspace.root()),
+            ).to_dict(),
+            "analysis_review_refresh": refresh_review_board_service(
+                workspace_root=str(workspace.root()),
+                workspace_password=workspace_password,
+                limit=10,
+                reuse_existing_analysis=True,
+            ).to_dict(),
+            "exports_rebuild": rebuild_operating_workbook_service(
+                workspace_root=str(workspace.root()),
+                workspace_password=workspace_password,
+            ).to_dict(),
+        }
+    finally:
+        if previous_picker_test_response is None:
+            os.environ.pop("EPA_PICKER_TEST_RESPONSE", None)
+        else:
+            os.environ["EPA_PICKER_TEST_RESPONSE"] = previous_picker_test_response
 
     ui_smoke = run_app_ui_smoke(
         workspace_root=str(workspace.root()),
@@ -95,12 +143,14 @@ def run_feature_harness_smoke(
         created_sample_workspace=created_sample_workspace,
         feature_checks=feature_checks,
         executed_feature_runs=executed_feature_runs,
+        service_smokes=service_smokes,
         ui_smoke=ui_smoke.to_dict(),
         quick_review_regression=quick_review_regression,
         notes=[
             "live credential와 API key가 없는 기능은 prerequisite check만 수행하고 직접 run하지 않는다.",
             "샘플 워크스페이스만으로도 review center, workbook rebuild, admin route 접근을 반복 검증할 수 있다.",
             "quick review board 회귀는 빈 bundle 프로필 + bundle_limit=10 경로로 `notes` 초기화 버그를 다시 잡는다.",
+            "workspace/settings/diagnostics/analysis/exports 공용 service를 직접 호출해 결과 계약도 함께 검증한다.",
         ],
     )
     report_path.write_text(

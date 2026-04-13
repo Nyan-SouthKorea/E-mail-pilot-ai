@@ -12,11 +12,11 @@
 - 기존 엔진을 `mail / exports / logs` 기준의 v2 세이브 구조로 다시 돌리는 sync service가 있다.
 - review report를 state DB로 ingest하고 회사 기준 dedupe를 적용한다.
 - stable 운영 workbook을 다시 만들고 `검토_인덱스` 시트를 함께 쓴다.
-- CLI로 workspace create / inspect / sync를 실행할 수 있다.
+- CLI로 workspace/settings/mailbox/analysis/exports/pipeline/diagnostics 명령을 실행할 수 있다.
 - feature registry와 feature run history가 있다.
 - repo-safe 샘플 워크스페이스 seed를 만들 수 있다.
 - `feature-check-all`과 `feature-harness-smoke`로 카탈로그 전량 점검과 반복 smoke를 수행할 수 있다.
-- sync는 `quick_smoke`와 `incremental_full` 두 모드를 지원하고, analysis revision/fingerprint가 같으면 기존 분석 결과를 재사용한다.
+- sync는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 범위를 같은 pipeline service 계약으로 처리하고, analysis revision/fingerprint가 같으면 기존 분석 결과를 재사용한다.
 - 새 세이브는 legacy `profile/참고자료/실행결과` 구조를 만들지 않고, v1 세이브는 unsupported로 안내한다.
 
 ## 현재 활성 체크리스트
@@ -31,10 +31,31 @@
 - [x] repo-safe sample workspace seed 도입
 - [x] feature-check-all, feature-harness-smoke, app UI smoke 연동
 - [x] quick/full sync 모드와 analysis 재사용 기준 도입
+- [x] workspace/settings/mailbox/analysis/exports/pipeline/diagnostics service 골격 도입
+- [x] 명시적 CLI 하위 명령 도입
+- [x] diagnostics picker self-test/test override 도입
+- [x] feature harness에 service smoke 추가
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
+- [ ] live-required staged verification 10/100/500/550/all 실행 결과 축적
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | service/CLI 단일 진실 강화와 picker diagnostics 계약 정리
+
+- `runtime`에는 `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 service 그룹이 실제 공용 진실 계층으로 올라왔다.
+- `runtime.cli`는 위 service를 직접 호출하는 명시적 하위 명령을 제공하고, `workspace create/open/close/status/recent`, `settings show/save`, `mailbox connect-check/fetch`, `analysis review-refresh`, `exports rebuild`, `pipeline sync`, `diagnostics picker-bridge/pick-folder/pick-file` 계약을 갖는다.
+- picker는 이제 GUI 전용 JS 추정이 아니라 `runtime.diagnostics_service`를 통해 self-test와 실제 호출 결과를 같은 payload 형태로 받는다.
+- `runtime.feature_harness_smoke`는 workspace/settings/diagnostics/analysis/exports service를 직접 호출하고, `app.ui_smoke`와 함께 같은 save에서 반복 검증한다.
+- 남은 일은 live-required staged verification `10/100/500/550/all` 범위를 실제 계정 기준으로 순서대로 누적 기록하는 것이다.
+
+### 2026-04-13 | Human + Codex | CLI-first 구조 전환: service 7개 그룹과 diagnostics route 기준 정리
+
+- `runtime`에는 `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 service 그룹을 추가했다.
+- `runtime.cli`는 위 service를 반영한 명시적 하위 명령을 지원한다.
+- `runtime.diagnostics_service`는 picker self-test와 native picker 호출을 맡고, `EPA_PICKER_TEST_RESPONSE / ERROR / CANCEL` override로 자동 smoke를 재현할 수 있게 했다.
+- `runtime.pipeline_service`는 `scope=recent|all`, `limit=N` 기준 sync 결과와 reuse count를 함께 반환한다.
+- `runtime.feature_harness_smoke`는 이제 workspace/settings/diagnostics/analysis/exports service를 직접 호출해 결과 계약도 함께 검증한다.
 
 ### 2026-04-13 | Human + Codex | v2 세이브 구조 고정과 로컬 장치 전용 보조 저장소 추가
 

@@ -21,22 +21,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
-from analysis import run_inbox_review_board_smoke
-from mailbox import (
-    build_local_mailbox_account_config,
-    choose_successful_imap_candidate,
-    run_imap_inbox_backfill_smoke,
-    run_mailbox_autoconfig_smoke,
-)
-from mailbox.imap_fetch_smoke import (
-    MailServerCandidate,
-    resolve_successful_imap_login_username,
-    resolve_successful_imap_login_username_kind,
-)
-from mailbox.imap_backfill_smoke import default_backfill_report_path
 from runtime import (
     assert_supported_workspace,
     assess_workspace_path,
+    clear_last_workspace_secret,
+    close_workspace_entry,
+    create_shared_workspace,
+    create_workspace_entry,
     clear_last_workspace_secret,
     default_device_secrets_path,
     LockedWorkspaceError,
@@ -45,7 +36,6 @@ from runtime import (
     acquire_workspace_write_lock,
     assess_workspace_path,
     check_feature,
-    create_shared_workspace,
     default_local_portable_exe_path,
     default_local_portable_bundle_root,
     default_local_settings_path,
@@ -58,17 +48,28 @@ from runtime import (
     load_local_device_secrets,
     load_local_app_settings,
     load_shared_workspace,
+    open_workspace_entry,
+    normalize_workspace_relative_input,
+    pick_file_native,
+    pick_folder_native,
+    picker_bridge_self_test,
     remember_default_openai_api_key,
     remember_last_workspace_secret,
     remember_workspace,
     rebuild_operating_workbook,
+    run_mailbox_connection_check_service,
+    run_pipeline_sync_service,
     run_feature,
+    save_workspace_settings,
     suggest_workspace_root,
+    template_status_for_workspace,
 )
 
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
+APP_ID = "email_pilot_ai_desktop"
+APP_VERSION = "0.1.0"
 
 
 @dataclass(slots=True)
@@ -180,6 +181,20 @@ def _default_shell_context() -> ShellContext:
 SERVER_STATE = ServerState(shell_context=_default_shell_context())
 app = FastAPI(title="Email Pilot AI Desktop")
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
+
+
+@app.get("/app-meta")
+def app_meta():
+    shell_context = SERVER_STATE.shell_context or _default_shell_context()
+    return JSONResponse(
+        {
+            "app_id": APP_ID,
+            "app_name": "Email Pilot AI Desktop",
+            "version": APP_VERSION,
+            "shell_mode": shell_context.shell_mode,
+            "native_dialog_state": shell_context.native_dialog_state,
+        }
+    )
 
 
 def set_shell_context(
@@ -400,10 +415,15 @@ def _try_restore_last_workspace_session() -> None:
 
 def _dialog_context(*, workspace=None) -> dict[str, Any]:
     shell_context = SERVER_STATE.shell_context or _default_shell_context()
+    picker_diagnostics = picker_bridge_self_test(
+        shell_mode=shell_context.shell_mode,
+        window_attached=shell_context.native_dialog_expected,
+    )
     return {
-        "native_dialog_supported": True,
+        "native_dialog_supported": picker_diagnostics.native_dialog_supported,
         "dialog_workspace_root": str(workspace.root()) if workspace is not None else "",
         "shell_context": shell_context.to_template_dict(),
+        "picker_diagnostics": picker_diagnostics.to_dict(),
     }
 
 
@@ -453,31 +473,10 @@ def _open_workspace_session(
 
 
 def _template_status(*, workspace, shared_settings: dict[str, Any]) -> dict[str, str]:
-    relative_path = str((shared_settings.get("exports") or {}).get("template_workbook_relative_path") or "")
-    if not relative_path:
-        return {
-            "status": "warn",
-            "message": "아직 엑셀 양식 경로가 저장되지 않았습니다.",
-            "relative_path": "",
-            "resolved_path": "",
-        }
-    assessment = assess_workspace_path(
-        path_text=relative_path,
-        selection_kind="template_file",
-        workspace_root=workspace.root(),
+    return template_status_for_workspace(
+        workspace_root=str(workspace.root()),
+        shared_settings=shared_settings,
     )
-    resolved = ""
-    if assessment.normalized_path:
-        try:
-            resolved = str(workspace.from_workspace_relative(relative_path).resolve(strict=False))
-        except Exception:
-            resolved = assessment.normalized_path
-    return {
-        "status": assessment.status,
-        "message": assessment.message,
-        "relative_path": relative_path,
-        "resolved_path": resolved,
-    }
 
 
 def _sync_action_states(
@@ -799,135 +798,32 @@ def _start_mailbox_check_job(
     )
 
     def _run() -> None:
-        workspace, secrets_store, _ = _workspace_objects(session)
         try:
-            payload = secrets_store.read()
-            current_llm = dict(payload.get("llm") or {})
-            current_mailbox = dict(payload.get("mailbox") or {})
-            current_exports = dict(payload.get("exports") or {})
-            payload["llm"] = {
-                "api_key": resolved_api_key or str(current_llm.get("api_key") or ""),
-                "model": llm_model.strip() or str(current_llm.get("model") or "gpt-5.4"),
-            }
-            payload["mailbox"] = {
-                **current_mailbox,
-                "email_address": resolved_email,
-                "login_username": resolved_login_username,
-                "password": resolved_password,
-                "default_folder": default_folder.strip() or str(current_mailbox.get("default_folder") or ""),
-                "connection_status": "checking",
-                "last_error": "",
-            }
-            payload["exports"] = {
-                **current_exports,
-                "template_workbook_relative_path": resolved_template_path,
-                "operating_workbook_relative_path": workspace.to_workspace_relative(
-                    workspace.operating_workbook_path()
-                ),
-            }
-            secrets_store.write(payload)
-            if resolved_api_key:
-                remember_default_openai_api_key(api_key=resolved_api_key)
-
-            _set_job_state(
-                session,
-                status="running",
-                feature_id="mailbox.connection_check",
-                message="메일 서버 후보를 확인하고 있습니다.",
-                stage_id="discover",
-                stage_label="서버 후보 확인",
-                progress_current=2,
-                progress_total=5,
-                next_action="잠시만 기다려 주세요.",
-                details=["메일 서비스에 맞는 IMAP 후보를 확인하는 중입니다."],
-                preserve_started_at=True,
-            )
-            auth_report = run_mailbox_autoconfig_smoke(
+            result = run_mailbox_connection_check_service(
+                workspace_root=session.workspace_root,
+                workspace_password=session.workspace_password,
+                llm_model=llm_model,
+                llm_api_key=resolved_api_key,
                 email_address=resolved_email,
                 login_username=resolved_login_username,
-                password=resolved_password,
-                timeout_seconds=8.0,
-                max_probes_per_protocol=2,
+                mailbox_password=resolved_password,
+                default_folder=default_folder,
+                template_workbook_relative_path=resolved_template_path,
+                on_stage=lambda payload: _set_job_state(
+                    session,
+                    status="running",
+                    feature_id="mailbox.connection_check",
+                    message=str(payload.get("message") or "계정 연결을 확인하고 있습니다."),
+                    stage_id=str(payload.get("stage_id") or "running"),
+                    stage_label=str(payload.get("stage_label") or "실행 중"),
+                    progress_current=int(payload.get("progress_current") or 0),
+                    progress_total=int(payload.get("progress_total") or 0),
+                    next_action=str(payload.get("next_action") or ""),
+                    details=list(payload.get("details") or []),
+                    preserve_started_at=True,
+                ),
             )
-            selected_candidate = choose_successful_imap_candidate(auth_report)
-            available_folders: list[str] = []
-            recommended_folder = default_folder.strip() or "INBOX"
-            last_error = ""
-            connection_status = "failed"
-            login_username_kind = auth_report.login_username_kind
-
-            _set_job_state(
-                session,
-                status="running",
-                feature_id="mailbox.connection_check",
-                message="실제 로그인을 시도하고 있습니다.",
-                stage_id="login",
-                stage_label="로그인 시도",
-                progress_current=3,
-                progress_total=5,
-                next_action="앱 비밀번호가 필요한 계정이면 조금 더 오래 걸릴 수 있습니다.",
-                details=["로그인 가능 여부를 확인하고 있습니다."],
-                preserve_started_at=True,
-            )
-            if selected_candidate is None:
-                last_error = "로그인에 성공한 IMAP 후보를 찾지 못했습니다."
-            else:
-                successful_login_username = resolve_successful_imap_login_username(
-                    report=auth_report,
-                    candidate=selected_candidate,
-                    explicit_login_username=resolved_login_username,
-                    email_address=resolved_email,
-                )
-                login_username_kind = resolve_successful_imap_login_username_kind(
-                    report=auth_report,
-                    candidate=selected_candidate,
-                    explicit_login_username=resolved_login_username,
-                    email_address=resolved_email,
-                )
-                try:
-                    _set_job_state(
-                        session,
-                        status="running",
-                        feature_id="mailbox.connection_check",
-                        message="받은편지함 목록을 읽는 중입니다.",
-                        stage_id="folders",
-                        stage_label="폴더 목록 읽기",
-                        progress_current=4,
-                        progress_total=5,
-                        next_action="기본 받은편지함을 추천하는 중입니다.",
-                        details=["연결에 성공하면 접근 가능한 폴더 목록을 저장합니다."],
-                        preserve_started_at=True,
-                    )
-                    available_folders = _list_imap_folders(
-                        candidate=selected_candidate,
-                        login_username=successful_login_username,
-                        password=resolved_password,
-                        timeout_seconds=8.0,
-                    )
-                    recommended_folder = _recommended_default_folder(available_folders)
-                    connection_status = "connected"
-                except Exception as exc:
-                    connection_status = "connected"
-                    last_error = f"로그인은 성공했지만 폴더 목록을 읽지 못했습니다: {_friendly_mailbox_error_message(exc)}"
-
-            payload = secrets_store.read()
-            current_mailbox = dict(payload.get("mailbox") or {})
-            payload["mailbox"] = {
-                **current_mailbox,
-                "email_address": resolved_email,
-                "login_username": resolved_login_username,
-                "password": resolved_password,
-                "default_folder": current_mailbox.get("default_folder") or recommended_folder or "INBOX",
-                "available_folders": available_folders,
-                "recommended_folder": recommended_folder,
-                "connection_status": connection_status,
-                "connection_checked_at": datetime.now().isoformat(timespec="seconds"),
-                "last_error": last_error,
-                "login_username_kind": login_username_kind,
-            }
-            secrets_store.write(payload)
-
-            if connection_status == "connected":
+            if result.success:
                 _set_job_state(
                     session,
                     status="completed",
@@ -939,14 +835,14 @@ def _start_mailbox_check_job(
                     progress_total=5,
                     next_action="다음으로 빠른 테스트 동기화를 실행해 보세요.",
                     details=[
-                        f"추천 기본 받은편지함: {recommended_folder or 'INBOX'}",
-                        last_error or "폴더 목록도 정상적으로 읽었습니다.",
+                        f"추천 기본 받은편지함: {result.recommended_folder or 'INBOX'}",
+                        result.friendly_error or "폴더 목록도 정상적으로 읽었습니다.",
                     ],
                     last_result={
                         "success": True,
-                        "available_folders": available_folders,
-                        "recommended_folder": recommended_folder,
-                        "login_username_kind": login_username_kind,
+                        "available_folders": result.available_folders,
+                        "recommended_folder": result.recommended_folder,
+                        "login_username_kind": result.login_username_kind,
                     },
                     preserve_started_at=True,
                 )
@@ -962,12 +858,12 @@ def _start_mailbox_check_job(
                 progress_current=5,
                 progress_total=5,
                 next_action="설정에서 이메일 주소, 비밀번호 또는 로그인 ID를 다시 확인한 뒤 재시도해 주세요.",
-                details=[last_error or "계정 연결 확인 중 오류가 발생했습니다."],
+                details=[result.friendly_error or "계정 연결 확인 중 오류가 발생했습니다."],
                 last_result={
                     "success": False,
-                    "available_folders": available_folders,
-                    "recommended_folder": recommended_folder,
-                    "login_username_kind": login_username_kind,
+                    "available_folders": result.available_folders,
+                    "recommended_folder": result.recommended_folder,
+                    "login_username_kind": result.login_username_kind,
                 },
                 preserve_started_at=True,
             )
@@ -990,17 +886,23 @@ def _start_mailbox_check_job(
     threading.Thread(target=_run, daemon=True).start()
 
 
-def _start_sync_job(*, session: WorkspaceSession, sync_mode: str) -> None:
+def _start_sync_job(
+    *,
+    session: WorkspaceSession,
+    sync_mode: str,
+    scope: str = "recent",
+    limit: int | None = None,
+) -> None:
     if session.job_state.status == "running":
         return
 
-    workspace, secrets_store, state_store = _workspace_objects(session)
-    payload = secrets_store.read()
-    mailbox_settings = dict(payload.get("mailbox") or {})
-    llm_settings = dict(payload.get("llm") or {})
-    export_settings = dict(payload.get("exports") or {})
-    feature_id = "runtime.workspace.sync.quick_smoke" if sync_mode == "quick_smoke" else "runtime.workspace.sync"
-    total_steps = 4
+    effective_scope = "all" if sync_mode == "incremental_full" and scope != "recent" else scope
+    effective_limit = 10 if sync_mode == "quick_smoke" and limit is None else limit
+    feature_id = (
+        "runtime.workspace.sync.quick_smoke"
+        if effective_scope == "recent" and effective_limit == 10
+        else "runtime.workspace.sync"
+    )
     _set_job_state(
         session,
         status="running",
@@ -1009,216 +911,61 @@ def _start_sync_job(*, session: WorkspaceSession, sync_mode: str) -> None:
         stage_id="prepare",
         stage_label="준비 중",
         progress_current=0,
-        progress_total=total_steps,
+        progress_total=3,
         next_action="잠시만 기다려 주세요.",
         details=["세이브 파일 설정과 권한을 확인하고 있습니다."],
     )
 
     def _run() -> None:
-        sync_run_id = state_store.start_sync_run(
-            run_kind="workspace_sync",
-            app_kind=session.app_kind,
-            metadata={"workspace_id": workspace.manifest.workspace_id, "sync_mode": sync_mode},
-        )
-        backfill_report = None
         try:
-            account_config = build_local_mailbox_account_config(
-                email_address=str(mailbox_settings.get("email_address") or ""),
-                login_username=str(mailbox_settings.get("login_username") or ""),
-                password=str(mailbox_settings.get("password") or ""),
-                profile_root=workspace.profile_root(),
-                source_path="workspace.encrypted_settings",
-                notes=["공유 세이브 파일 설정에서 메일 계정 정보를 읽었습니다."],
-            )
-            template_path = _resolve_template_workbook_path_for_workspace(
-                workspace=workspace,
-                export_settings=export_settings,
-            )
-            wrapper = OpenAIResponsesWrapper(
-                OpenAIResponsesConfig(
-                    model=str(llm_settings.get("model") or "gpt-5.4"),
-                    api_key=str(llm_settings.get("api_key") or ""),
-                    usage_log_path=str(workspace.profile_paths().llm_usage_log_path()),
-                )
-            )
-
-            _set_job_state(
-                session,
-                status="running",
-                feature_id=feature_id,
-                message="메일을 가져오고 있습니다.",
-                stage_id="fetch",
-                stage_label="메일 가져오는 중",
-                progress_current=1,
-                progress_total=total_steps,
-                next_action="새 메일은 저장하고, 이미 받은 메일은 건너뜁니다.",
-                details=["IMAP 받은편지함을 읽기 전용으로 확인하는 중입니다."],
-                preserve_started_at=True,
-            )
-            backfill_report = run_imap_inbox_backfill_smoke(
-                account_config=account_config,
-                folder=str(mailbox_settings.get("default_folder") or mailbox_settings.get("recommended_folder") or "INBOX"),
-                latest_limit=10 if sync_mode == "quick_smoke" else None,
+            result = run_pipeline_sync_service(
+                workspace_root=session.workspace_root,
+                workspace_password=session.workspace_password,
+                scope=effective_scope,
+                limit=effective_limit,
+                app_kind=session.app_kind,
+                on_stage=lambda payload: _set_job_state(
+                    session,
+                    status="running",
+                    feature_id=feature_id,
+                    message=str(payload.get("message") or "동기화를 진행하고 있습니다."),
+                    stage_id=str(payload.get("stage_id") or "running"),
+                    stage_label=str(payload.get("stage_label") or "실행 중"),
+                    progress_current=int(payload.get("progress_current") or 0),
+                    progress_total=int(payload.get("progress_total") or 0),
+                    next_action=str(payload.get("next_action") or ""),
+                    details=list(payload.get("details") or []),
+                    preserve_started_at=True,
+                ),
             )
             if session.lock_handle is not None:
                 session.lock_handle.refresh()
-
             _set_job_state(
                 session,
-                status="running",
+                status=result.status,
                 feature_id=feature_id,
-                message="메일 내용을 분석하고 있습니다.",
-                stage_id="analysis",
-                stage_label="분석 중",
-                progress_current=2,
-                progress_total=total_steps,
-                next_action="이미 분석된 메일은 재사용하고, 필요한 항목만 다시 분석합니다.",
-                details=[
-                    f"새로 가져온 메일: {backfill_report.fetched_count}",
-                    f"건너뛴 메일: {backfill_report.skipped_existing_count}",
-                ],
-                preserve_started_at=True,
-            )
-            review_report = run_inbox_review_board_smoke(
-                profile_id="shared-workspace",
-                profile_root=str(workspace.profile_root()),
-                template_path=str(template_path),
-                bundle_limit=10 if sync_mode == "quick_smoke" else None,
-                reuse_existing_analysis=True,
-                wrapper=wrapper,
-            )
-            if session.lock_handle is not None:
-                session.lock_handle.refresh()
-
-            _set_job_state(
-                session,
-                status="running",
-                feature_id=feature_id,
-                message="엑셀 결과를 반영하고 있습니다.",
-                stage_id="export",
-                stage_label="엑셀 반영 중",
+                message=result.message,
+                stage_id=result.stage_id,
+                stage_label=result.stage_label,
                 progress_current=3,
-                progress_total=total_steps,
-                next_action="대표 신청 메일만 운영 엑셀에 반영합니다.",
-                details=[
-                    f"analysis 재사용/결과 건수: {review_report.total_bundle_count}",
-                    f"application: {review_report.application_count}",
-                ],
-                preserve_started_at=True,
-            )
-            update_latest_review_pointers(workspace=workspace, review_report=review_report)
-            review_items = ingest_review_report_into_state(
-                workspace=workspace,
-                state_store=state_store,
-                report_path=review_report.review_json_path,
-            )
-            workbook_result = rebuild_operating_workbook(
-                workspace=workspace,
-                state_store=state_store,
-                template_path=template_path,
-                wrapper=wrapper,
-            )
-            state_store.finish_sync_run(
-                sync_run_id,
-                status="completed",
-                notes=[
-                    f"sync_mode={sync_mode}",
-                    f"fetched={backfill_report.fetched_count}",
-                    f"skipped={backfill_report.skipped_existing_count}",
-                    f"reused_or_processed={review_report.total_bundle_count}",
-                ],
-                metadata={
-                    "workspace_root": str(workspace.root()),
-                    "sync_mode": sync_mode,
-                    "review_json_path": workspace.to_workspace_relative(review_report.review_json_path),
-                    "review_html_path": workspace.to_workspace_relative(review_report.review_html_path),
-                    "operating_workbook_path": workbook_result["operating_workbook_relpath"],
-                },
-            )
-            _set_job_state(
-                session,
-                status="completed",
-                feature_id=feature_id,
-                message="동기화가 완료되었습니다.",
-                stage_id="complete",
-                stage_label="완료",
-                progress_current=4,
-                progress_total=total_steps,
-                next_action="리뷰 화면에서 결과를 확인하거나 운영 workbook을 열어 보세요.",
-                details=[
-                    f"새로 가져온 메일: {backfill_report.fetched_count}",
-                    f"건너뛴 메일: {backfill_report.skipped_existing_count}",
-                    f"분석/검토 항목: {len(review_items)}",
-                    f"엑셀 반영 대표 건수: {int(workbook_result['representative_count'])}",
-                ],
+                progress_total=3,
+                next_action=result.next_action,
+                details=result.details,
                 last_result={
-                    "sync_mode": sync_mode,
-                    "review_json_path": workspace.to_workspace_relative(review_report.review_json_path),
-                    "review_html_path": workspace.to_workspace_relative(review_report.review_html_path),
-                    "operating_workbook_path": workbook_result["operating_workbook_relpath"],
+                    "scope": result.scope,
+                    "limit": result.limit,
+                    "fetched_count": result.fetched_count,
+                    "skipped_existing_count": result.skipped_existing_count,
+                    "analysis_reused_count": result.analysis_reused_count,
+                    "analysis_rerun_count": result.analysis_rerun_count,
+                    "reuse_counts": result.reuse_counts,
+                    "review_json_path": result.review_json_path,
+                    "review_html_path": result.review_html_path,
+                    "operating_workbook_path": result.operating_workbook_path,
                 },
                 preserve_started_at=True,
             )
         except Exception as exc:
-            notes = [f"{exc.__class__.__name__}: {exc}"]
-            failed_stage_label = _job_failure_stage_label(
-                stage_id=session.job_state.stage_id,
-                stage_label=session.job_state.stage_label,
-            )
-            if backfill_report is not None:
-                state_store.finish_sync_run(
-                    sync_run_id,
-                    status="partial_success",
-                    notes=notes,
-                    metadata={
-                        "workspace_root": str(workspace.root()),
-                        "sync_mode": sync_mode,
-                        "backfill_report_path": str(
-                            workspace.to_workspace_relative(
-                                default_backfill_report_path(
-                                    str(workspace.profile_root()),
-                                    str(mailbox_settings.get("email_address") or ""),
-                                )
-                            )
-                        ),
-                        "fetched_count": backfill_report.fetched_count,
-                        "skipped_existing_count": backfill_report.skipped_existing_count,
-                        "failed_count": backfill_report.failed_count,
-                    },
-                )
-                _set_job_state(
-                    session,
-                    status="partial_success",
-                    feature_id=feature_id,
-                    message="메일 저장은 끝났지만 다음 처리 단계에서 확인이 필요한 문제가 생겼습니다.",
-                    stage_id="partial",
-                    stage_label="부분 완료",
-                    progress_current=4,
-                    progress_total=total_steps,
-                    next_action="로그를 확인하거나 설정을 다시 확인한 뒤 빠른 테스트를 다시 실행해 주세요.",
-                    details=[
-                        f"메일 저장 완료: {backfill_report.fetched_count}건",
-                        f"이미 있던 메일 건너뜀: {backfill_report.skipped_existing_count}건",
-                        f"실패 단계: {failed_stage_label}",
-                        "다음 행동: 로그 보기 또는 설정 확인 뒤 다시 시도",
-                        f"기술 상세: {exc.__class__.__name__}: {exc}",
-                    ],
-                    last_result={
-                        "sync_mode": sync_mode,
-                        "partial_success": True,
-                        "fetched_count": backfill_report.fetched_count,
-                        "skipped_existing_count": backfill_report.skipped_existing_count,
-                    },
-                    preserve_started_at=True,
-                )
-                return
-
-            state_store.finish_sync_run(
-                sync_run_id,
-                status="failed",
-                notes=notes,
-                metadata={"workspace_root": str(workspace.root()), "sync_mode": sync_mode},
-            )
             _set_job_state(
                 session,
                 status="failed",
@@ -1226,13 +973,10 @@ def _start_sync_job(*, session: WorkspaceSession, sync_mode: str) -> None:
                 message="동기화에 실패했습니다.",
                 stage_id="failed",
                 stage_label="실패",
-                progress_current=4,
-                progress_total=total_steps,
+                progress_current=3,
+                progress_total=3,
                 next_action="설정을 다시 확인하고 재시도해 주세요.",
-                details=[
-                    f"실패 단계: {failed_stage_label}",
-                    f"기술 상세: {exc.__class__.__name__}: {exc}",
-                ],
+                details=[f"{exc.__class__.__name__}: {exc}"],
                 preserve_started_at=True,
             )
 
@@ -1273,6 +1017,44 @@ def inspect_workspace_path(
     return JSONResponse(assessment.to_dict())
 
 
+@app.get("/diagnostics/picker-bridge")
+def picker_bridge_status():
+    shell_context = SERVER_STATE.shell_context or _default_shell_context()
+    diagnostics = picker_bridge_self_test(
+        shell_mode=shell_context.shell_mode,
+        window_attached=shell_context.native_dialog_expected,
+    )
+    shell_context.native_dialog_state = (
+        "desktop_ready" if diagnostics.native_dialog_supported else "desktop_failed"
+    )
+    SERVER_STATE.shell_context = shell_context
+    return JSONResponse(diagnostics.to_dict())
+
+
+@app.post("/diagnostics/pick-folder")
+def pick_folder_route(
+    current_path: str = Form(""),
+    workspace_root: str = Form(""),
+):
+    result = pick_folder_native(
+        current_path=current_path,
+        workspace_root=workspace_root,
+    )
+    return JSONResponse(result.to_dict())
+
+
+@app.post("/diagnostics/pick-file")
+def pick_file_route(
+    current_path: str = Form(""),
+    workspace_root: str = Form(""),
+):
+    result = pick_file_native(
+        current_path=current_path,
+        workspace_root=workspace_root,
+    )
+    return JSONResponse(result.to_dict())
+
+
 @app.post("/workspace/create")
 def create_workspace(
     save_parent_dir: str = Form(...),
@@ -1280,15 +1062,12 @@ def create_workspace(
     workspace_label: str = Form(""),
 ):
     try:
-        resolved_workspace_root = suggest_workspace_root(
-            parent_dir=save_parent_dir,
-            workspace_label=workspace_label,
-        )
-        workspace = create_shared_workspace(
-            workspace_root=resolved_workspace_root,
+        create_result = create_workspace_entry(
+            save_parent_dir=save_parent_dir,
             workspace_password=workspace_password,
             workspace_label=workspace_label,
         )
+        workspace = load_shared_workspace(create_result.workspace_root)
         lock_handle = acquire_workspace_write_lock(
             lock_path=workspace.lock_path(),
             workspace_id=workspace.manifest.workspace_id,
@@ -1319,15 +1098,13 @@ def open_workspace(
     workspace_password: str = Form(...),
     readonly: bool = Form(False),
 ):
-    assessment = assess_workspace_path(
-        path_text=workspace_root,
-        selection_kind="workspace_open",
-    )
-    if assessment.status != "pass":
-        return _redirect_with_message("/", error=f"세이브 파일을 열지 못했습니다: {assessment.message}")
     try:
-        workspace = assert_supported_workspace(load_shared_workspace(workspace_root))
-        _validate_workspace_password(workspace, workspace_password)
+        open_result = open_workspace_entry(
+            workspace_root=workspace_root,
+            workspace_password=workspace_password,
+            readonly_requested=readonly,
+        )
+        workspace = assert_supported_workspace(load_shared_workspace(open_result.workspace_root))
     except Exception as exc:
         detail = str(exc).strip() or "암호가 맞지 않거나 세이브 파일이 손상되었습니다."
         return _redirect_with_message("/", error=f"세이브 파일을 열지 못했습니다: {detail}")
@@ -1348,6 +1125,7 @@ def open_workspace(
 def close_workspace():
     SERVER_STATE.auto_restore_suppressed = True
     _replace_current_session(None)
+    close_workspace_entry()
     return _redirect_with_message("/", notice="현재 세이브 파일을 닫았습니다.")
 
 
@@ -1430,51 +1208,18 @@ def save_settings(
         return _redirect_with_message("/", error="워크스페이스가 열려 있지 않아 설정을 저장할 수 없다.")
     if session.readonly:
         return _redirect_with_message("/settings", error="읽기 전용으로 열린 세이브 파일은 설정을 저장할 수 없다.")
-
-    workspace, secrets_store, _ = _workspace_objects(session)
-    device_secrets = load_local_device_secrets()
     try:
-        payload = secrets_store.read()
-        current_llm = dict(payload.get("llm") or {})
-        current_mailbox = dict(payload.get("mailbox") or {})
-        current_exports = dict(payload.get("exports") or {})
-        resolved_api_key = (
-            llm_api_key.strip()
-            or str(current_llm.get("api_key") or "")
-            or device_secrets.default_openai_api_key
+        save_workspace_settings(
+            workspace_root=session.workspace_root,
+            workspace_password=session.workspace_password,
+            llm_model=llm_model,
+            llm_api_key=llm_api_key,
+            email_address=email_address,
+            login_username=login_username,
+            mailbox_password=mailbox_password,
+            default_folder=default_folder,
+            template_workbook_relative_path=template_workbook_relative_path,
         )
-        resolved_template_path = _normalize_workspace_relative_input(
-            workspace=workspace,
-            path_text=(
-                template_workbook_relative_path.strip()
-                or str(current_exports.get("template_workbook_relative_path") or "")
-            ),
-        )
-        payload["workspace"] = {
-            **dict(payload.get("workspace") or {}),
-            "settings_saved_at": datetime.now().isoformat(timespec="seconds"),
-        }
-        payload["llm"] = {
-            "api_key": resolved_api_key,
-            "model": llm_model.strip() or "gpt-5.4",
-        }
-        payload["mailbox"] = {
-            **current_mailbox,
-            "email_address": email_address.strip() or str(current_mailbox.get("email_address") or ""),
-            "login_username": login_username.strip() or str(current_mailbox.get("login_username") or ""),
-            "password": mailbox_password.strip() or str(current_mailbox.get("password") or ""),
-            "default_folder": default_folder.strip() or str(current_mailbox.get("default_folder") or ""),
-        }
-        payload["exports"] = {
-            **current_exports,
-            "template_workbook_relative_path": resolved_template_path,
-            "operating_workbook_relative_path": workspace.to_workspace_relative(
-                workspace.operating_workbook_path()
-            ),
-        }
-        secrets_store.write(payload)
-        if resolved_api_key:
-            remember_default_openai_api_key(api_key=resolved_api_key)
     except HTTPException as exc:
         return _redirect_with_message("/settings", error=str(exc.detail))
     except Exception as exc:
@@ -1526,8 +1271,8 @@ def check_mailbox_settings(
         if not resolved_password:
             raise RuntimeError("비밀번호 또는 앱 비밀번호를 먼저 입력해 주세요.")
 
-        resolved_template_path = _normalize_workspace_relative_input(
-            workspace=workspace,
+        resolved_template_path = normalize_workspace_relative_input(
+            workspace_root=str(workspace.root()),
             path_text=(
                 template_workbook_relative_path.strip()
                 or str(current_exports.get("template_workbook_relative_path") or "")
@@ -1720,18 +1465,52 @@ def sync_page(request: Request):
 
 
 @app.post("/sync")
-def start_sync(sync_mode: str = Form("incremental_full")):
+def start_sync(
+    sync_mode: str = Form("incremental_full"),
+    scope: str = Form("recent"),
+    limit: str = Form(""),
+    preset_limit: str = Form("10"),
+):
     session = SERVER_STATE.current_session
     if session is None:
         return _redirect_with_message("/", error="먼저 세이브 파일을 열어야 동기화를 시작할 수 있다.")
     if session.readonly:
         return _redirect_with_message("/sync", error="읽기 전용 세션에서는 동기화를 실행할 수 없다.")
-    _start_sync_job(session=session, sync_mode=sync_mode)
-    notice = (
-        "빠른 테스트 동기화를 시작했습니다. 메일 가져오기부터 엑셀 반영까지 진행 상태가 이 화면에 표시됩니다."
-        if sync_mode == "quick_smoke"
-        else "전체 동기화를 시작했습니다. 진행 상황과 결과 요약이 이 화면에 표시됩니다."
+    normalized_sync_mode = (sync_mode or "").strip() or "incremental_full"
+    normalized_scope = (scope or "").strip().lower() or "recent"
+    requested_limit: int | None = None
+    if normalized_sync_mode == "quick_smoke":
+        normalized_scope = "recent"
+        requested_limit = 10
+    elif normalized_scope == "all":
+        requested_limit = None
+    else:
+        normalized_preset = (preset_limit or "").strip().lower()
+        candidate_limit = (limit or "").strip()
+        if not candidate_limit:
+            if normalized_preset in {"", "custom"}:
+                candidate_limit = "10"
+            else:
+                candidate_limit = normalized_preset
+        try:
+            requested_limit = int(candidate_limit)
+        except ValueError:
+            return _redirect_with_message("/sync", error="동기화 개수는 숫자로 입력해야 합니다.")
+        if requested_limit <= 0:
+            return _redirect_with_message("/sync", error="동기화 개수는 1 이상의 숫자여야 합니다.")
+
+    _start_sync_job(
+        session=session,
+        sync_mode=normalized_sync_mode,
+        scope=normalized_scope,
+        limit=requested_limit,
     )
+    if normalized_scope == "all":
+        notice = "전체 동기화를 시작했습니다. 진행 상황과 결과 요약이 이 화면에 표시됩니다."
+    elif requested_limit == 10:
+        notice = "빠른 테스트 동기화를 시작했습니다. 최근 10건 기준 진행 상태가 이 화면에 표시됩니다."
+    else:
+        notice = f"최근 {requested_limit}건 동기화를 시작했습니다. 진행 상황과 결과 요약이 이 화면에 표시됩니다."
     return _redirect_with_message("/sync", notice=notice)
 
 
@@ -1876,19 +1655,3 @@ def _open_path_in_os(target: Path) -> None:
         subprocess.Popen(command)
         return
     raise RuntimeError(f"지원하지 않는 OS 경로 열기 방식이다: {os.name}")
-
-
-def _normalize_workspace_relative_input(*, workspace, path_text: str) -> str:
-    text = path_text.strip()
-    if not text:
-        return ""
-    candidate = Path(text)
-    if candidate.is_absolute():
-        resolved = candidate.resolve()
-        if not resolved.is_relative_to(workspace.root().resolve()):
-            raise HTTPException(
-                status_code=400,
-                detail="공유 워크스페이스 밖 절대경로는 저장할 수 없다.",
-            )
-        return workspace.to_workspace_relative(resolved)
-    return candidate.as_posix()

@@ -12,6 +12,7 @@ if (-not (Test-Path $ExePath)) {
 }
 
 $jobUrl = "http://127.0.0.1:$Port/jobs/current"
+$metaUrl = "http://127.0.0.1:$Port/app-meta"
 $proc = Start-Process -FilePath $ExePath -ArgumentList @("--no-window", "--port", "$Port") -PassThru
 $startupLogPath = Join-Path $env:APPDATA "EmailPilotAI\startup.log"
 
@@ -23,10 +24,14 @@ try {
             throw "포터블 exe가 서버 기동 전에 종료됐다. exit_code=$($proc.ExitCode)"
         }
         try {
-            $response = Invoke-WebRequest -Uri $jobUrl -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) {
-                $ready = $true
-                break
+            $metaResponse = Invoke-WebRequest -Uri $metaUrl -UseBasicParsing -TimeoutSec 2
+            $metaPayload = $metaResponse.Content | ConvertFrom-Json
+            if ($metaResponse.StatusCode -eq 200 -and $metaPayload.app_id -eq "email_pilot_ai_desktop") {
+                $response = Invoke-WebRequest -Uri $jobUrl -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) {
+                    $ready = $true
+                    break
+                }
             }
         }
         catch {
@@ -35,11 +40,12 @@ try {
     }
 
     if (-not $ready) {
-        throw "포터블 exe가 제한 시간 안에 /jobs/current endpoint를 띄우지 못했다."
+        throw "포터블 exe가 제한 시간 안에 올바른 Email Pilot AI /app-meta 와 /jobs/current endpoint를 띄우지 못했다."
     }
 
     Write-Host "Portable exe smoke passed:"
     Write-Host $jobUrl
+    Write-Host $metaUrl
 }
 finally {
     if ($proc -and -not $proc.HasExited) {
@@ -71,6 +77,12 @@ try {
     }
     if ($startupLog -notmatch "launcher: pywebview window created and bridge attached") {
         throw "GUI smoke에서 pywebview bridge attach 로그를 찾지 못했다."
+    }
+    if ($startupLog -notmatch "launcher: confirmed app-meta at http://127.0.0.1:8765") {
+        # GUI smoke는 기본 preferred port를 쓰되, 충돌 시 다른 포트를 선택할 수 있다.
+        if ($startupLog -notmatch "launcher: confirmed app-meta at http://127.0.0.1:[0-9]+") {
+            throw "GUI smoke에서 app-meta 확인 로그를 찾지 못했다."
+        }
     }
     if ($startupLog -match "launcher: pywebview failed") {
         throw "GUI smoke에서 pywebview 실패 로그가 감지됐다."

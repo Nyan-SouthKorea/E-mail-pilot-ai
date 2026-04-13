@@ -10,10 +10,12 @@
 - `state/state.sqlite`에 feature run history도 함께 저장한다.
 - `locks/write.lock` 기반 단일 작성자 잠금 경로가 있다.
 - 기존 `mailbox / analysis / exports / llm` 엔진을 `mail / exports / logs` 기준의 v2 세이브 구조로 다시 묶는 sync service가 있다.
-- sync service는 `빠른 테스트 동기화(최근 10건)`와 `전체 동기화(증분)` 두 실행 모드를 가진다.
+- sync service는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 범위를 같은 service 계약으로 처리한다.
 - analysis 결과는 bundle fingerprint와 analysis revision이 같으면 기본적으로 재사용한다.
 - 대표 신청 건만 stable 운영 workbook으로 다시 쓰고 `검토_인덱스` 시트를 추가하는 재구성 경로가 있다.
 - `runtime/feature_registry.py`가 제품/운영 기능 카탈로그와 관리도구/CLI 실행 진입점을 같이 맡는다.
+- `runtime service`는 `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 그룹으로 나눈다.
+- 명시적 CLI는 `workspace`, `settings`, `mailbox`, `analysis`, `exports`, `pipeline`, `diagnostics` 하위 명령을 지원한다.
 - `runtime/sample_workspace.py`가 repo-safe 샘플 세이브를 만든다.
 - `runtime/feature_harness_smoke.py`가 sample workspace와 앱 UI를 묶어 반복 smoke를 수행한다.
 - 새 세이브는 legacy `profile/참고자료/실행결과` 구조를 만들지 않고, v1 세이브는 자동 변환하지 않는다.
@@ -26,7 +28,7 @@
 - 민감한 값은 공유 save 안에 두되 평문 파일이 아니라 암호화 blob에만 둔다.
 - 동시 편집은 허용하지 않고 단일 작성자 잠금으로 간다.
 - 사용자 override는 state DB에 저장하고, 다음 재반영 때도 유지되는 구조를 기본으로 둔다.
-- 첫 동기화는 `quick_smoke`, 운영 동기화는 `incremental_full`을 기본 모드로 본다.
+- 첫 동기화는 작은 recent scope부터 시작하고, 마지막에 `all` scope로 넓혀 가는 흐름을 기본으로 본다.
 - 정적 HTML review board는 fallback/debug 산출물로 남기고, 사용자 검토의 active canonical 상태는 state DB와 앱 UI가 맡는다.
 - 새 세이브 canonical 구조는 `workspace.epa-workspace.json + secure/ + state/ + locks/ + mail/ + exports/ + logs/`를 기준으로 본다.
 
