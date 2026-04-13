@@ -45,8 +45,10 @@ Linux에서 Windows 빌드와 로컬 publish를 한 번에 처리할 때:
    - `ssh nyan-pc-reverse whoami`
 2. Windows build와 로컬 publish를 한 번에 실행한다.
    - `bash ./app/packaging/build_windows_portable_and_publish.sh`
+   - 이 helper는 먼저 Windows `D:\EmailPilotAI\repo`를 현재 GitHub `main` 기준으로 맞춘 뒤 빌드를 실행한다.
 3. 기존 Windows 산출물만 다시 publish할 때는 아래 helper를 쓴다.
    - `powershell -ExecutionPolicy Bypass -File .\\app\\packaging\\publish_portable_to_runtime.ps1`
+   - publish 전에 현재 실행 중인 공식 runtime `EmailPilotAI.exe`가 있으면 자동으로 종료하고 교체한다.
 4. Linux repo 안의 혼동되는 이전 공유 미러 부산물을 정리할 때는 아래 helper를 쓴다.
    - `bash ./app/packaging/cleanup_portable_artifacts.sh`
 

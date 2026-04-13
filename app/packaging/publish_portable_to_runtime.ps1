@@ -47,6 +47,37 @@ $RuntimeExePath = Join-Path $ResolvedRuntimeBundleRoot "EmailPilotAI.exe"
 $ExpectedManifestPath = Join-Path $ResolvedSourceBundleRoot $ManifestFileName
 $ActualManifestPath = Join-Path $env:TEMP ("portable_bundle_manifest_runtime_" + [guid]::NewGuid().ToString("N") + ".json")
 
+function Stop-OfficialRuntimeProcess {
+    param(
+        [string]$ExePath
+    )
+
+    $normalizedExePath = [System.IO.Path]::GetFullPath($ExePath)
+    $targets = @()
+
+    foreach ($process in Get-Process -Name "EmailPilotAI" -ErrorAction SilentlyContinue) {
+        try {
+            if ($process.Path -and ([System.IO.Path]::GetFullPath($process.Path) -eq $normalizedExePath)) {
+                $targets += $process
+            }
+        }
+        catch {
+            continue
+        }
+    }
+
+    if ($targets.Count -eq 0) {
+        return
+    }
+
+    Write-Host "Stopping running official runtime process before publish..."
+    foreach ($target in $targets) {
+        Stop-Process -Id $target.Id -Force
+    }
+
+    Start-Sleep -Milliseconds 700
+}
+
 try {
     Invoke-PortableManifest @("check-required", "--bundle-root", $ResolvedSourceBundleRoot)
 
@@ -56,6 +87,7 @@ try {
 
     New-Item -ItemType Directory -Force -Path $RuntimeParent | Out-Null
     New-Item -ItemType Directory -Force -Path $ResolvedRuntimeBundleRoot | Out-Null
+    Stop-OfficialRuntimeProcess -ExePath $RuntimeExePath
 
     $null = robocopy $ResolvedSourceBundleRoot $ResolvedRuntimeBundleRoot /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP
     if ($LASTEXITCODE -ge 8) {

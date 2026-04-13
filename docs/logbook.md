@@ -94,14 +94,14 @@
 ## 현재 체크포인트
 
 - 지금 단계:
-  - 서비스형 고객 UI 리팩터 v2 구현, smoke 검증, Windows runtime publish, 첫 publish까지 마친 상태
+  - 서비스형 고객 UI 리팩터 v2는 구현과 첫 publish까지 끝났고, 사용자 검증 중 드러난 Windows 빌드 미러 stale source 문제를 복구한 뒤 후속 publish를 진행 중인 상태
 - 바로 다음 작업:
-  - 다음 사용자 검증 피드백을 받아 후속 UX 리팩터 항목을 고른다
+  - packaging helper 후속 수정 commit/push를 닫고, 사용자가 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 열어 새 UI 반영 여부를 확인한다
 - publish 상태:
   - 이전 plan publish 완료
   - current plan commit 완료
   - current plan push 완료
-  - current plan clean status 마감 반영 중
+  - hotfix follow-up publish 진행 중
 
 ## 현재 활성 체크리스트
 
@@ -134,6 +134,14 @@
 - `app/README.md`와 `docs/feature_catalog.md`는 새 용어와 홈 흐름에 맞춰 갱신했다.
 - 원격 Windows 빌드도 다시 실행했고, 최종 사용자 실행본 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 최신 UI 기준으로 다시 publish 했다.
 - 검증은 `python tools/logbook_archive_guard.py --archive-if-needed`, `python -m py_compile app/server.py app/main.py app/ui_smoke.py`, `python -m app.ui_smoke --workspace-root /tmp/epa_ui_v2_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_ui_v2_smoke --workspace-password SampleWorkspace260408` 기준으로 통과했다.
+
+### 2026-04-13 | Human + Codex | Windows 빌드 미러 stale source 원인 확인과 packaging helper 보강
+
+- 사용자 화면 피드백을 기준으로 역추적해 보니, 실제 실행 중인 프로세스 경로는 공식 runtime `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`가 맞았지만, Windows 빌드 미러 `D:\EmailPilotAI\repo`가 오래된 소스 상태여서 새 UI가 exe에 반영되지 않은 것을 확인했다.
+- Windows `D:\EmailPilotAI\repo\app\templates\home.html`과 Linux repo의 같은 파일을 비교해 source mismatch를 확인했고, Windows repo를 최신 `main` 기준 소스로 다시 맞춘 뒤 Windows 포터블 build/publish를 재실행했다.
+- 현재 Windows `D:\EmailPilotAI\repo`와 Linux repo HEAD는 모두 `8a750ad`로 일치한다.
+- `app/packaging/build_windows_portable_and_publish.sh`는 앞으로 Linux working tree tar 미러 대신 `origin/main` 기준 Git sync를 먼저 수행한 뒤 Windows build를 실행하도록 보강했다.
+- `app/packaging/publish_portable_to_runtime.ps1`는 공식 runtime exe가 실행 중이면 publish 전에 해당 프로세스를 종료하고 나서 복사하게 보강했다.
 
 ### 2026-04-10 | Human + Codex | 서비스형 홈/설정/동기화/리뷰 UI 1차 전환
 

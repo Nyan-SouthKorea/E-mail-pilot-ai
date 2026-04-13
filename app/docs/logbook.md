@@ -57,6 +57,12 @@
 - 세이브 파일 오픈/생성 후에는 `/settings`로 이어지게 바꿔, 첫실행 Step 2인 계정 연결 설정으로 곧바로 넘어가게 했다.
 - `app/ui_smoke.py`는 새 홈 문자열과 활성화된 `찾아보기` 버튼 기준을 검사하도록 갱신했고, 샘플 세이브 기준 smoke를 다시 통과했다.
 
+### 2026-04-13 | Human + Codex | Windows 빌드 소스 stale 문제 복구
+
+- 사용자 피드백 기준으로 실제 실행 중인 프로세스 경로와 runtime bundle의 템플릿 내용을 확인해 보니, 공식 D runtime exe 자체는 맞았지만 Windows 빌드 미러 `D:\EmailPilotAI\repo`가 예전 소스로 남아 있던 것이 원인이었다.
+- Windows 빌드 미러를 최신 `main` 기준 소스로 다시 맞춘 뒤 `build_portable_exe.ps1 -Clean`을 재실행했고, `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 새 UI 기준으로 다시 publish 했다.
+- `build_windows_portable_and_publish.sh`는 이제 Windows 빌드 전에 Git 기준 mirror sync를 먼저 수행하고, `publish_portable_to_runtime.ps1`는 공식 runtime 프로세스를 정리한 뒤 교체하도록 보강했다.
+
 ### 2026-04-10 | Human + Codex | Windows 로컬 D 단일 실행본 publish와 cleanup 재정리
 
 - `runtime.local_settings`의 공식 portable 경로를 `D:\EmailPilotAI\portable\EmailPilotAI\`로 바꾸고, 앱 진단에는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 공식 실행 파일로 보여주게 했다.
