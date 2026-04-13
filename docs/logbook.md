@@ -62,6 +62,8 @@
 - 승인된 active plan이 생기면 구현 전에 그 plan 전문을 root `docs/logbook.md`의 `현재 실행 계획`에 먼저 반영한다.
 - 구현은 `현재 체크포인트`와 `현재 활성 체크리스트`를 작은 작업 단위로 갱신하면서 진행한다.
 - plan 마감의 기본 완료 조건은 `canonical 문서 반영 -> commit -> push -> git status clean 확인`이다.
+- 비사소한 작업의 완료 보고는 항상 `요청 내용 -> 계획 -> 결과와 자가 평가` 3단 구조를 따르고, `검증 중 새로 발견한 문제`, `추가 수정`, `재검증`, `AGENTS 확인 기록`을 함께 남긴다.
+- 공식 exe가 있는 작업은 `최신 pushed main 기준 공식 exe 재빌드 + 공식 exe smoke`까지 닫히기 전에는 완료 보고로 보지 않는다.
 - stable truth는 `README.md`와 각 모듈 `README.md`, active truth는 `docs/logbook.md`와 각 모듈 `docs/logbook.md`에 둔다.
 - 런타임 데이터 계약은 `MailBundle -> NormalizedMessage -> ExtractedRecord -> ExportRow` 4단계를 유지한다.
 - `ExtractedRecord` top-level triage는 `application`, `not_application`, `needs_human_review` 3개 값으로 고정한다.
@@ -225,6 +227,13 @@
 - packaged smoke는 `/jobs/current`, `/app-meta`를 다시 통과했고, `/app-meta` 기준 `build_commit`, `build_time`, `official_exe_path`가 최신 공식 실행본과 맞는지 확인했다.
 - Portable GUI smoke도 다시 통과해 `startup.log` 기준 launcher와 packaged runtime이 current main 기준으로 다시 올라온 것을 확인했다.
 - 따라서 지금 시점의 남은 항목은 `sync --all` 장기 운영 검증과 Windows 수동 acceptance 2개뿐이다.
+
+### 2026-04-13 | Human + Codex | 완료 보고 형식과 AGENTS 재독 기록 규칙 강화
+
+- 앞으로 비사소한 작업의 완료 보고는 항상 `내가 요청한 내용 -> 그래서 세운 계획 -> 결과와 내가 스스로 평가한 내용` 3단 구조를 따르도록 운영 규칙을 강화했다.
+- `결과와 내가 스스로 평가한 내용`에는 구현 결과만이 아니라 `검증 중 새로 발견한 문제`, `그 문제를 위해 추가로 수정한 내용`, `그 수정 뒤 다시 돌린 검증`을 반드시 함께 적도록 고정했다.
+- 동시에 `AGENTS 확인 기록`도 완료 보고의 필수 항목으로 올려, 이번 턴에 `AGENTS.md`를 총 몇 번, 어느 게이트에서 다시 읽었는지를 항상 남기도록 했다.
+- starter `AGENTS.md`와 `docs/feature_catalog.md`에도 같은 규칙을 반영해, 새 저장소를 시작해도 같은 운영 습관이 유지되게 맞췄다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review service 경량화
 
