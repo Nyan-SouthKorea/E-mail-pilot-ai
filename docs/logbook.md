@@ -143,10 +143,10 @@
 
 - 지금 단계:
   - source/CLI/smoke 기준으로는 `계정 연결 계속하기 CTA`, `중복/대표 UI`, `리뷰 상세 full reload`, `preview click 후 상태 초기화`, `stale exe 게이트`를 모두 정리했다.
-  - 지금 남은 것은 `공식 Windows exe 재빌드 + packaged smoke`와 staged live verification, Windows 수동 acceptance 2개다.
+  - 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`도 current commit `915c494` 기준으로 다시 빌드했고, packaged smoke와 GUI smoke까지 통과했다.
+  - 지금 남은 것은 staged live verification `100 / 500 / 550 / all`과 Windows 수동 acceptance 2개다.
 - 바로 다음 작업:
-  - current HEAD를 commit/push 한 뒤 공식 Windows exe를 다시 빌드하고 packaged smoke를 통과시킨다.
-  - 그 다음 실제 계정 기준 staged live verification `100 / 500 / 550 / all`을 누적 기록한다.
+  - 실제 계정 기준 staged live verification `100 / 500 / 550 / all`을 순서대로 누적 기록한다.
   - 마지막으로 Windows 수동 acceptance 2개를 닫는다.
 - publish 상태:
   - 이전 plan publish 완료
@@ -179,16 +179,25 @@
 
 | 항목 | source 반영 | CLI/smoke 검증 | 공식 exe 반영 | 사용자 수동 acceptance |
 |---|---|---|---|---|
-| stale exe 방지 build metadata와 공식 게이트 | 완료 | 완료 | 대기 | 필요 없음 |
-| 계정 연결 완료 시 홈 CTA 정리 | 완료 | 완료 | 대기 | 선택 |
-| 리뷰 목록 50건 paging + 상세 partial update | 완료 | 완료 | 대기 | 선택 |
-| `메일 미리보기` 탭/외부 열기 후 상태 유지 | 완료 | 완료 | 대기 | 선택 |
-| `중복/대표` 사용자 UI 제거 + 자동 canonical selection | 완료 | 완료 | 대기 | 선택 |
-| artifact/export/home 한국어 용어 통일 | 완료 | 완료 | 대기 | 선택 |
-| Windows native picker 실제 dialog | 완료 | diagnostics/self-test 완료 | 대기 | 필요 |
-| exe 아이콘/창 브랜딩 최신 반영 | 완료 | packaged smoke 전 | 대기 | 필요 |
+| stale exe 방지 build metadata와 공식 게이트 | 완료 | 완료 | 완료 | 필요 없음 |
+| 계정 연결 완료 시 홈 CTA 정리 | 완료 | 완료 | 완료 | 선택 |
+| 리뷰 목록 50건 paging + 상세 partial update | 완료 | 완료 | 완료 | 선택 |
+| `메일 미리보기` 탭/외부 열기 후 상태 유지 | 완료 | 완료 | 완료 | 선택 |
+| `중복/대표` 사용자 UI 제거 + 자동 canonical selection | 완료 | 완료 | 완료 | 선택 |
+| artifact/export/home 한국어 용어 통일 | 완료 | 완료 | 완료 | 선택 |
+| Windows native picker 실제 dialog | 완료 | diagnostics/self-test 완료 | 완료 | 필요 |
+| exe 아이콘/창 브랜딩 최신 반영 | 완료 | packaged smoke 완료 | 완료 | 필요 |
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | packaged metadata path 정규화와 current commit 기준 Windows 공식 exe 재빌드 완료
+
+- `app/packaging/build_portable_exe.ps1`는 `official_exe_path`를 `GetFullPath()`로 정규화해 `portable_build_info.json`에 기록하도록 보강했다.
+- `app/packaging/smoke_portable_exe.ps1`도 smoke 대상 exe 경로와 `/app-meta`의 `official_exe_path`를 같은 방식으로 정규화한 뒤 비교하게 바꿨다.
+- 위 수정은 commit `915c494`로 push 했고, 그 commit 기준으로 `bash app/packaging/build_windows_portable_and_publish.sh --clean`을 다시 실행했다.
+- 결과적으로 Windows 공식 실행본 `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`는 `build_commit=915c49445ac8da7ea0dd9e7777376fec704c2559`, `build_time=2026-04-13T17:48:21` 기준으로 다시 publish 되었고 packaged smoke와 GUI smoke를 통과했다.
+- 같은 시점에 `python -m py_compile ...`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_review_canonical_smoke --workspace-password SampleWorkspace260408 --create-sample-if-missing`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_canonical_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.cli analysis review-list --workspace-root /tmp/epa_review_canonical_smoke --page 1 --page-size 50 --sort received_desc`, `python -m runtime.cli exports summary --workspace-root /tmp/epa_review_canonical_smoke`도 다시 통과했다.
+- 따라서 현재 active plan 기준에서 자동 검증과 공식 exe 반영은 닫혔고, 남은 것은 staged live verification `100 / 500 / 550 / all`과 Windows 수동 acceptance 2개다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review service 경량화
 

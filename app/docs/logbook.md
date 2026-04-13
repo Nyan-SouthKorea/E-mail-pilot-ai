@@ -68,9 +68,18 @@
 - [x] 리뷰 상세 외부 열기 후 필터/페이지/선택 상태 보존 강화
 - [x] build commit / build time / 공식 exe 경로를 고급 진단에 노출
 - [x] review 첫 진입 기본 artifact를 `검토 개요`로 바꿔 무거운 iframe 선로딩 제거
+- [x] packaged `/app-meta official_exe_path` 경로 정규화와 current commit 기준 공식 exe 재빌드
 - [ ] 공식 Windows exe 재빌드 후 최신 UI/CTA/리뷰 반영 수동 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | packaged metadata path 보정 후 공식 Windows 실행본 재빌드 완료
+
+- `portable_build_info.json`의 `official_exe_path`를 `GetFullPath()` 기준으로 쓰도록 packaging helper를 보강했다.
+- packaged smoke는 `/app-meta`의 `official_exe_path`와 현재 smoke 대상 exe를 같은 방식으로 정규화한 뒤 비교하게 바꿨다.
+- current commit `915c494` 기준으로 `build_windows_portable_and_publish.sh --clean`을 다시 실행했고, 공식 runtime `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`를 다시 publish 했다.
+- packaged smoke와 GUI smoke는 모두 통과했고, `/app-meta` 기준 `build_commit=915c49445ac8da7ea0dd9e7777376fec704c2559`, `build_time=2026-04-13T17:48:21`를 확인했다.
+- 현재 app 쪽에서 자동 검증으로 남은 blocker는 없고, 실제 Windows 네이티브 파일 탐색기 dialog와 최신 창 브랜딩은 수동 acceptance만 남겨 둔다.
 
 ### 2026-04-13 | Human + Codex | review detail 기본 탭 경량화와 partial history 보정
 
