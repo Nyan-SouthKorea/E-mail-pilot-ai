@@ -40,11 +40,11 @@
 - 현재 로컬 워크스페이스:
   - sibling 구조 `repo / envs / results / secrets`
 - 현재 공유 워크스페이스:
-  - `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + profile/`
+  - `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + mail/ + exports/ + logs/`
 - 비공개 자산과 자격증명의 canonical 로컬 시작 문서는 sibling `../secrets/README.local.md`다.
 - 현재 로컬 산출물 정책:
-  - 실제 사용자 메일, 첨부, workbook, 로그는 `../secrets/사용자 설정/<이름>/실행결과/` 아래에 둔다.
-  - reference fixture는 `../secrets/사용자 설정/<이름>/참고자료/` 아래에서 읽기 전용으로 관리한다.
+  - 제품 기준 메일 bundle, 운영 workbook, 리뷰 상태, 로그는 새 세이브 파일 내부의 v2 구조에 둔다.
+  - sibling `../secrets/사용자 설정/<이름>/참고자료/`는 개발자 전용 fixture와 raw 자산을 읽기 전용으로 둘 때만 쓴다.
   - repo 내부 `<module>/results/`는 재현 가능한 smoke 결과와 소형 비교 자료만 둔다.
   - root `results/`는 현재 canonical 위치가 아니다.
 - 현재 모듈 상태:
@@ -71,8 +71,10 @@
 - `app/`은 전용 데스크톱 창과 로컬 Web UI를 맡고, `runtime/`은 공유 save와 sync orchestration을 맡는다.
 - Windows 포터블 exe의 공식 실행 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나로 고정한다.
 - `Z:` 공유 폴더의 exe와 Linux repo shared mirror는 더 이상 실행본 canonical 위치로 쓰지 않는다.
-- 실제 inbox bundle, 실제 workbook, 실제 usage log는 `../secrets/사용자 설정/<이름>/실행결과/`에 두고, 재현 가능한 작은 smoke 결과와 비교 요약만 repo 내부 공식 위치 후보를 쓴다.
-- batch review HTML/JSON 보드는 `../secrets/사용자 설정/<이름>/실행결과/로그/review/`에 둔다.
+- 제품 기준 실제 inbox bundle, 운영 workbook, usage log, review 로그는 현재 세이브 파일 내부의 `mail/`, `exports/`, `logs/` 아래에 둔다.
+- sibling `../secrets/사용자 설정/<이름>/실행결과/`는 개발자 전용 legacy/private runtime 위치로만 본다.
+- 제품 세이브의 canonical 구조는 `workspace.epa-workspace.json + secure/ + state/ + locks/ + mail/ + exports/ + logs/`다.
+- 새 세이브는 legacy `profile/참고자료/실행결과/기대되는 산출물` 구조를 만들지 않는다.
 - workbook 자동 반영은 triage가 `application`이고 기업/연락처 신호가 함께 확인된 경우에만 허용한다.
 - 공유 워크스페이스에서는 민감한 값도 `secure/secrets.enc.json` 안에 암호화 저장하고, review/dedupe/override/workbook row 상태는 `state/state.sqlite`에 저장한다.
 - 공유 워크스페이스는 단일 작성자 잠금을 기본으로 하고 `locks/write.lock` heartbeat 기준 stale takeover를 허용한다.
@@ -80,48 +82,64 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `서비스형 고객 UI 리팩터 v2`
+  - `고객 서비스형 UI/세이브 구조 리팩터 v3`
 - plan 요약:
-  - 현재의 설명 많은 검증용 화면을 실제 고객이 매일 쓰는 Windows 업무용 프로그램 같은 서비스형 UI로 바꾼다.
-  - 첫 실행 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 -> 빠른 테스트 동기화` 3단계 마법사로 고정한다.
-  - 디자인은 슬레이트/네이비 기반의 업무용 프로앱 톤으로 전환하고, `찾아보기`는 더 이상 브리지 준비 전까지 영구 비활성으로 두지 않는다.
+  - 세이브 파일 열기/만들기를 경로 입력형이 아니라 실제 폴더 선택 기반으로 바꾸고, 새 세이브는 v2 영문 구조만 사용한다.
+  - 설정, 계정 연결 확인, 빠른 테스트/전체 동기화는 오래 걸려도 상태가 보이는 서비스형 진행 카드와 진행률을 가진다.
+  - 로컬 장치 전용 암호화 저장소를 도입해 마지막 세이브 파일과 암호, 기본 OpenAI API key를 이 PC에만 저장하고 자동 재개/자동 채움을 지원한다.
+  - 앱을 다시 켜면 마지막 세이브를 자동으로 다시 열고, 현재 세이브 닫기/다른 세이브 열기/최근 세이브 선택을 자연스럽게 지원한다.
 - 이번 plan의 성공 기준:
-  - 첫 화면이 긴 개념 설명 대신 3단계 마법사 중심으로 바뀐다.
-  - exe에서 `찾아보기` 버튼이 즉시 클릭 가능하고, 실패 시에만 짧은 이유를 안내한다.
-  - 홈/설정/동기화/리뷰의 시각 톤이 일관된 업무용 프로앱 스타일로 바뀐다.
-  - 기본 화면에서 개발자 진단 정보가 밀려나고, 고객용 용어와 CTA 중심 구조가 자리잡는다.
+  - `찾아보기`는 경로 선입력 없이도 바로 폴더 선택기가 열려야 하고, 최근 세이브는 클릭 가능한 목록이어야 한다.
+  - 새 세이브는 `mail / exports / logs / secure / state / locks` 기준의 v2 구조만 만들고 legacy `profile/참고자료/실행결과/기대되는 산출물`은 만들지 않는다.
+  - `(i)` 도움말은 hover/focus/click 모두 동작하는 실제 tooltip/popover가 되어야 한다.
+  - 계정 연결 확인과 동기화는 진행 상태, 단계, 진행률, 부분 완료/실패 이유와 다음 행동을 보여야 한다.
+  - 앱 재실행 시 마지막 세이브 자동 재개, OpenAI API key 자동 채움, 세이브 닫기/전환이 동작해야 한다.
+  - exe 아이콘과 전체 톤이 실제 고객 서비스용 Windows 프로그램처럼 정리돼야 한다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - 서비스형 고객 UI 리팩터 v2는 구현과 첫 publish까지 끝났고, 사용자 검증 중 드러난 Windows 빌드 미러 stale source 문제를 복구한 뒤 후속 publish를 진행 중인 상태
+  - v3 구현과 검증을 마쳤고, publish 마감만 남은 단계
 - 바로 다음 작업:
-  - packaging helper 후속 수정 commit/push를 닫고, 사용자가 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 열어 새 UI 반영 여부를 확인한다
+  - current plan commit, push, clean status 확인으로 마감한다
 - publish 상태:
   - 이전 plan publish 완료
-  - current plan commit 완료
-  - current plan push 완료
-  - hotfix follow-up publish 진행 중
+  - current plan 작업 중
 
 ## 현재 활성 체크리스트
 
-- `서비스형 고객 UI 리팩터 v2`
+- `고객 서비스형 UI/세이브 구조 리팩터 v3`
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
-  - [x] 홈 미오픈 상태를 3단계 마법사 구조로 재설계
-  - [x] `찾아보기`를 기본 활성 + 클릭 시도 방식으로 전환
-  - [x] 좌측 사이드바 + 상단 작업 헤더 기반 제품형 쉘 도입
-  - [x] 프로앱 색상/타이포/컴포넌트 토큰으로 CSS 전환
-  - [x] 설정 화면 카피와 기본/고급 레이아웃 정리
-  - [x] 동기화 화면 CTA 위계와 상태 안내 정리
-  - [x] 리뷰센터 리스트/상세 가독성 재정리
+  - [x] v2 세이브 구조 helper와 manifest 버전 교체
+  - [x] 로컬 장치 전용 암호화 저장소 추가
+  - [x] 홈의 세이브 열기/만들기 흐름 재설계
+  - [x] 최근 세이브 파일 클릭/정리 동작 추가
+  - [x] `(i)` tooltip/popover 시스템 전역 적용
+  - [x] 계정 연결 확인 background job + 진행 카드
+  - [x] 빠른 테스트/전체 동기화 진행 카드 + 부분 완료 처리
+  - [x] 세이브 닫기/전환/자동 재개 추가
+  - [x] OpenAI API key 자동 채움 추가
+  - [x] legacy 내부 폴더 제거와 문서/가이드 반영
+  - [x] exe 아이콘 및 브랜딩 갱신
   - [x] `app.ui_smoke`와 관련 검증 갱신
   - [x] canonical 문서 반영
-  - [x] current plan commit 완료
-  - [x] current plan push 완료
-  - [x] `git status --short --branch` clean 확인
+  - [ ] current plan commit 완료
+  - [ ] current plan push 완료
+  - [ ] `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | 고객 서비스형 UI/세이브 구조 리팩터 v3 구현과 검증
+
+- 새 세이브 canonical 구조를 `workspace.epa-workspace.json + secure + state + locks + mail + exports + logs` 기준의 v2 구조로 고정했고, 새 세이브 생성 시 legacy `profile / 참고자료 / 실행결과 / 기대되는 산출물` 폴더가 생기지 않도록 `runtime/workspace.py` 초기화 순서를 바로잡았다.
+- 세이브 파일 열기/만들기는 경로 선입력보다 실제 폴더 선택을 기본으로 쓰게 유지했고, 최근 세이브는 `이 PC에서 바로 다시 열기` 또는 `암호를 확인한 뒤 다시 열기` 두 흐름으로 다시 정리했다.
+- 세이브 닫기, 다른 세이브 열기, 앱 재실행 시 마지막 세이브 자동 재개, 기본 OpenAI API key 자동 채움은 이 PC 전용 암호화 저장소를 통해 동작하게 했다.
+- 계정 연결 확인은 background job으로 전환해 `입력 확인 -> 서버 후보 확인 -> 로그인 시도 -> 폴더 목록 읽기 -> 완료` 단계와 진행률을 즉시 보여주게 했다.
+- 빠른 테스트/전체 동기화는 background job 진행 카드와 진행률, 부분 완료, 다음 행동 안내를 보여주게 했고, 메일 저장 성공 후 분석/내보내기 실패를 `부분 완료`로 따로 표현한다.
+- `(i)` 도움말과 disabled 이유 안내는 실제 tooltip/popover 컴포넌트로 통일했고, 고객용 UI 용어는 `기본 받은편지함`, `엑셀 양식`, `세이브 파일` 중심으로 다시 정리했다.
+- 최근 세이브 재열기, 새 v2 세이브 생성, UI smoke, feature harness smoke를 다시 검증했고, 샘플 세이브 기준 `logs/app/260413_1122_ui_smoke.json`, `logs/runtime/260413_1122_feature_harness_smoke.json`까지 확인했다.
+- `packaging.portable_exe.build` prerequisite check는 Linux 개발 호스트에서는 Windows 전용 의존성을 `warn`으로만 보게 바꿔, 실제 Windows 패키징 검증기와 로컬 feature harness가 서로의 의미를 침범하지 않게 정리했다.
 
 ### 2026-04-13 | Human + Codex | 서비스형 고객 UI 리팩터 v2 구현
 

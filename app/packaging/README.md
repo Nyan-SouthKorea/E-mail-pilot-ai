@@ -7,6 +7,7 @@
 - 출력 형태: `PyInstaller onedir`
 - 최종 실행 파일: `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`
 - UI 자산: `app/templates/`, `app/static/`를 exe bundle 안에 포함
+- 아이콘 자산: `app/packaging/assets/EmailPilotAI.ico`
 - 목표: 인터넷 없이도 전용 창 UI가 뜨는 검증용 포터블 bundle
 - 사용자 기준 실행 방법은 `EmailPilotAI.exe` 더블클릭 하나다.
 - reverse SSH 터널 스크립트는 앱 실행용이 아니라 개발자 원격 빌드/지원용 도구다.

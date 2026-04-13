@@ -71,7 +71,7 @@ class WorkspaceSecretsStore:
                 "email_address": str((payload.get("mailbox") or {}).get("email_address") or ""),
                 "login_username": str((payload.get("mailbox") or {}).get("login_username") or ""),
                 "password_saved": bool((payload.get("mailbox") or {}).get("password")),
-                "default_folder": str((payload.get("mailbox") or {}).get("default_folder") or "INBOX"),
+                "default_folder": str((payload.get("mailbox") or {}).get("default_folder") or ""),
                 "available_folders": list((payload.get("mailbox") or {}).get("available_folders") or []),
                 "recommended_folder": str((payload.get("mailbox") or {}).get("recommended_folder") or ""),
                 "connection_status": str((payload.get("mailbox") or {}).get("connection_status") or "unknown"),

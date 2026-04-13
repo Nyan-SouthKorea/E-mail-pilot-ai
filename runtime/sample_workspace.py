@@ -216,12 +216,16 @@ def seed_sample_workspace(
 
 
 def _prepare_sample_profile_roots(workspace: SharedWorkspace) -> None:
-    runtime_root = workspace.profile_root() / "실행결과"
-    for child in ["받은 메일", "로그", "엑셀 산출물"]:
-        target = runtime_root / child
+    targets = [
+        workspace.profile_paths().runtime_mail_bundles_root(),
+        workspace.profile_paths().runtime_logs_root(),
+        workspace.profile_paths().runtime_exports_root(),
+    ]
+    for target in targets:
         if target.exists():
             shutil.rmtree(target)
         target.mkdir(parents=True, exist_ok=True)
+    workspace.profile_paths().ensure_runtime_dirs()
 
 
 def _build_sample_template_workbook(workspace: SharedWorkspace) -> Path:

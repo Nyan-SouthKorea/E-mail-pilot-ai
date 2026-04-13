@@ -40,7 +40,7 @@ python -m runtime.cli feature-harness-smoke \
   - workspace inspect run
   - operating workbook rebuild run
   - app UI smoke
-- 결과 JSON은 workspace 상대경로 기준 `profile/실행결과/로그/runtime/` 아래에 남긴다.
+- 결과 JSON은 workspace 상대경로 기준 `logs/app/` 아래에 남긴다.
 
 ## UI smoke 단독 실행
 

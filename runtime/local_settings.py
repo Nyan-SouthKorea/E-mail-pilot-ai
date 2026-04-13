@@ -64,6 +64,14 @@ def default_local_portable_exe_path() -> Path:
     return default_local_portable_bundle_root() / "EmailPilotAI.exe"
 
 
+def default_workspace_parent_dir() -> Path:
+    """기능: 새 세이브 파일 기본 상위 폴더를 반환한다."""
+
+    if os.name == "nt":
+        return Path("D:/이메일 파일럿 세이브 폴더")
+    return Path.home() / "EmailPilotAI Saves"
+
+
 def load_local_app_settings(path: str | Path | None = None) -> LocalAppSettings:
     """기능: 로컬 장치 전용 설정을 읽는다."""
 
@@ -102,5 +110,21 @@ def remember_workspace(
     recent.insert(0, resolved)
     settings.recent_workspaces = recent[:10]
     settings.last_open_workspace = resolved
+    save_local_app_settings(settings, path)
+    return settings
+
+
+def forget_workspace(
+    workspace_root: str,
+    *,
+    path: str | Path | None = None,
+) -> LocalAppSettings:
+    """기능: 최근 세이브 파일 목록에서 특정 경로를 제거한다."""
+
+    settings = load_local_app_settings(path)
+    resolved = str(Path(workspace_root))
+    settings.recent_workspaces = [item for item in settings.recent_workspaces if item != resolved]
+    if settings.last_open_workspace == resolved:
+        settings.last_open_workspace = settings.recent_workspaces[0] if settings.recent_workspaces else ""
     save_local_app_settings(settings, path)
     return settings

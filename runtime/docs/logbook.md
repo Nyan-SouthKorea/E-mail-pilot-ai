@@ -9,7 +9,7 @@
 ## 현재 스냅샷
 
 - 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock이 있다.
-- 기존 엔진을 `workspace/profile` 기준으로 다시 돌리는 sync service가 있다.
+- 기존 엔진을 `mail / exports / logs` 기준의 v2 세이브 구조로 다시 돌리는 sync service가 있다.
 - review report를 state DB로 ingest하고 회사 기준 dedupe를 적용한다.
 - stable 운영 workbook을 다시 만들고 `검토_인덱스` 시트를 함께 쓴다.
 - CLI로 workspace create / inspect / sync를 실행할 수 있다.
@@ -17,13 +17,14 @@
 - repo-safe 샘플 워크스페이스 seed를 만들 수 있다.
 - `feature-check-all`과 `feature-harness-smoke`로 카탈로그 전량 점검과 반복 smoke를 수행할 수 있다.
 - sync는 `quick_smoke`와 `incremental_full` 두 모드를 지원하고, analysis revision/fingerprint가 같으면 기존 분석 결과를 재사용한다.
+- 새 세이브는 legacy `profile/참고자료/실행결과` 구조를 만들지 않고, v1 세이브는 unsupported로 안내한다.
 
 ## 현재 활성 체크리스트
 
 - [x] 공유 워크스페이스 manifest와 표준 폴더 구조 도입
 - [x] 암호화 secret 저장 경로 도입
 - [x] sqlite state DB와 write lock 도입
-- [x] 기존 profile import 경로 도입
+- [x] 이전 beta 세이브 차단과 새 v2 세이브 구조 정리
 - [x] review report -> state DB ingest 경로 도입
 - [x] 대표 신청 건 기준 stable 운영 workbook 재구성 경로 도입
 - [x] feature 카탈로그와 feature run history 도입
@@ -34,6 +35,14 @@
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | v2 세이브 구조 고정과 로컬 장치 전용 보조 저장소 추가
+
+- 새 세이브 생성 시 manifest를 먼저 쓴 뒤 디렉토리를 만들도록 순서를 고쳐, 새 세이브가 더 이상 legacy `참고자료 / 실행결과 / 기대되는 산출물` 폴더를 만들지 않게 했다.
+- canonical save 구조는 `mail / exports / logs / secure / state / locks`로 다시 고정했고, sample workspace도 같은 구조로만 생성되도록 맞췄다.
+- 이 PC 전용 암호화 저장소를 추가해 마지막 세이브 경로, 마지막 세이브 암호, 기본 OpenAI API key를 세이브 파일과 분리된 장치 로컬 비밀값으로 관리하게 했다.
+- 최근 세이브 바로 다시 열기와 앱 재실행 자동 재개는 이 로컬 비밀값과 local settings를 함께 써서 동작하게 했다.
+- feature harness smoke는 새 v2 샘플 세이브 기준으로 다시 통과했고, Linux 개발 호스트에서는 Windows 전용 packaging prerequisite를 `warn`으로만 보여주도록 정리했다.
 
 ### 2026-04-08 | Human + Codex | feature registry와 샘플 워크스페이스 seed 추가
 

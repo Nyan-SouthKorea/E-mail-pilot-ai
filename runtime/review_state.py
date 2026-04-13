@@ -115,7 +115,7 @@ def _workspace_item_from_report_entry(
     bundle_root_relpath = _resolve_item_relative_path(
         workspace=workspace,
         maybe_path=entry.get("bundle_root"),
-        fallback=Path("profile") / "실행결과" / "받은 메일" / bundle_id,
+        fallback=workspace.profile_paths().runtime_mail_bundles_root().relative_to(workspace.root()) / bundle_id,
     )
     bundle_root_path = Path(bundle_root_relpath)
 

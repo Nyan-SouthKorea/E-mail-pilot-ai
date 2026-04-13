@@ -13,8 +13,8 @@
 
 | feature_id | 제목 | 소유 모듈 | 접근 | 핵심 출력 |
 |---|---|---|---|---|
-| `app.desktop.launch` | 데스크톱 앱 실행 | `app` | UI, CLI | 전용 창, 파일 탐색기 브리지, 실행 진단 |
-| `mailbox.connection_check` | 계정 연결 확인 | `mailbox` | UI | 로그인 성공 여부, 추천 기본 폴더, 폴더 목록 |
+| `app.desktop.launch` | 데스크톱 앱 실행 | `app` | UI, CLI | 전용 창, 파일 탐색기, 실행 진단 |
+| `mailbox.connection_check` | 계정 연결 확인 | `mailbox` | UI | 로그인 성공 여부, 추천 받은편지함, 폴더 목록 |
 | `runtime.workspace.create_sample` | 샘플 워크스페이스 생성 | `runtime` | CLI | repo-safe sample save, review board, workbook |
 | `runtime.workspace.inspect` | 워크스페이스 점검 | `runtime` | 관리도구, CLI | manifest/state/settings 요약 |
 | `mailbox.live_backfill` | 실메일 INBOX backfill | `mailbox` | 관리도구, CLI | mailbox report, runtime bundles |
@@ -28,7 +28,7 @@
 
 - 사용자 핵심 흐름은 UI에서 접근한다.
   - `세이브 파일 불러오기`
-  - `세이브 파일 도움말`
+  - `처음 사용하는 방법`
   - `설정`
   - `계정 연결 확인`
   - `빠른 테스트 동기화`

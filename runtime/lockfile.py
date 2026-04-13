@@ -141,6 +141,8 @@ def is_stale_lock(
 ) -> bool:
     """기능: heartbeat 시각 기준 stale lock인지 판단한다."""
 
+    if _is_local_dead_process(lock_data):
+        return True
     heartbeat_at = _parse_iso_datetime(lock_data.heartbeat_at)
     return datetime.now(timezone.utc) - heartbeat_at > timedelta(seconds=stale_after_seconds)
 
@@ -154,3 +156,25 @@ def _load_lock_data(path: Path) -> WorkspaceLockData | None:
         return WorkspaceLockData.from_dict(payload)
     except Exception:
         return None
+
+
+def _is_local_dead_process(lock_data: WorkspaceLockData) -> bool:
+    local_host_candidates = {
+        socket.gethostname().lower(),
+        socket.getfqdn().lower(),
+        "localhost",
+        "127.0.0.1",
+    }
+    if lock_data.host.lower() not in local_host_candidates:
+        return False
+    if lock_data.process_id <= 0:
+        return False
+    try:
+        os.kill(lock_data.process_id, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    except OSError:
+        return False
+    return False

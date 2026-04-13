@@ -74,14 +74,16 @@ button{cursor:pointer}
   width:48px;
   height:48px;
   border-radius:14px;
-  background:linear-gradient(135deg,#0f766e,#14b8a6);
-  color:#fff;
+  overflow:hidden;
   display:grid;
   place-items:center;
-  font-size:15px;
-  font-weight:800;
-  letter-spacing:.06em;
-  box-shadow:0 16px 28px rgba(15,118,110,.28);
+  box-shadow:0 16px 28px rgba(15,118,110,.18);
+}
+
+.brand-mark img{
+  width:48px;
+  height:48px;
+  display:block;
 }
 
 .brand-title{
@@ -455,11 +457,23 @@ button:disabled,
   color:var(--accent-ink);
 }
 
+.field-status.quiet{
+  background:#f8fafc;
+  border-color:#d8e2ec;
+  color:var(--text-soft);
+}
+
 .field-status.warn,
 .inline-hint.warn{
   background:var(--warn-soft);
   border-color:#f1d58c;
   color:var(--warn);
+}
+
+.inline-hint.compact{
+  margin-top:6px;
+  padding:6px 8px;
+  font-size:11px;
 }
 
 .field-status.fail{
@@ -682,12 +696,51 @@ button:disabled,
 }
 
 .recent-item{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:flex-start;
   padding:12px 13px;
   border-radius:14px;
   border:1px solid #d8e2ec;
   background:#fff;
+}
+
+.recent-item.missing{
+  border-color:#f0c7a4;
+  background:#fffaf2;
+}
+
+.recent-item-open-form,
+.recent-item .action-shell{
+  width:100%;
+}
+
+.recent-item-main{
+  min-height:0;
+  width:100%;
+  padding:0;
+  border:none;
+  background:transparent;
+  box-shadow:none;
+  display:grid;
+  justify-items:start;
+  gap:4px;
+  text-align:left;
   word-break:break-all;
   font-size:13px;
+}
+
+.recent-item-main:hover{
+  background:transparent;
+  border-color:transparent;
+}
+
+.quiet-button{
+  min-height:38px;
+  padding:0 12px;
+  border-radius:12px;
+  background:#f8fafc;
 }
 
 .status-list{
@@ -729,7 +782,61 @@ button:disabled,
   color:var(--accent-ink);
   font-size:11px;
   font-weight:700;
-  cursor:help;
+  cursor:pointer;
+  padding:0;
+}
+
+.tooltip-popover{
+  position:absolute;
+  z-index:1200;
+  max-width:320px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#0f172a;
+  color:#f8fafc;
+  font-size:12px;
+  line-height:1.55;
+  box-shadow:var(--shadow-md);
+}
+
+.job-progress-card{
+  display:grid;
+  gap:14px;
+}
+
+.progress-bar-shell{
+  height:12px;
+  border-radius:999px;
+  background:#e6edf5;
+  overflow:hidden;
+}
+
+.progress-bar-fill{
+  height:100%;
+  width:0;
+  background:linear-gradient(90deg,#0f766e,#14b8a6);
+  border-radius:inherit;
+  transition:width .2s ease;
+}
+
+.compact-grid{
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+}
+
+.next-step-callout{
+  margin-top:14px;
+  padding:14px 16px;
+  border-radius:16px;
+  border:1px solid #bfd4f6;
+  background:#f5f9ff;
+}
+
+.sidebar-card-actions{
+  margin-top:12px;
+}
+
+.sidebar-card-actions form{
+  margin:0;
 }
 
 .modal-panel{

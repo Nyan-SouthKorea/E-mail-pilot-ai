@@ -12,9 +12,30 @@
     <span class="status-pill {% if connection_tone == 'pass' %}pass{% elif connection_tone == 'fail' %}fail{% endif %}">
       계정 연결: {{ "확인 완료" if shared_settings.mailbox.connection_status == "connected" else ("실패" if shared_settings.mailbox.connection_status == "failed" else "미확인") }}
     </span>
-    <span class="status-pill">기본 폴더: {{ shared_settings.mailbox.default_folder or shared_settings.mailbox.recommended_folder or "미설정" }}</span>
-    <span class="status-pill">템플릿: {{ template_status.relative_path or "기본 템플릿 사용" }}</span>
+    <span class="status-pill">기본 받은편지함: {{ shared_settings.mailbox.default_folder or shared_settings.mailbox.recommended_folder or "미설정" }}</span>
+    <span class="status-pill">엑셀 양식: {{ template_status.relative_path or "기본 양식 사용" }}</span>
   </div>
+</section>
+
+<section class="section job-progress-card" data-job-progress-card hidden>
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">진행 상태</div>
+      <h2 data-job-title>동기화 진행 상태</h2>
+    </div>
+    <span class="status-pill quiet" data-job-stage>대기 중</span>
+  </div>
+  <div class="progress-bar-shell">
+    <div class="progress-bar-fill" data-job-progress-fill style="width:0%"></div>
+  </div>
+  <div class="details-grid compact-grid">
+    <div><span class="label">상태</span><strong data-job-status-label>대기 중</strong></div>
+    <div><span class="label">현재 단계</span><strong data-job-stage-label>-</strong></div>
+    <div><span class="label">진행률</span><strong data-job-progress-label>0%</strong></div>
+    <div><span class="label">다음 행동</span><strong data-job-next-action>표시할 내용이 없습니다.</strong></div>
+  </div>
+  <div class="field-status quiet" data-job-message>아직 실행 중인 작업이 없습니다.</div>
+  <ul class="compact-list" data-job-details></ul>
 </section>
 
 <section class="section">
@@ -39,7 +60,7 @@
         <li>리뷰센터와 workbook도 함께 갱신</li>
       </ul>
       <div class="action-foot">
-        <span class="action-shell" title="{{ action_states.quick_sync.tooltip }}">
+        <span class="action-shell" data-tooltip="{{ action_states.quick_sync.tooltip }}">
           <form action="/sync" method="post">
             <input type="hidden" name="sync_mode" value="quick_smoke">
             <button class="primary" type="submit" {% if action_states.quick_sync.disabled %}disabled{% endif %}>빠른 테스트 동기화</button>
@@ -61,7 +82,7 @@
         <li>review 상태와 운영 workbook 재구성</li>
       </ul>
       <div class="action-foot">
-        <span class="action-shell" title="{{ action_states.full_sync.tooltip }}">
+        <span class="action-shell" data-tooltip="{{ action_states.full_sync.tooltip }}">
           <form action="/sync" method="post">
             <input type="hidden" name="sync_mode" value="incremental_full">
             <button type="submit" {% if action_states.full_sync.disabled %}disabled{% endif %}>전체 동기화</button>
@@ -101,11 +122,11 @@
         <strong class="{{ connection_tone }}">{{ shared_settings.mailbox.connection_status }}</strong>
       </div>
       <div class="status-list-item">
-        <span class="label">기본 폴더</span>
+        <span class="label">기본 받은편지함</span>
         <strong>{{ shared_settings.mailbox.default_folder or shared_settings.mailbox.recommended_folder or "미설정" }}</strong>
       </div>
       <div class="status-list-item">
-        <span class="label">템플릿 준비</span>
+        <span class="label">엑셀 양식 준비</span>
         <strong class="{{ template_status.status }}">{{ template_status.message }}</strong>
       </div>
     </div>
@@ -129,6 +150,9 @@
       <div>시작 시각: {{ latest_sync_run.started_at }}</div>
       <div>마침 시각: {{ latest_sync_run.finished_at or "진행 중" }}</div>
       <div>동기화 방식: {{ (latest_sync_run.metadata or {}).get("sync_mode") or "기록 없음" }}</div>
+      {% if latest_sync_run.status == 'partial_success' %}
+      <div class="field-status warn" style="margin-top:10px">메일 저장은 끝났지만 분석 또는 엑셀 반영 단계에서 문제가 있었던 실행입니다.</div>
+      {% endif %}
       {% else %}
       <div>아직 실행 기록이 없습니다.</div>
       {% endif %}

@@ -108,7 +108,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec(
         feature_id="app.desktop.launch",
         title="데스크톱 앱 실행",
-        summary="전용 창 또는 로컬 브라우저 fallback으로 앱 UI를 띄운다.",
+        summary="전용 창 기준으로 앱 UI를 띄우고, 필요할 때만 브라우저 fallback을 쓴다.",
         owner_module="app",
         audience="user",
         access_modes=("ui", "cli"),
@@ -145,7 +145,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         cli_command="python -m runtime.cli create-sample-workspace --workspace-root <path> --workspace-password <pw>",
         prerequisites=("target workspace root writable",),
         outputs=("workspace manifest", "sample bundles", "review board", "operating workbook"),
-        result_paths=("workspace/profile/실행결과/*",),
+        result_paths=("workspace/mail/*", "workspace/exports/*", "workspace/logs/*"),
         test_scenarios=("샘플 세이브 생성", "앱에서 세이브 불러오기", "리뷰센터/재반영 검증"),
         supports_run=True,
         requires_workspace=False,
@@ -176,7 +176,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         cli_command="python -m runtime.cli feature-run --feature-id mailbox.live_backfill ...",
         prerequisites=("mailbox credentials saved", "workspace write access"),
         outputs=("backfill report", "runtime bundles"),
-        result_paths=("profile/실행결과/받은 메일/", "profile/실행결과/로그/mailbox/"),
+        result_paths=("mail/bundles/", "logs/mailbox/"),
         test_scenarios=("실메일 read-only fetch", "중복 bundle skip", "report 생성"),
         supports_run=True,
         requires_write_lock=True,
@@ -192,7 +192,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         cli_command="python -m runtime.cli feature-run --feature-id analysis.review_board_refresh ...",
         prerequisites=("template workbook exists", "OpenAI API key saved", "at least one valid bundle"),
         outputs=("review board json/html", "updated sqlite review state"),
-        result_paths=("profile/실행결과/로그/review/", "state/state.sqlite"),
+        result_paths=("logs/review/", "state/state.sqlite"),
         test_scenarios=("전량 triage 재실행", "latest pointer 갱신", "리뷰센터 반영"),
         supports_run=True,
         requires_write_lock=True,
@@ -209,7 +209,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         cli_command="python -m runtime.cli feature-run --feature-id exports.operating_workbook.rebuild ...",
         prerequisites=("template workbook exists", "review state available"),
         outputs=("operating workbook", "snapshot workbook", "review index sheet"),
-        result_paths=("profile/실행결과/엑셀 산출물/", "state/state.sqlite"),
+        result_paths=("exports/output/", "state/state.sqlite"),
         test_scenarios=("대표 메일만 workbook 반영", "검토_인덱스 시트 확인"),
         supports_run=True,
         requires_write_lock=True,
@@ -226,7 +226,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         cli_command="python -m runtime.cli sync --workspace-root <path> --workspace-password <pw> --sync-mode quick_smoke",
         prerequisites=("mailbox credentials saved", "template workbook exists", "OpenAI API key saved", "workspace write access"),
         outputs=("backfill report", "review board", "operating workbook"),
-        result_paths=("profile/실행결과/로그/", "profile/실행결과/엑셀 산출물/"),
+        result_paths=("logs/", "exports/output/"),
         test_scenarios=("최근 10건 smoke", "기존 bundle/analysis 재사용", "review center 갱신"),
         supports_run=True,
         requires_write_lock=True,
@@ -243,7 +243,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         cli_command="python -m runtime.cli sync --workspace-root <path> --workspace-password <pw>",
         prerequisites=("mailbox credentials saved", "template workbook exists", "OpenAI API key saved", "workspace write access"),
         outputs=("backfill report", "review board", "operating workbook"),
-        result_paths=("profile/실행결과/로그/", "profile/실행결과/엑셀 산출물/"),
+        result_paths=("logs/", "exports/output/"),
         test_scenarios=("실메일 동기화", "review center 갱신", "workbook 재반영"),
         supports_run=True,
         requires_write_lock=True,
@@ -783,21 +783,38 @@ def _resolve_template_candidate(context: WorkspaceFeatureContext) -> str:
 def _check_packaging_feature() -> list[FeatureCheckResult]:
     pyinstaller_spec = _safe_find_spec("PyInstaller")
     backports_tarfile_spec = _safe_find_spec("backports.tarfile")
+    is_windows_host = os.name == "nt"
     return [
         FeatureCheckResult(
             label="windows_host",
-            status="pass" if os.name == "nt" else "warn",
+            status="pass" if is_windows_host else "warn",
             detail="Windows 호스트나 Windows CI runner에서 빌드하는 것을 기본으로 본다.",
         ),
         FeatureCheckResult(
             label="pyinstaller_installed",
-            status="pass" if pyinstaller_spec is not None else "fail",
-            detail="PyInstaller가 설치되어 있어야 한다.",
+            status=(
+                "pass"
+                if pyinstaller_spec is not None
+                else ("warn" if not is_windows_host else "fail")
+            ),
+            detail=(
+                "Windows 빌드 환경에서는 PyInstaller가 설치되어 있어야 한다."
+                if is_windows_host
+                else "현재 호스트는 Windows 빌드 환경이 아니므로 참고용 경고로만 본다."
+            ),
         ),
         FeatureCheckResult(
             label="backports_tarfile_installed",
-            status="pass" if backports_tarfile_spec is not None else "fail",
-            detail="setuptools/pkg_resources runtime hook이 요구하는 backports.tarfile이 설치되어 있어야 한다.",
+            status=(
+                "pass"
+                if backports_tarfile_spec is not None
+                else ("warn" if not is_windows_host else "fail")
+            ),
+            detail=(
+                "Windows 패키징 호스트에서는 setuptools/pkg_resources runtime hook 대응을 위해 backports.tarfile이 필요하다."
+                if is_windows_host
+                else "현재 호스트는 Windows 패키징 검증기가 아니므로 참고용 경고로만 본다."
+            ),
         ),
         FeatureCheckResult(
             label="portable_spec",

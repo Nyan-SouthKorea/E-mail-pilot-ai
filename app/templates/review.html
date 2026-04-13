@@ -8,7 +8,7 @@
     이 화면은 자동 분류 결과를 빠르게 훑어보고, 대표 신청 메일과 workbook 반영 상태를 확인하는 실사용 검토 화면입니다.
   </p>
   <div class="toolbar hero-actions">
-    <span class="action-shell" title="{{ action_states.rebuild_workbook.tooltip }}">
+    <span class="action-shell" data-tooltip="{{ action_states.rebuild_workbook.tooltip }}">
       <form action="/review/rebuild" method="post">
         <button class="primary" type="submit" {% if action_states.rebuild_workbook.disabled %}disabled{% endif %}>운영 workbook 재반영</button>
       </form>
@@ -138,13 +138,13 @@
               <option value="not_application" {% if item.triage_label == 'not_application' %}selected{% endif %}>not_application</option>
               <option value="needs_human_review" {% if item.triage_label == 'needs_human_review' %}selected{% endif %}>needs_human_review</option>
             </select>
-            <span class="action-shell" title="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}이 메일의 triage를 저장합니다.{% endif %}">
+            <span class="action-shell" data-tooltip="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}이 메일의 triage를 저장합니다.{% endif %}">
               <button type="submit" {% if readonly %}disabled{% endif %}>분류 저장</button>
             </span>
           </form>
           <form action="/review/override/representative" method="post" class="inline-form" style="margin-top:12px">
             <input type="hidden" name="bundle_id" value="{{ item.bundle_id }}">
-            <span class="action-shell" title="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}이 메일을 대표 신청 메일로 지정합니다.{% endif %}">
+            <span class="action-shell" data-tooltip="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}이 메일을 대표 신청 메일로 지정합니다.{% endif %}">
               <button type="submit" {% if readonly %}disabled{% endif %}>대표 메일로 지정</button>
             </span>
           </form>

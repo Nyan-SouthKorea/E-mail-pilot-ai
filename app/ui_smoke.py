@@ -13,6 +13,14 @@ import time
 from fastapi.testclient import TestClient
 
 from app.server import SERVER_STATE, app, set_shell_context
+from runtime import (
+    LocalAppSettings,
+    LocalDeviceSecrets,
+    default_device_secrets_path,
+    default_local_settings_path,
+    save_local_app_settings,
+    save_local_device_secrets,
+)
 from runtime.workspace import load_shared_workspace
 
 
@@ -63,8 +71,22 @@ def run_app_ui_smoke(
     app_logs_root.mkdir(parents=True, exist_ok=True)
     report_path = app_logs_root / f"{datetime.now().strftime('%y%m%d_%H%M')}_ui_smoke.json"
     template_relpath = workspace.to_workspace_relative(workspace.profile_paths().template_workbook_path())
+    local_settings_path = default_local_settings_path()
+    device_secrets_path = default_device_secrets_path()
+    previous_local_settings = (
+        local_settings_path.read_text(encoding="utf-8")
+        if local_settings_path.exists()
+        else None
+    )
+    previous_device_secrets = (
+        device_secrets_path.read_text(encoding="utf-8")
+        if device_secrets_path.exists()
+        else None
+    )
 
     steps: list[AppUiSmokeStep] = []
+    if SERVER_STATE.current_session is not None and SERVER_STATE.current_session.lock_handle is not None:
+        SERVER_STATE.current_session.lock_handle.release()
     SERVER_STATE.current_session = None
     set_shell_context(
         shell_mode="desktop_window",
@@ -87,6 +109,8 @@ def run_app_ui_smoke(
         )
 
     try:
+        save_local_app_settings(LocalAppSettings(), path=local_settings_path)
+        save_local_device_secrets(LocalDeviceSecrets(), path=device_secrets_path)
         home_response = client.get("/")
         home_text = home_response.text
         _record(
@@ -95,12 +119,12 @@ def run_app_ui_smoke(
             ok=(
                 home_response.status_code == 200
                 and "세 단계만 끝내면 바로 업무를 시작할 수 있습니다" in home_text
-                and "세이브 파일 도움말" in home_text
+                and "처음 사용하는 방법" in home_text
                 and "기존 세이브 열기" in home_text
                 and "새 세이브 만들기" in home_text
                 and "브라우저 fallback" not in home_text
                 and re.search(r'<button[^>]*data-picker-target="open_workspace_root"[^>]*disabled', home_text) is None
-                and re.search(r'<button[^>]*data-picker-target="create_workspace_root"[^>]*disabled', home_text) is None
+                and re.search(r'<button[^>]*data-picker-target="save_parent_dir"[^>]*disabled', home_text) is None
             ),
             detail="세이브 파일 미오픈 상태에서 3단계 시작 화면과 활성화된 찾아보기 버튼이 보여야 한다.",
         )
@@ -156,8 +180,9 @@ def run_app_ui_smoke(
             response=settings_save_response,
             ok=(
                 settings_save_response.status_code == 200
-                and "설정을 저장했다." in settings_save_response.text
-                and "현재 상태" in settings_save_response.text
+                and "설정을 저장했습니다." in settings_save_response.text
+                and "다음 단계" in settings_save_response.text
+                and "계정 연결 확인" in settings_save_response.text
             ),
             detail="설정 저장 후 성공 배너와 마지막 저장 안내가 보여야 한다.",
         )
@@ -192,6 +217,26 @@ def run_app_ui_smoke(
             ok=close_response.status_code == 303,
             detail="smoke 종료 시 워크스페이스를 닫아야 한다.",
         )
+
+        recent_reopen_response = client.post(
+            "/workspace/recent/open",
+            data={"workspace_root": str(workspace.root())},
+            follow_redirects=False,
+        )
+        _record(
+            step="reopen_recent_workspace",
+            response=recent_reopen_response,
+            ok=recent_reopen_response.status_code == 303,
+            detail="이 PC에 저장된 암호로 최근 세이브를 바로 다시 열 수 있어야 한다.",
+        )
+
+        final_close_response = client.post("/workspace/close", follow_redirects=False)
+        _record(
+            step="close_workspace_after_recent_reopen",
+            response=final_close_response,
+            ok=final_close_response.status_code == 303,
+            detail="recent reopen 검증 후 다시 세이브를 닫아야 한다.",
+        )
         status = "completed" if all(step.status == "pass" for step in steps) else "failed"
     finally:
         if SERVER_STATE.current_session is not None and SERVER_STATE.current_session.lock_handle is not None:
@@ -201,6 +246,16 @@ def run_app_ui_smoke(
             shell_mode="browser_fallback",
             native_dialog_state="browser_fallback",
         )
+        if previous_local_settings is None:
+            local_settings_path.unlink(missing_ok=True)
+        else:
+            local_settings_path.parent.mkdir(parents=True, exist_ok=True)
+            local_settings_path.write_text(previous_local_settings, encoding="utf-8")
+        if previous_device_secrets is None:
+            device_secrets_path.unlink(missing_ok=True)
+        else:
+            device_secrets_path.parent.mkdir(parents=True, exist_ok=True)
+            device_secrets_path.write_text(previous_device_secrets, encoding="utf-8")
 
     report = AppUiSmokeReport(
         generated_at=datetime.now().isoformat(timespec="seconds"),

@@ -105,16 +105,20 @@
 
 ## 로컬 워크스페이스와 산출물 규칙
 
-- 로컬 워크스페이스는 기본적으로 `repo / envs / results / secrets` sibling 구조를 사용한다.
-- 실제 사용자 메일, 첨부, workbook, profile 로그는 tracked repo가 아니라 sibling `../secrets/사용자 설정/<이름>/실행결과/`에서 관리한다.
-- Windows 앱과 서버 검증을 같이 쓰는 경우에는 공유 워크스페이스 root 아래 `profile/`를 같은 canonical profile root로 사용한다.
-- reference fixture는 sibling `../secrets/사용자 설정/<이름>/참고자료/`에서 읽기 전용으로 관리한다.
+- 제품 기준 세이브 파일은 아래 v2 구조를 canonical로 사용한다.
+  - `workspace.epa-workspace.json`
+  - `secure/secrets.enc.json`
+  - `state/state.sqlite`
+  - `locks/write.lock`
+  - `mail/bundles/`
+  - `exports/template/export_template.xlsx`
+  - `exports/output/operating_workbook.xlsx`
+  - `exports/output/snapshots/`
+  - `logs/app/`, `logs/mailbox/`, `logs/analysis/`, `logs/review/`, `logs/llm/`
+- 실제 사용자 메일, 리뷰 상태, workbook, 로그는 기본적으로 세이브 파일 폴더 안에 함께 쌓인다.
+- sibling `../secrets/`는 제품 세이브가 아니라 개발자 전용 비공개 자산과 실험용 raw fixture를 둘 때만 쓴다.
+- reference fixture는 필요할 때 sibling `../secrets/사용자 설정/<이름>/참고자료/`에서 읽기 전용으로 관리한다.
 - repo 내부 `<module>/results/`는 재현 가능한 smoke 결과, 비교 요약, 소형 metadata만 둔다.
-- 빠른 예시:
-  - 실제 inbox fetch 결과 bundle, 실제 export workbook, 실제 OpenAI usage log는 `../secrets/사용자 설정/<이름>/실행결과/`에 둔다.
-  - 분류 검토용 HTML 보드와 batch review JSON은 `../secrets/사용자 설정/<이름>/실행결과/로그/review/`에 둔다.
-  - 공유 워크스페이스를 쓰면 같은 구조를 `workspace/profile/실행결과/` 아래에서 그대로 유지한다.
-  - `auth probe` 요약 JSON, regression diff summary, deterministic smoke 보고서처럼 다시 만들 수 있는 작은 산출물만 `mailbox/results/`, `exports/results/`, `llm/results/` 같은 공식 위치 후보를 쓴다.
 - 새 산출물 폴더와 시간이 지나며 누적되는 문서는 `YYMMDD_HHMM_설명` prefix를 사용한다.
 - 새 파일이나 폴더를 만들기 전에는 `python tools/directory_inventory.py --module <module> --kind <kind> --candidate-name <name>`로 기존 구조를 먼저 확인한다.
 
@@ -122,7 +126,7 @@
 
 - 현재 주경로는 `이메일 수신 -> 구조화 분석 -> triage 검토 -> Excel 출력`이다.
 - 제품 주 사용 흐름은 `exe 실행 -> 세이브 파일 불러오기 -> 워크스페이스 암호 입력 -> 동기화 -> 자동 수집/분류/정리/엑셀 반영 -> 같은 창에서 검토/수정`이다.
-- 사용자는 세이브 파일 경로를 직접 외우기보다 앱의 `찾아보기` 버튼으로 고르고, 홈의 `세이브 파일 도움말` 모달에서 폴더 기준을 확인하는 흐름을 기본으로 본다.
+- 사용자는 세이브 파일 경로를 직접 외우기보다 앱의 `찾아보기` 버튼과 `처음 사용하는 방법` 안내를 통해 폴더를 고르는 흐름을 기본으로 본다.
 - 제품 기본 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 확인 -> 빠른 테스트 동기화 -> 전체 동기화 -> 리뷰 -> 운영 workbook 재반영`이다.
 - Windows 실행의 공식 경로는 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
 - 제품/운영 기능의 canonical 카탈로그는 `docs/feature_catalog.md`와 `runtime/feature_registry.py`가 함께 맡는다.
@@ -138,5 +142,5 @@
 - Excel 출력은 전역 고정 양식보다 프로필별 템플릿 해석을 우선한다.
 - 자동 workbook 반영은 `application`이면서 `기업 식별 신호 + 연락처 신호`를 만족하는 메일만 대상으로 한다.
 - root `README.md`에 직접 쓰이는 전역 공용 자산이 필요해질 때만 `assets/`를 만든다.
-- 공유 워크스페이스 save는 `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + profile/` 구조를 기본으로 본다.
+- 공유 워크스페이스 save는 `workspace.epa-workspace.json + secure/secrets.enc.json + state/state.sqlite + locks/write.lock + mail/ + exports/ + logs/` 구조를 기본으로 본다.
 - static HTML review board는 fallback/debug 산출물이고, 사용자 검토의 active canonical 상태는 `runtime` state DB와 `app` 리뷰센터가 맡는다.

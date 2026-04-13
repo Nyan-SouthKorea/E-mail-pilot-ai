@@ -4,6 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(SPECPATH).resolve().parents[1]
 APP_ROOT = REPO_ROOT / "app"
+ICON_PATH = REPO_ROOT / "app" / "packaging" / "assets" / "EmailPilotAI.ico"
 
 # 프로젝트 모듈은 `app/main.py -> app/server.py` import 체인에서 따라가게 두고,
 # 최종 대상 플랫폼인 Windows에서 쓰는 pywebview backend만 명시적으로 포함한다.
@@ -46,6 +47,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    icon=str(ICON_PATH),
 )
 
 coll = COLLECT(
