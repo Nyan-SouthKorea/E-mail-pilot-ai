@@ -22,9 +22,9 @@
 
 ## 현재 활성 체크리스트
 
-- [ ] blocker hotfix: 홈/설정 `찾아보기`가 실제 exe에서 즉시 브라우징을 열게 복구
-- [ ] blocker hotfix: quick sync `notes referenced before assignment` 예외 복구
-- [ ] blocker hotfix: Windows 재빌드와 packaged smoke 재검증
+- [x] blocker hotfix: 홈/설정 `찾아보기`가 실제 exe에서 즉시 브라우징을 열게 복구
+- [x] blocker hotfix: quick sync `notes referenced before assignment` 예외 복구
+- [x] blocker hotfix: Windows 재빌드와 packaged smoke 재검증
 - [x] 데스크톱 셸과 로컬 Web UI 골격 도입
 - [x] 세이브 파일 불러오기 / 새 워크스페이스 만들기 화면 도입
 - [x] 설정 화면과 저장 위치 안내 도입
@@ -54,6 +54,15 @@
 - [x] 진행률 표시와 장시간 sync 폴링 UX 보강
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | blocker hotfix 완료
+
+- `app/main.py`는 pywebview 창 생성 직후 서버 상태를 `desktop_ready`로 올리지 않고 `desktop_pending`으로 유지해, 브리지 준비 오진을 줄였다.
+- `app/static/js/app.js`는 `dialog_capabilities`, `pick_folder`, `pick_file` 3개 메서드가 모두 붙었는지 확인하는 브리지 준비 판정을 추가했고, `찾아보기` 클릭 시 입력칸이 비어 있어도 바로 브라우징을 시도하게 바꿨다.
+- 브리지 호출이 아직 준비되지 않았거나 실패하면 사용자는 죽은 버튼이 아니라 짧은 인라인 실패 안내를 보게 된다.
+- `app/server.py`의 sync partial-success 카드 문구는 raw Python 예외를 전면에 노출하지 않고, `메일 저장 완료 / 실패 단계 / 다음 행동 / 기술 상세` 순으로 정리했다.
+- `app/ui_smoke.py`는 홈/설정의 `찾아보기` 버튼이 기본 disabled가 아닌지까지 확인하도록 다시 강화했고, Windows packaged smoke는 pywebview bridge attach 로그도 함께 검사한다.
+- Windows 공식 실행본 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`는 이 hotfix 기준으로 다시 빌드했다.
 
 ### 2026-04-13 | Human + Codex | blocker hotfix 착수
 

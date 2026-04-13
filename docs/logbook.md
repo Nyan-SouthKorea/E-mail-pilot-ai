@@ -99,19 +99,19 @@
 ## 현재 체크포인트
 
 - 지금 단계:
-  - v3 구현 이후 사용자 blocker hotfix를 우선 처리하는 단계
+  - v3 blocker hotfix 구현, 검증, Windows 재빌드까지 마친 상태
 - 바로 다음 작업:
-  - `찾아보기` 브리지와 quick sync `notes` 예외를 먼저 복구하고 다시 Windows exe로 검증한다
+  - 남아 있는 서비스형 polish와 실제 사용자 흐름 개선으로 다시 이어간다
 - publish 상태:
   - 이전 plan publish 완료
-  - blocker hotfix 작업 중
+  - blocker hotfix publish 완료
 
 ## 현재 활성 체크리스트
 
 - `고객 서비스형 UI/세이브 구조 리팩터 v3`
-  - [ ] blocker checkpoint: `찾아보기` 브리지 복구
-  - [ ] blocker checkpoint: quick sync `notes` 예외 복구
-  - [ ] blocker checkpoint: Windows exe 재빌드와 사용자 재검증 기준 반영
+  - [x] blocker checkpoint: `찾아보기` 브리지 복구
+  - [x] blocker checkpoint: quick sync `notes` 예외 복구
+  - [x] blocker checkpoint: Windows exe 재빌드와 사용자 재검증 기준 반영
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
   - [x] v2 세이브 구조 helper와 manifest 버전 교체
@@ -132,6 +132,17 @@
   - [x] `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | blocker hotfix 완료: `찾아보기` 브리지와 quick sync `notes` 예외 복구
+
+- 홈/설정의 `찾아보기`는 이제 `window.pywebview.api` 객체 존재만으로 준비 완료로 보지 않고, `dialog_capabilities / pick_folder / pick_file` 3개 메서드가 모두 붙었는지까지 확인한 뒤 실제 브리지 준비 완료로 판정한다.
+- 런처 `app/main.py`는 pywebview 창을 만든 직후 서버 상태를 더 이상 `desktop_ready`로 올리지 않고 `desktop_pending`으로 유지해, 브리지 준비 전 오진을 줄였다.
+- 브리지 호출은 입력칸이 비어 있어도 바로 시도하고, 메서드가 아직 안 붙었거나 호출이 실패하면 짧은 인라인 안내를 보여주도록 `app/static/js/app.js`를 보강했다.
+- `analysis/inbox_review_board_smoke.py`에서는 `bundle_limit` 분기보다 먼저 `notes`를 초기화해, quick sync 경로에서 `notes.append(...)`가 지역변수 미초기화 상태로 터지지 않게 고쳤다.
+- sync UI는 `부분 완료`를 유지하되 핵심 카드에는 사용자용 설명을 보여주고, 기술 예외는 세부 항목으로만 남기도록 `app/server.py`의 job 상태 메시지를 정리했다.
+- `app/ui_smoke.py`는 홈/설정의 `찾아보기`가 기본 disabled가 아닌지까지 검사하도록 보강했고, `runtime/feature_harness_smoke.py`에는 `bundle_limit=10` quick review 회귀를 잡는 전용 smoke를 추가했다.
+- 검증은 `py_compile`, `python -m app.ui_smoke --workspace-root /tmp/epa_blocker_hotfix_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.feature_harness_smoke --workspace-root /tmp/epa_blocker_hotfix_smoke_2 --workspace-password SampleWorkspace260408 --create-sample-if-missing`, Windows `bash app/packaging/build_windows_portable_and_publish.sh --clean` 기준으로 통과했다.
+- Windows 공식 실행본 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`는 다시 빌드했고, packaged GUI smoke도 `startup.log` 기준으로 통과했다.
 
 ### 2026-04-13 | Human + Codex | 고객 서비스형 UI/세이브 구조 리팩터 v3 구현과 검증
 
