@@ -12,6 +12,8 @@ if (-not (Test-Path $ExePath)) {
     throw "포터블 exe를 찾을 수 없다: $ExePath"
 }
 
+$NormalizedExePath = [System.IO.Path]::GetFullPath($ExePath)
+
 $jobUrl = "http://127.0.0.1:$Port/jobs/current"
 $metaUrl = "http://127.0.0.1:$Port/app-meta"
 $proc = Start-Process -FilePath $ExePath -ArgumentList @("--no-window", "--port", "$Port") -PassThru
@@ -53,8 +55,9 @@ try {
     if (-not $metaPayload.official_exe_path) {
         throw "packaged /app-meta 에 official_exe_path 가 비어 있다."
     }
-    if ($metaPayload.official_exe_path -ne $ExePath) {
-        throw "packaged /app-meta 의 official_exe_path 가 현재 smoke 대상 exe 와 다르다. meta=$($metaPayload.official_exe_path) exe=$ExePath"
+    $normalizedMetaExePath = [System.IO.Path]::GetFullPath([string]$metaPayload.official_exe_path)
+    if ($normalizedMetaExePath -ne $NormalizedExePath) {
+        throw "packaged /app-meta 의 official_exe_path 가 현재 smoke 대상 exe 와 다르다. meta=$normalizedMetaExePath exe=$NormalizedExePath"
     }
     if (Test-Path (Join-Path $RepoRoot ".git")) {
         $expectedCommit = (git -C $RepoRoot rev-parse HEAD).Trim()

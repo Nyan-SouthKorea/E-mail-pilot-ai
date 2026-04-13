@@ -32,7 +32,7 @@ $buildCommit = (& git -C $RepoRoot rev-parse HEAD).Trim()
 $buildInfo = @{
     build_commit = $buildCommit
     build_time = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
-    official_exe_path = (Join-Path $RuntimeBundleRoot "EmailPilotAI.exe")
+    official_exe_path = [System.IO.Path]::GetFullPath((Join-Path $RuntimeBundleRoot "EmailPilotAI.exe"))
 }
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText(
