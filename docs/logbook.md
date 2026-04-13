@@ -147,10 +147,10 @@
   - `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 승격하는 `schema_upgrade_smoke`를 추가했고, 로컬 자동 검증은 다시 통과했다.
   - staged live verification은 `recent 100`, `recent 500`, `recent 550`까지 실제 Windows 세이브 기준으로 통과했다.
   - `all`은 실제 inbox 규모가 `4750`건이어서 장시간 backfill/review가 필요했고, 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 확인한 뒤 장기 운영 검증으로 분리했다.
-  - 현재 source는 위 migration 수정까지 반영돼 있지만, 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`는 아직 이번 수정 기준으로 재빌드 전이다.
+  - current commit `3f5fd69` 기준으로 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`도 다시 재빌드했고, packaged smoke와 GUI smoke를 다시 통과했다.
 - 바로 다음 작업:
-  - 현재 source 기준 commit/push를 먼저 끝낸 뒤, 공식 Windows exe를 current commit 기준으로 다시 재빌드하고 packaged smoke를 다시 통과시킨다.
-  - 그 다음 Windows 수동 acceptance 2개와 `sync --all` 장기 운영 검증을 별도 operator-run 절차로 닫는다.
+  - Windows 수동 acceptance 2개를 current commit `3f5fd69` 기준 exe로 직접 닫는다.
+  - `sync --all`은 이번 staged live verification 결과를 바탕으로 별도 operator-run 장기 검증으로 닫는다.
 - publish 상태:
   - 이전 plan publish 완료
   - 현재 plan 구현 중
@@ -174,7 +174,7 @@
   - [x] state DB schema upgrade 보정과 regression smoke 추가
   - [x] staged live verification: `100 / 500 / 550`
   - [ ] staged live verification: `all` long-run operator acceptance
-  - [ ] current source 기준 공식 Windows exe 재빌드 + packaged smoke 재확인
+  - [x] current source 기준 공식 Windows exe 재빌드 + packaged smoke 재확인
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
   - [ ] current plan final commit 완료
@@ -217,6 +217,14 @@
   - `recent 550`: `status=completed`, `fetched=0`, `skipped=550`, `analysis_reused=51`, `analysis_rerun=0`
 - `all`은 실제 inbox 규모가 `4750`건이어서 장기 운영 검증으로 분리했다. 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 진행해 구조적 blocker가 없음을 확인했다.
 - 이번 수정은 source와 CLI/smoke에는 반영됐지만, 공식 Windows exe에는 아직 다시 실리지 않았으므로 다음 마감 전 current commit 기준 재빌드가 필요하다.
+
+### 2026-04-13 | Human + Codex | current commit `3f5fd69` 기준 공식 Windows exe 재빌드 재완료
+
+- `Fix state DB migration for live workspace sync` 커밋 `3f5fd69`를 GitHub `main`에 push 한 뒤, `bash app/packaging/build_windows_portable_and_publish.sh --clean`을 다시 실행했다.
+- Windows build mirror는 `origin/main`의 `3f5fd69`로 다시 sync 되었고, 공식 runtime `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`가 같은 commit 기준으로 다시 publish 되었다.
+- packaged smoke는 `/jobs/current`, `/app-meta`를 다시 통과했고, `/app-meta` 기준 `build_commit=3f5fd69eebcfdc9c0bbe6c868aff4f11f7b68f20`, `build_time=2026-04-13T19:05:42`를 확인했다.
+- Portable GUI smoke도 다시 통과해 `startup.log` 기준 launcher와 packaged runtime이 current commit 기준으로 다시 올라온 것을 확인했다.
+- 따라서 지금 시점의 남은 항목은 `sync --all` 장기 운영 검증과 Windows 수동 acceptance 2개뿐이다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review service 경량화
 
