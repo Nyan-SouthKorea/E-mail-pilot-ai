@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
 from pathlib import Path
+import re
 import time
 
 from fastapi.testclient import TestClient
@@ -87,18 +88,21 @@ def run_app_ui_smoke(
 
     try:
         home_response = client.get("/")
+        home_text = home_response.text
         _record(
             step="home_without_workspace",
             response=home_response,
             ok=(
                 home_response.status_code == 200
-                and "세이브 파일을 열고 바로 작업을 시작하세요" in home_response.text
-                and "세이브 파일 가이드" in home_response.text
-                and "세이브 파일은 이렇게 생각하면 됩니다" in home_response.text
-                and "앱 전용 창 연결 확인 중입니다." in home_response.text
-                and "브라우저 fallback" not in home_response.text
+                and "세 단계만 끝내면 바로 업무를 시작할 수 있습니다" in home_text
+                and "세이브 파일 도움말" in home_text
+                and "기존 세이브 열기" in home_text
+                and "새 세이브 만들기" in home_text
+                and "브라우저 fallback" not in home_text
+                and re.search(r'<button[^>]*data-picker-target="open_workspace_root"[^>]*disabled', home_text) is None
+                and re.search(r'<button[^>]*data-picker-target="create_workspace_root"[^>]*disabled', home_text) is None
             ),
-            detail="워크스페이스가 없을 때 홈 화면과 세이브 파일 가이드 진입이 보여야 한다.",
+            detail="세이브 파일 미오픈 상태에서 3단계 시작 화면과 활성화된 찾아보기 버튼이 보여야 한다.",
         )
 
         open_response = client.post(
@@ -117,11 +121,11 @@ def run_app_ui_smoke(
         )
 
         routes = [
-            ("/", "home_with_workspace", "지금 여기서 바로 진행하세요"),
+            ("/", "home_with_workspace", "다음 행동"),
             ("/sync", "sync_page", "빠른 테스트 동기화"),
             ("/settings", "settings_page", "계정 연결 확인"),
             ("/review", "review_page", "운영 workbook 재반영"),
-            ("/admin/features", "admin_features_page", "startup.log"),
+            ("/admin/features", "admin_features_page", "고급 도구"),
             ("/jobs/current", "job_status_api", '"status"'),
         ]
         for route, step_name, expected_text in routes:

@@ -2,141 +2,205 @@
 {% block title %}Email Pilot AI{% endblock %}
 {% block body %}
 {% if not workspace_open %}
-  <section class="hero hero-home">
-    <div class="eyebrow">첫 시작</div>
-    <h1>세이브 파일을 열고 바로 작업을 시작하세요</h1>
-    <p class="muted lead">
-      세이브 파일은 이 앱의 데이터가 쌓이는 폴더 전체입니다.
-      한 번 만들면 설정, 받은 메일, 리뷰 상태, 결과 workbook이 함께 저장됩니다.
-    </p>
-    <div class="status-strip">
-      <span class="status-pill" data-dialog-mode>현재 환경: 앱 전용 창 연결 확인 중입니다.</span>
-      <span class="status-pill">공식 실행 파일: D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe</span>
-      <span class="status-pill">최근 세이브 파일을 다시 열 수 있습니다.</span>
-    </div>
-    <div class="toolbar hero-actions">
-      <button type="button" class="primary" data-open-modal="save-guide-modal">세이브 파일 가이드 보기</button>
-      <button type="button" data-dialog-recheck>파일 탐색기 다시 확인</button>
-    </div>
-  </section>
-
-  <section class="section onboarding-panel">
-    <div class="split split-hero">
+  {% set prefers_open = (last_open_workspace or recent_workspaces) %}
+  <section class="hero hero-home wizard-hero">
+    <div class="eyebrow">처음 시작</div>
+    <div class="wizard-hero-grid">
       <div>
-        <h2>세이브 파일은 이렇게 생각하면 됩니다</h2>
-        <div class="details">
-          <div>기존 세이브 열기: 전에 만들었던 작업 폴더를 다시 엽니다.</div>
-          <div>새 세이브 만들기: 새 전용 폴더를 고르면 앱이 필요한 구조를 자동으로 만듭니다.</div>
-          <div>나중에 그 폴더를 통째로 복사하면 설정과 결과도 같이 이동합니다.</div>
+        <h1>세 단계만 끝내면 바로 업무를 시작할 수 있습니다</h1>
+        <p class="muted lead">
+          세이브 파일을 열거나 만들고, 이메일 계정 연결을 확인한 뒤,
+          최근 10건으로 빠른 테스트 동기화를 먼저 실행해 보세요.
+        </p>
+        <div class="toolbar hero-actions">
+          <button type="button" class="primary" data-open-modal="save-guide-modal">세이브 파일 도움말</button>
+          <button type="button" data-dialog-recheck>파일 탐색기 다시 확인</button>
         </div>
       </div>
-      <div class="status-card">
-        <span class="label">환경 연결 상태</span>
-        <strong data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</strong>
+
+      <aside class="hero-side-card">
+        <div class="hero-side-head">
+          <span class="label">현재 준비 상태</span>
+          <strong data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</strong>
+        </div>
         <p class="muted" data-dialog-mode>현재 환경: 앱 전용 창 연결 확인 중입니다.</p>
-      </div>
+        <div class="wizard-progress">
+          <div class="wizard-progress-item current">
+            <span class="wizard-progress-number">1</span>
+            <div>
+              <strong>세이브 파일 열기 또는 만들기</strong>
+              <div class="muted">이 앱 데이터가 쌓일 전용 폴더를 정합니다.</div>
+            </div>
+          </div>
+          <div class="wizard-progress-item">
+            <span class="wizard-progress-number">2</span>
+            <div>
+              <strong>계정 연결 확인</strong>
+              <div class="muted">이메일 주소와 비밀번호로 실제 로그인되는지 확인합니다.</div>
+            </div>
+          </div>
+          <div class="wizard-progress-item">
+            <span class="wizard-progress-number">3</span>
+            <div>
+              <strong>빠른 테스트 동기화</strong>
+              <div class="muted">최근 10건만 먼저 가져와 결과 흐름을 점검합니다.</div>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <section class="split split-main">
-    <form class="section action-card" action="/workspace/open" method="post">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">다시 이어서 하기</div>
-          <h2>기존 세이브 파일 열기</h2>
-        </div>
+  <section class="section wizard-shell">
+    <div class="section-head wizard-head">
+      <div>
+        <div class="eyebrow">Step 1</div>
+        <h2>세이브 파일 준비</h2>
       </div>
-      <label>세이브 파일 폴더 경로</label>
-      <div class="path-picker">
-        <input
-          id="open_workspace_root"
-          name="workspace_root"
-          value="{{ last_open_workspace or '' }}"
-          placeholder="예: D:\\EmailPilotAI\\내 세이브 또는 공유 폴더 경로"
-          data-inspect-kind="workspace_open"
-          data-status-target="open-workspace-status"
-        >
-        <button type="button" disabled data-picker-kind="folder" data-picker-target="open_workspace_root" data-status-target="open-workspace-status">찾아보기</button>
+      <div class="wizard-tabs" role="tablist" aria-label="세이브 파일 방식 선택">
+        <button type="button" class="wizard-tab {% if prefers_open %}active{% endif %}" data-wizard-tab="open" aria-pressed="{% if prefers_open %}true{% else %}false{% endif %}">기존 세이브 열기</button>
+        <button type="button" class="wizard-tab {% if not prefers_open %}active{% endif %}" data-wizard-tab="create" aria-pressed="{% if not prefers_open %}true{% else %}false{% endif %}">새 세이브 만들기</button>
       </div>
-      <div id="open-workspace-status" class="field-status">이미 만들어 둔 세이브 파일 폴더를 고르면 됩니다.</div>
+    </div>
 
-      <label>워크스페이스 암호</label>
-      <input type="password" name="workspace_password" placeholder="세이브 파일을 만들 때 정한 암호">
+    <div class="wizard-layout">
+      <div class="wizard-main-panels">
+        <form class="wizard-panel {% if prefers_open %}active{% endif %}" data-wizard-panel="open" {% if not prefers_open %}hidden{% endif %} action="/workspace/open" method="post">
+          <div class="panel-topline">
+            <span class="label">다시 이어서 작업하기</span>
+            <strong>이미 사용 중인 세이브 파일을 다시 엽니다</strong>
+          </div>
 
-      <label>열기 모드</label>
-      <select name="readonly">
-        <option value="false">편집 가능</option>
-        <option value="true">읽기 전용</option>
-      </select>
+          <label>세이브 파일 폴더</label>
+          <div class="path-picker">
+            <input
+              id="open_workspace_root"
+              name="workspace_root"
+              value="{{ last_open_workspace or '' }}"
+              placeholder="예: D:\\EmailPilotAI\\내 세이브"
+              data-inspect-kind="workspace_open"
+              data-status-target="open-workspace-status"
+            >
+            <button type="button" data-picker-kind="folder" data-picker-target="open_workspace_root" data-status-target="open-workspace-status">찾아보기</button>
+          </div>
+          <div id="open-workspace-status" class="field-status">전에 만들었던 세이브 파일 폴더를 고르면 됩니다.</div>
 
-      <div class="action-foot">
-        <button class="primary" type="submit">세이브 파일 불러오기</button>
+          <div class="row">
+            <div>
+              <label>세이브 파일 암호</label>
+              <input type="password" name="workspace_password" placeholder="세이브 파일을 만들 때 정한 암호">
+            </div>
+            <div>
+              <label>열기 모드</label>
+              <select name="readonly">
+                <option value="false">편집 가능</option>
+                <option value="true">읽기 전용</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="action-foot">
+            <button class="primary" type="submit">기존 세이브 열기</button>
+          </div>
+        </form>
+
+        <form class="wizard-panel {% if not prefers_open %}active{% endif %}" data-wizard-panel="create" {% if prefers_open %}hidden{% endif %} action="/workspace/create" method="post">
+          <div class="panel-topline">
+            <span class="label">처음 시작하기</span>
+            <strong>새 전용 폴더에 세이브 파일을 만듭니다</strong>
+          </div>
+
+          <label>새 세이브 파일 폴더</label>
+          <div class="path-picker">
+            <input
+              id="create_workspace_root"
+              name="workspace_root"
+              placeholder="예: D:\\EmailPilotAI\\2026-봄-운영본"
+              data-inspect-kind="workspace_create"
+              data-status-target="create-workspace-status"
+            >
+            <button type="button" data-picker-kind="folder" data-picker-target="create_workspace_root" data-status-target="create-workspace-status">찾아보기</button>
+          </div>
+          <div id="create-workspace-status" class="field-status">전용 빈 폴더 또는 새로 만들 폴더를 고르면 됩니다.</div>
+
+          <div class="row">
+            <div>
+              <label>세이브 파일 이름</label>
+              <input name="workspace_label" placeholder="예: 2026 봄 운영본">
+            </div>
+            <div>
+              <label>세이브 파일 암호</label>
+              <input type="password" name="workspace_password" placeholder="다음에 다시 열 때 사용할 암호">
+            </div>
+          </div>
+
+          <details class="advanced-block">
+            <summary>고급: 이전 데이터 가져오기</summary>
+            <p class="muted">이미 사용 중인 데이터 폴더가 있을 때만 사용합니다. 새로 시작한다면 비워 두세요.</p>
+            <label>
+              이전 데이터 폴더
+              <span class="info-badge" tabindex="0" title="기존 폴더의 참고자료와 실행결과를 새 세이브 파일로 복사합니다.">i</span>
+            </label>
+            <div class="path-picker">
+              <input
+                id="import_profile_root"
+                name="import_profile_root"
+                placeholder="예: D:\\기존 데이터\\프로필"
+                data-inspect-kind="profile_import"
+                data-status-target="import-profile-status"
+              >
+              <button type="button" data-picker-kind="folder" data-picker-target="import_profile_root" data-status-target="import-profile-status">찾아보기</button>
+            </div>
+            <div id="import-profile-status" class="field-status">새로 시작한다면 입력하지 않아도 됩니다.</div>
+          </details>
+
+          <div class="action-foot">
+            <button class="primary" type="submit">새 세이브 만들기</button>
+          </div>
+        </form>
       </div>
-    </form>
 
-    <form class="section action-card" action="/workspace/create" method="post">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">처음 시작</div>
-          <h2>새 세이브 파일 만들기</h2>
-        </div>
-      </div>
-      <label>새 세이브 파일 폴더 경로</label>
-      <div class="path-picker">
-        <input
-          id="create_workspace_root"
-          name="workspace_root"
-          placeholder="예: D:\\EmailPilotAI\\새 세이브 또는 공유 폴더 경로"
-          data-inspect-kind="workspace_create"
-          data-status-target="create-workspace-status"
-        >
-        <button type="button" disabled data-picker-kind="folder" data-picker-target="create_workspace_root" data-status-target="create-workspace-status">찾아보기</button>
-      </div>
-      <div id="create-workspace-status" class="field-status">전용 빈 폴더나 새 폴더를 선택하면 됩니다.</div>
+      <aside class="wizard-side-panel">
+        <section class="side-block">
+          <div class="side-block-head">
+            <span class="label">다음 단계</span>
+            <strong>세이브 파일을 열면 바로 계정 연결 화면으로 이동합니다</strong>
+          </div>
+          <div class="mini-step-list">
+            <div class="mini-step">
+              <span class="mini-step-number">2</span>
+              <div>
+                <strong>이메일 계정 연결</strong>
+                <div class="muted">이메일 주소와 비밀번호만 먼저 입력하면 됩니다.</div>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="mini-step-number">3</span>
+              <div>
+                <strong>빠른 테스트 동기화</strong>
+                <div class="muted">최근 10건으로 연결과 분류 품질을 먼저 확인합니다.</div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <label>세이브 파일 이름</label>
-      <input name="workspace_label" placeholder="예: 2026 봄 운영본">
-
-      <label>세이브 파일 암호</label>
-      <input type="password" name="workspace_password" placeholder="다음에 다시 열 때 사용할 암호">
-
-      <details class="advanced-block">
-        <summary>고급: 이전 데이터 가져오기</summary>
-        <p class="muted">기존 폴더의 `참고자료`, `실행결과`를 새 세이브 파일로 복사합니다.</p>
-        <label>
-          이전 데이터 폴더
-          <span class="info-badge" tabindex="0" title="이미 관리 중인 profile 폴더가 있을 때만 사용합니다. 새로 시작한다면 비워 두세요.">i</span>
-        </label>
-        <div class="path-picker">
-          <input
-            id="import_profile_root"
-            name="import_profile_root"
-            placeholder="예: D:\\기존 데이터\\프로필"
-            data-inspect-kind="profile_import"
-            data-status-target="import-profile-status"
-          >
-          <button type="button" disabled data-picker-kind="folder" data-picker-target="import_profile_root" data-status-target="import-profile-status">찾아보기</button>
-        </div>
-        <div id="import-profile-status" class="field-status">새로 시작한다면 비워 두어도 됩니다.</div>
-      </details>
-
-      <div class="action-foot">
-        <button class="primary" type="submit">새 세이브 파일 만들기</button>
-      </div>
-    </form>
-  </section>
-
-  <section class="section">
-    <h2>최근 세이브 파일</h2>
-    {% if recent_workspaces %}
-      <div class="recent-list">
-        {% for workspace_path in recent_workspaces %}
-          <div class="recent-item">{{ workspace_path }}</div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="muted">아직 최근 목록이 없습니다.</p>
-    {% endif %}
+        <section class="side-block">
+          <div class="side-block-head">
+            <span class="label">최근 세이브 파일</span>
+            <strong>최근에 열었던 폴더를 다시 선택할 수 있습니다</strong>
+          </div>
+          {% if recent_workspaces %}
+          <div class="recent-list">
+            {% for workspace_path in recent_workspaces %}
+            <div class="recent-item">{{ workspace_path }}</div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="field-status">아직 최근 세이브 파일 목록이 없습니다.</div>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
   </section>
 
   <dialog id="save-guide-modal" class="modal-panel">
@@ -144,24 +208,30 @@
       <button type="submit">닫기</button>
     </form>
     <div class="modal-content">
-      <h2>세이브 파일 가이드</h2>
+      <h2>세이브 파일 도움말</h2>
       {% include "_workspace_guide_content.html" %}
     </div>
   </dialog>
 {% else %}
   <section class="hero hero-home">
-    <div class="eyebrow">작업 대시보드</div>
+    <div class="eyebrow">업무 시작</div>
     <h1>{{ workspace.manifest.workspace_label or workspace.root().name }}</h1>
     <p class="muted lead">
-      세이브 파일을 열었습니다. 이제 계정 연결을 확인하고, 빠른 테스트 동기화로 흐름을 점검한 뒤 전체 동기화와 리뷰로 넘어가면 됩니다.
+      세이브 파일을 열었습니다. 이제 계정 연결을 확인하고, 빠른 테스트 동기화로 흐름을 점검한 뒤
+      전체 동기화와 리뷰로 넘어가면 됩니다.
     </p>
     <div class="status-strip">
       <span class="status-pill {% if connection_tone == 'pass' %}pass{% elif connection_tone == 'fail' %}fail{% endif %}">
-        계정 연결 상태: {{ "확인 완료" if shared_settings.mailbox.connection_status == "connected" else ("실패" if shared_settings.mailbox.connection_status == "failed" else "미확인") }}
+        계정 연결: {{ "확인 완료" if shared_settings.mailbox.connection_status == "connected" else ("실패" if shared_settings.mailbox.connection_status == "failed" else "아직 확인 전") }}
       </span>
       <span class="status-pill">기본 폴더: {{ shared_settings.mailbox.default_folder or shared_settings.mailbox.recommended_folder or "미설정" }}</span>
       <span class="status-pill">모델: {{ shared_settings.llm.model or "gpt-5.4" }}</span>
       <span class="status-pill">리뷰 항목: {{ state_counts.total }}</span>
+    </div>
+    <div class="toolbar hero-actions">
+      <a class="button-link primary" href="/settings">계정 연결 계속하기</a>
+      <a class="button-link" href="/sync">동기화 열기</a>
+      <a class="button-link" href="/review">리뷰센터 열기</a>
     </div>
   </section>
 
@@ -183,8 +253,8 @@
   <section class="section">
     <div class="section-head">
       <div>
-        <div class="eyebrow">다음 행동</div>
-        <h2>지금 여기서 바로 진행하세요</h2>
+        <div class="eyebrow">바로 실행</div>
+        <h2>다음 행동</h2>
       </div>
       <div class="status-strip compact" data-job-status></div>
     </div>
@@ -193,14 +263,14 @@
     {% endif %}
     <div class="action-grid">
       <a class="action-tile" href="/settings">
-        <span class="label">설정</span>
+        <span class="label">Step 2</span>
         <strong>계정 연결과 기본 설정 확인</strong>
         <p class="muted">이메일 주소, 비밀번호, API key, 기본 폴더를 관리합니다.</p>
       </a>
 
       <div class="action-tile">
-        <span class="label">빠른 테스트</span>
-        <strong>최근 10건 동기화</strong>
+        <span class="label">Step 3</span>
+        <strong>빠른 테스트 동기화</strong>
         <p class="muted">{{ action_states.quick_sync.helper }}</p>
         <div class="action-foot">
           <span class="action-shell" title="{{ action_states.quick_sync.tooltip }}">
@@ -216,7 +286,7 @@
       </div>
 
       <div class="action-tile">
-        <span class="label">전체 반영</span>
+        <span class="label">운영 모드</span>
         <strong>전체 동기화</strong>
         <p class="muted">{{ action_states.full_sync.helper }}</p>
         <div class="action-foot">
@@ -253,8 +323,8 @@
     <div class="section">
       <div class="section-head">
         <div>
-          <div class="eyebrow">현재 상태</div>
-          <h2>세이브 파일 요약</h2>
+          <div class="eyebrow">세이브 파일 상태</div>
+          <h2>현재 작업 기준</h2>
         </div>
       </div>
       <div class="details">
@@ -275,12 +345,12 @@
       </div>
       <div class="details">
         {% if latest_sync_run %}
-          <div>최근 동기화 상태: {{ latest_sync_run.status }}</div>
-          <div>시작 시각: {{ latest_sync_run.started_at }}</div>
-          <div>마침 시각: {{ latest_sync_run.finished_at or "진행 중" }}</div>
-          <div>동기화 방식: {{ (latest_sync_run.metadata or {}).get("sync_mode") or "기록 없음" }}</div>
+        <div>최근 동기화 상태: {{ latest_sync_run.status }}</div>
+        <div>시작 시각: {{ latest_sync_run.started_at }}</div>
+        <div>마침 시각: {{ latest_sync_run.finished_at or "진행 중" }}</div>
+        <div>동기화 방식: {{ (latest_sync_run.metadata or {}).get("sync_mode") or "기록 없음" }}</div>
         {% else %}
-          <div>아직 동기화 기록이 없습니다.</div>
+        <div>아직 동기화 기록이 없습니다.</div>
         {% endif %}
       </div>
       <div class="toolbar" style="margin-top:12px">
@@ -292,7 +362,7 @@
   </section>
 
   <details class="section diagnostic-box">
-    <summary>고급: 실행 환경 진단 보기</summary>
+    <summary>고급 진단 보기</summary>
     <div class="details" style="margin-top:12px">
       <div>실행 모드: <span data-shell-mode-value>{{ shell_context.shell_mode_label }}</span></div>
       <div>파일 탐색기 상태: <span data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</span></div>

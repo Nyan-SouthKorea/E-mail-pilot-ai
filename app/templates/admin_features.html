@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% block title %}관리도구 | Email Pilot AI{% endblock %}
+{% block title %}고급 도구 | Email Pilot AI{% endblock %}
 {% block body %}
 <section class="hero">
-  <h1>관리도구</h1>
-  <p class="muted">현재 제품 기능을 카탈로그 기준으로 보여주고, 서버와 앱에서 같은 세이브를 기준으로 smoke/debug feature를 직접 실행할 수 있게 합니다.</p>
+  <div class="eyebrow">고급 도구</div>
+  <h1>기능 점검과 진단</h1>
+  <p class="muted">기본 사용자 흐름 밖의 smoke, 기능 점검, 실행 진단은 이 화면에서 확인합니다.</p>
   <div class="status-strip" data-job-status></div>
   {% if readonly %}
   <div class="field-status warn">읽기 전용 세이브 파일에서는 write lock이 필요한 기능 실행 버튼이 비활성화됩니다.</div>

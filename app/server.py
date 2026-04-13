@@ -601,7 +601,7 @@ def create_workspace(
         remember_workspace(str(workspace.root()))
     except Exception as exc:
         return _redirect_with_message("/", error=f"새 세이브 파일을 만들지 못했다: {exc}")
-    return _redirect_with_message("/", notice="새 세이브 파일을 만들고 바로 열었다.")
+    return _redirect_with_message("/settings", notice="새 세이브 파일을 만들었습니다. 이제 계정 연결을 확인해 주세요.")
 
 
 @app.post("/workspace/open")
@@ -637,7 +637,7 @@ def open_workspace(
         lock_handle=lock_handle,
     ))
     remember_workspace(str(workspace.root()))
-    return _redirect_with_message("/", notice=notice)
+    return _redirect_with_message("/settings", notice=f"{notice} 이제 계정 연결을 확인해 주세요.")
 
 
 @app.post("/workspace/close")

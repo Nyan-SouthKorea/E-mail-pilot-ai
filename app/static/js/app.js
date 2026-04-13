@@ -52,10 +52,10 @@
       return '현재 환경: 앱 전용 네이티브 파일 탐색기를 사용할 수 있습니다.';
     }
     if (state === 'desktop_pending' || state === 'checking') {
-      return '현재 환경: 앱 전용 창 연결 확인 중입니다.';
+      return '현재 환경: 전용 창 연결을 확인하는 중입니다. 찾아보기를 누르면 바로 다시 시도합니다.';
     }
     if (state === 'desktop_failed') {
-      return '현재 환경: 전용 창 연결이 불안정합니다. 직접 경로 입력으로 진행하거나 앱을 다시 실행해 주세요.';
+      return '현재 환경: 전용 창 연결이 불안정합니다. 다시 시도하거나 직접 경로를 입력해 주세요.';
     }
     return '현재 환경: 브라우저 fallback이므로 직접 경로를 입력해야 합니다.';
   }
@@ -65,15 +65,37 @@
   }
 
   function updatePickerButtons() {
-    var ready = nativeDialogState === 'desktop_ready';
+    var disableButtons = shellMode === 'browser_fallback' || shellMode === 'headless';
     document.querySelectorAll('[data-picker-target]').forEach(function (button) {
       if (!button.dataset.defaultLabel) {
         button.dataset.defaultLabel = button.textContent;
       }
-      button.disabled = !ready;
-      button.textContent = (nativeDialogState === 'desktop_pending' || nativeDialogState === 'checking')
-        ? '연결 확인 중'
-        : button.dataset.defaultLabel;
+      button.disabled = disableButtons;
+      button.textContent = button.dataset.defaultLabel;
+    });
+  }
+
+  function bindWizardTabs() {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-wizard-tab]'));
+    if (!buttons.length) return;
+
+    function selectWizardTab(tabName) {
+      buttons.forEach(function (button) {
+        var active = button.dataset.wizardTab === tabName;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-wizard-panel]').forEach(function (panel) {
+        var active = panel.dataset.wizardPanel === tabName;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      });
+    }
+
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        selectWizardTab(button.dataset.wizardTab || 'open');
+      });
     });
   }
 
@@ -186,6 +208,35 @@
       });
   }
 
+  function waitForNativeBridge(maxAttempts, delayMs) {
+    return new Promise(function (resolve) {
+      var attempt = 0;
+
+      function tick() {
+        if (shellMode === 'browser_fallback' || shellMode === 'headless') {
+          resolve(false);
+          return;
+        }
+        if (ensurePywebviewApi() && window.pywebview.api.dialog_capabilities) {
+          detectNativeDialogs().then(function (ready) {
+            resolve(!!ready);
+          });
+          return;
+        }
+
+        attempt += 1;
+        setNativeDialogState('desktop_pending');
+        if (attempt >= (maxAttempts || 6)) {
+          resolve(false);
+          return;
+        }
+        window.setTimeout(tick, delayMs || 250);
+      }
+
+      tick();
+    });
+  }
+
   function renderPathStatus(target, payload) {
     if (!target) return;
     var status = payload && payload.status ? payload.status : 'warn';
@@ -234,17 +285,6 @@
     var workspaceRoot = button.dataset.workspaceRoot || document.body.dataset.workspaceRoot || '';
 
     if (!input) return;
-    if (nativeDialogState === 'desktop_pending' || nativeDialogState === 'checking') {
-      detectNativeDialogs().then(function (ready) {
-        if (!ready) {
-          renderPathStatus(statusTarget, {
-            status: 'warn',
-            message: '전용 창 연결을 확인하는 중입니다. 잠시 후 다시 시도해 주세요.',
-          });
-        }
-      });
-      return;
-    }
     if (nativeDialogState === 'browser_fallback') {
       renderPathStatus(statusTarget, {
         status: 'warn',
@@ -252,59 +292,63 @@
       });
       return;
     }
-    if (!ensurePywebviewApi()) {
-      setNativeDialogState('desktop_pending', '현재 환경: 전용 창 연결을 다시 확인하는 중입니다.');
-      detectRetryCount = 0;
-      detectNativeDialogs().then(function (ready) {
-        if (ready) {
-          openNativePicker(button);
-          return;
-        }
+    function launchPicker() {
+      if (!ensurePywebviewApi() || !window.pywebview.api) {
         renderPathStatus(statusTarget, {
           status: 'warn',
-          message: '전용 창 연결이 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+          message: '전용 창 연결이 아직 준비되지 않았습니다. 다시 시도하거나 직접 경로를 입력해 주세요.',
         });
-      });
+        return;
+      }
+
+      var pickerKind = button.dataset.pickerKind || 'folder';
+      var promise;
+      if (pickerKind === 'file') {
+        promise = window.pywebview.api.pick_file(
+          input.value || '',
+          workspaceRoot,
+          ['Excel (*.xlsx;*.xlsm;*.xltx;*.xltm)']
+        );
+      } else {
+        promise = window.pywebview.api.pick_folder(input.value || '', workspaceRoot);
+      }
+
+      promise
+        .then(function (payload) {
+          if (payload && payload.ok && payload.path) {
+            input.value = payload.path;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
+          }
+          renderPathStatus(statusTarget, {
+            status: 'warn',
+            message: payload && payload.error ? payload.error : '경로 선택이 취소되었습니다.',
+          });
+        })
+        .catch(function (error) {
+          renderPathStatus(statusTarget, {
+            status: 'fail',
+            message: '파일 탐색기를 열지 못했습니다: ' + error,
+          });
+        });
+    }
+
+    if (nativeDialogState === 'desktop_ready' && ensurePywebviewApi()) {
+      launchPicker();
       return;
     }
-    if (nativeDialogState === 'desktop_failed') {
+
+    detectRetryCount = 0;
+    waitForNativeBridge(6, 220).then(function (ready) {
+      if (ready || ensurePywebviewApi()) {
+        launchPicker();
+        return;
+      }
       renderPathStatus(statusTarget, {
         status: 'warn',
-        message: '전용 창 연결이 실패했습니다. 직접 경로 입력으로 진행하거나 앱을 다시 실행해 주세요.',
+        message: '전용 창 연결이 아직 준비되지 않았습니다. 다시 시도하거나 직접 경로를 입력해 주세요.',
       });
-      return;
-    }
-
-    var pickerKind = button.dataset.pickerKind || 'folder';
-    var promise;
-    if (pickerKind === 'file') {
-      promise = window.pywebview.api.pick_file(
-        input.value || '',
-        workspaceRoot,
-        ['Excel (*.xlsx;*.xlsm;*.xltx;*.xltm)']
-      );
-    } else {
-      promise = window.pywebview.api.pick_folder(input.value || '', workspaceRoot);
-    }
-
-    promise
-      .then(function (payload) {
-        if (payload && payload.ok && payload.path) {
-          input.value = payload.path;
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          return;
-        }
-        renderPathStatus(statusTarget, {
-          status: 'warn',
-          message: payload && payload.error ? payload.error : '경로 선택이 취소되었습니다.',
-        });
-      })
-      .catch(function (error) {
-        renderPathStatus(statusTarget, {
-          status: 'fail',
-          message: '파일 탐색기를 열지 못했습니다: ' + error,
-        });
-      });
+    });
   }
 
   function bindNativePickerButtons() {
@@ -348,6 +392,7 @@
     bindNativePickerButtons();
     bindModalButtons();
     bindDialogRecheck();
+    bindWizardTabs();
     initializeShellContext();
     openAutoModal();
   }

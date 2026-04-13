@@ -3,10 +3,10 @@
 {% block body %}
 <section class="hero">
   <div class="eyebrow">설정</div>
-  <h1>필수 정보만 먼저 입력하세요</h1>
+  <h1>필수 정보만 먼저 입력하고 계정 연결을 확인하세요</h1>
   <p class="muted lead">
     대부분의 사용자는 모델, API key, 이메일 주소, 비밀번호만 입력하면 됩니다.
-    나머지 항목은 계정 연결 확인 이후에 자동 추천되거나 고급 설정에서만 다룹니다.
+    로그인 ID, 기본 폴더, 템플릿 경로는 필요한 경우에만 고급 설정에서 다룹니다.
   </p>
   <div class="status-strip">
     <span class="status-pill {% if connection_tone == 'pass' %}pass{% elif connection_tone == 'fail' %}fail{% endif %}">
@@ -156,7 +156,6 @@
           >
           <button
             type="button"
-            disabled
             data-picker-kind="file"
             data-picker-target="template_workbook_relative_path"
             data-status-target="template-path-status"
@@ -177,7 +176,7 @@
 </form>
 
 <details class="section diagnostic-box">
-  <summary>고급: 실행 환경 진단 보기</summary>
+  <summary>고급 진단 보기</summary>
   <div class="details" style="margin-top:12px">
     <div>실행 모드: <span data-shell-mode-value>{{ shell_context.shell_mode_label }}</span></div>
     <div>파일 탐색기 상태: <span data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</span></div>

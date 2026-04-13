@@ -18,24 +18,100 @@
   data-native-dialog-state="{{ shell_context.native_dialog_state }}"
   data-native-dialog-expected="{{ 'yes' if shell_context.native_dialog_expected else 'no' }}"
 >
+  {% set current_path_value = current_path or request.url.path %}
   <div class="shell">
-    <div class="topbar">
-      <div class="brand">Email Pilot AI</div>
-      <div class="nav">
-        <a href="/" class="{% if (current_path or request.url.path) == '/' %}active{% endif %}">홈</a>
-        <a href="/sync" class="{% if (current_path or request.url.path) == '/sync' %}active{% endif %}">동기화</a>
-        <a href="/review" class="{% if (current_path or request.url.path) == '/review' %}active{% endif %}">리뷰</a>
-        <a href="/settings" class="{% if (current_path or request.url.path) == '/settings' %}active{% endif %}">설정</a>
-        <a href="/admin/features" class="secondary {% if (current_path or request.url.path) == '/admin/features' %}active{% endif %}">고급 도구</a>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">EPA</div>
+        <div>
+          <div class="brand-title">Email Pilot AI</div>
+          <div class="brand-subtitle">이메일 접수 자동화 워크센터</div>
+        </div>
       </div>
+
+      <div class="sidebar-group">
+        <div class="sidebar-label">작업</div>
+        <nav class="sidebar-nav">
+          <a href="/" class="{% if current_path_value == '/' %}active{% endif %}">홈</a>
+          <a href="/sync" class="{% if current_path_value == '/sync' %}active{% endif %}">동기화</a>
+          <a href="/review" class="{% if current_path_value == '/review' %}active{% endif %}">리뷰</a>
+          <a href="/settings" class="{% if current_path_value == '/settings' %}active{% endif %}">설정</a>
+        </nav>
+      </div>
+
+      <div class="sidebar-group sidebar-secondary">
+        <div class="sidebar-label">보조</div>
+        <nav class="sidebar-nav">
+          <a href="/admin/features" class="{% if current_path_value == '/admin/features' %}active{% endif %}">고급 도구</a>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        {% if workspace_open and workspace %}
+        <div class="sidebar-card">
+          <div class="sidebar-card-label">현재 세이브 파일</div>
+          <strong>{{ workspace.manifest.workspace_label or workspace.root().name }}</strong>
+          <div class="muted small">{{ workspace.root() }}</div>
+          {% if session and session.readonly %}
+          <div class="inline-hint warn compact">읽기 전용</div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="sidebar-card">
+          <div class="sidebar-card-label">실행 기준</div>
+          <strong>로컬 exe 실행</strong>
+          <div class="muted small">세이브 파일은 필요하면 공유 폴더를 선택할 수 있습니다.</div>
+        </div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <div class="workspace-shell">
+      <header class="workspace-header">
+        <div>
+          <div class="workspace-header-label">
+            {% if current_path_value == '/settings' %}계정 및 연결 설정
+            {% elif current_path_value == '/sync' %}메일 동기화
+            {% elif current_path_value == '/review' %}분류 결과 검토
+            {% elif current_path_value == '/admin/features' %}고급 도구
+            {% else %}업무 시작
+            {% endif %}
+          </div>
+          <h1 class="workspace-header-title">
+            {% if workspace_open and workspace %}
+            {{ workspace.manifest.workspace_label or workspace.root().name }}
+            {% else %}
+            업무 시작
+            {% endif %}
+          </h1>
+          <div class="workspace-header-meta">
+            {% if workspace_open %}
+            <span class="status-pill quiet">세이브 파일 열림</span>
+            {% else %}
+            <span class="status-pill quiet">세이브 파일 미열림</span>
+            {% endif %}
+            <span class="status-pill quiet">
+              {% if current_path_value == '/settings' %}계정과 내보내기 기준을 확인하는 단계
+              {% elif current_path_value == '/sync' %}빠른 테스트 또는 전체 동기화를 실행하는 단계
+              {% elif current_path_value == '/review' %}자동 분류 결과를 검토하고 보정하는 단계
+              {% elif current_path_value == '/admin/features' %}고급 점검과 기능 smoke를 실행하는 단계
+              {% else %}세이브 파일을 열고 계정 연결부터 시작하는 단계
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace-main">
+        {% if notice %}
+        <div class="banner success">{{ notice }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="banner error">{{ error }}</div>
+        {% endif %}
+        {% block body %}{% endblock %}
+      </main>
     </div>
-    {% if notice %}
-    <div class="banner success">{{ notice }}</div>
-    {% endif %}
-    {% if error %}
-    <div class="banner error">{{ error }}</div>
-    {% endif %}
-    {% block body %}{% endblock %}
   </div>
 </body>
 </html>

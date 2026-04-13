@@ -53,7 +53,7 @@
   - `exports`: 템플릿 reader, semantic mapping, projection, workbook append, 회귀 guardrail이 있다.
   - `llm`: OpenAI wrapper, usage logging, 가격표 snapshot 기반 비용 추정, structured output transport가 있다.
   - `runtime`: 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock, dedupe/workbook rebuild, sync CLI, feature harness smoke가 있다.
-  - `app`: FastAPI 기반 로컬 UI, pywebview launcher, workspace open/create, settings, review center, 관리도구, UI smoke가 있다.
+  - `app`: FastAPI 기반 로컬 UI, pywebview launcher, 3단계 시작 마법사, settings, review center, 고급 도구, UI smoke가 있다.
 
 ## 현재 전역 결정
 
@@ -80,43 +80,57 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `AGENTS 중심 문서/산출물 정리와 cleanup`
+  - `서비스형 고객 UI 리팩터 v2`
 - plan 요약:
-  - 운영 규칙은 root `AGENTS.md` 하나로 고정하고, 다른 문서에는 각 문서의 역할만 남긴다.
-  - 중복된 packaging/guide 문서와 과하게 반복된 읽기 순서 문구를 줄인다.
-  - smoke나 build 이후 남는 비최종 산출물과 cache 디렉토리는 과감히 정리한다.
+  - 현재의 설명 많은 검증용 화면을 실제 고객이 매일 쓰는 Windows 업무용 프로그램 같은 서비스형 UI로 바꾼다.
+  - 첫 실행 흐름은 `세이브 파일 열기/만들기 -> 계정 연결 -> 빠른 테스트 동기화` 3단계 마법사로 고정한다.
+  - 디자인은 슬레이트/네이비 기반의 업무용 프로앱 톤으로 전환하고, `찾아보기`는 더 이상 브리지 준비 전까지 영구 비활성으로 두지 않는다.
 - 이번 plan의 성공 기준:
-  - root `AGENTS.md`가 유일한 운영 규칙 시작점으로 보이도록 문서 중복이 줄어든다.
-  - `README.md`, `docs/feature_catalog.md`, 모듈 `README/logbook`, starter pack이 각자 역할만 남긴다.
-  - 중복 packaging 문서와 불필요한 guide wrapper/template가 제거된다.
-  - repo 안의 불필요한 cache 산출물이 삭제되고, publish까지 clean하게 닫힌다.
+  - 첫 화면이 긴 개념 설명 대신 3단계 마법사 중심으로 바뀐다.
+  - exe에서 `찾아보기` 버튼이 즉시 클릭 가능하고, 실패 시에만 짧은 이유를 안내한다.
+  - 홈/설정/동기화/리뷰의 시각 톤이 일관된 업무용 프로앱 스타일로 바뀐다.
+  - 기본 화면에서 개발자 진단 정보가 밀려나고, 고객용 용어와 CTA 중심 구조가 자리잡는다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - `AGENTS` 중심 문서 축약, 중복 문서 삭제, cache cleanup, publish까지 마감한 상태
+  - 서비스형 고객 UI 리팩터 v2 구현과 smoke 검증을 마치고 canonical 문서 반영까지 진행한 상태
 - 바로 다음 작업:
-  - 다음 active plan을 `docs/logbook.md`에 반영하고 제품 기능 작업으로 넘어가기
+  - 마지막 문서 재확인 후 current plan commit과 push를 진행한다
 - publish 상태:
-  - current plan commit 완료
-  - current plan push 완료
-  - clean status 확인 완료
+  - 이전 plan publish 완료
+  - current plan 구현/검증 완료, publish 전
 
 ## 현재 활성 체크리스트
 
-- `AGENTS 중심 문서/산출물 정리와 cleanup`
-  - [x] root `AGENTS.md`를 운영 규칙의 단일 시작점으로 다시 확인
-  - [x] `README.md`, `docs/feature_catalog.md`, 모듈 `README/logbook`, starter pack의 중복 운영 문구 축약
-  - [x] 중복 packaging 문서를 한 곳으로 정리
-  - [x] 홈에서 별도 가이드 새 창 링크를 제거하고 guide wrapper template 정리
-  - [x] repo 안의 cache/비최종 산출물 cleanup
-  - [x] canonical logbook와 모듈 logbook 갱신
-  - [x] smoke/문법 검증 수행
-  - [x] current plan commit 완료
-  - [x] current plan push 완료
-  - [x] `git status --short --branch` clean 확인
+- `서비스형 고객 UI 리팩터 v2`
+  - [x] root `AGENTS.md` 재확인
+  - [x] root `docs/logbook.md`에 active plan 전문 반영
+  - [x] 홈 미오픈 상태를 3단계 마법사 구조로 재설계
+  - [x] `찾아보기`를 기본 활성 + 클릭 시도 방식으로 전환
+  - [x] 좌측 사이드바 + 상단 작업 헤더 기반 제품형 쉘 도입
+  - [x] 프로앱 색상/타이포/컴포넌트 토큰으로 CSS 전환
+  - [x] 설정 화면 카피와 기본/고급 레이아웃 정리
+  - [x] 동기화 화면 CTA 위계와 상태 안내 정리
+  - [x] 리뷰센터 리스트/상세 가독성 재정리
+  - [x] `app.ui_smoke`와 관련 검증 갱신
+  - [x] canonical 문서 반영
+  - [ ] current plan commit 완료
+  - [ ] current plan push 완료
+  - [ ] `git status --short --branch` clean 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | 서비스형 고객 UI 리팩터 v2 구현
+
+- 홈 미오픈 상태를 긴 설명형 화면에서 벗어나 `세이브 파일 열기/만들기 -> 계정 연결 -> 빠른 테스트 동기화` 3단계 시작 마법사로 재구성했다.
+- `기존 세이브 열기`와 `새 세이브 만들기`는 탭형 흐름으로 바꾸고, 최근 세이브가 없으면 새 세이브 만들기를 기본 탭으로 연다.
+- `찾아보기` 버튼은 더 이상 `desktop_ready`가 오기 전까지 영구 비활성으로 두지 않고, exe 기준에서 바로 클릭 가능하게 바꿨다. 전용 창 연결이 아직 늦으면 내부에서 짧게 재시도하고, 실패 시에만 직접 입력 안내를 보여준다.
+- 앱 셸은 상단 pill 중심 구조에서 `좌측 사이드바 + 상단 작업 헤더` 구조로 바꿨고, 기본 화면에는 기술 경로보다 현재 단계와 다음 행동이 먼저 보이게 했다.
+- 색상과 컴포넌트 토큰은 베이지 데모 톤에서 벗어나 슬레이트/네이비 기반 업무용 프로앱 스타일로 재정의했다.
+- 세이브 파일 오픈/생성 성공 후에는 홈으로 돌아가기보다 `/settings`로 이동시켜, 첫실행 Step 2인 계정 연결 확인으로 자연스럽게 이어지게 했다.
+- `app/README.md`와 `docs/feature_catalog.md`는 새 용어와 홈 흐름에 맞춰 갱신했다.
+- 검증은 `python tools/logbook_archive_guard.py --archive-if-needed`, `python -m py_compile app/server.py app/main.py app/ui_smoke.py`, `python -m app.ui_smoke --workspace-root /tmp/epa_ui_v2_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_ui_v2_smoke --workspace-password SampleWorkspace260408` 기준으로 통과했다.
 
 ### 2026-04-10 | Human + Codex | 서비스형 홈/설정/동기화/리뷰 UI 1차 전환
 
