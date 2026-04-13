@@ -15,7 +15,7 @@ from runtime.workspace import load_shared_workspace
 @dataclass(slots=True)
 class WorkbookRebuildServiceResult:
     operating_workbook_path: str
-    representative_count: int
+    export_included_count: int
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -26,7 +26,7 @@ class ExportsSummaryServiceResult:
     operating_workbook_relpath: str
     operating_workbook_exists: bool
     operating_workbook_updated_at: str
-    representative_count: int
+    export_included_count: int
     workbook_row_count: int
     snapshot_items: list[dict[str, str]]
 
@@ -68,7 +68,7 @@ def rebuild_operating_workbook_service(
     )
     return WorkbookRebuildServiceResult(
         operating_workbook_path=str(result["operating_workbook_relpath"]),
-        representative_count=int(result["representative_count"]),
+        export_included_count=int(result["export_included_count"]),
     )
 
 
@@ -89,7 +89,7 @@ def load_exports_summary_service(*, workspace_root: str) -> ExportsSummaryServic
                 }
             )
     counts = state_store.summary_counts()
-    representative_items = state_store.list_review_items(export_only=True)
+    export_included_items = state_store.list_review_items(export_only=True)
     updated_at = ""
     if operating_path.exists():
         updated_at = datetime.fromtimestamp(operating_path.stat().st_mtime).isoformat(timespec="seconds")
@@ -97,8 +97,8 @@ def load_exports_summary_service(*, workspace_root: str) -> ExportsSummaryServic
         operating_workbook_relpath=workspace.to_workspace_relative(operating_path),
         operating_workbook_exists=operating_path.exists(),
         operating_workbook_updated_at=updated_at,
-        representative_count=int(counts.get("representative_application") or 0),
-        workbook_row_count=len([item for item in representative_items if item.get("workbook_row_index")]),
+        export_included_count=int(counts.get("export_included_application") or 0),
+        workbook_row_count=len([item for item in export_included_items if item.get("workbook_row_index")]),
         snapshot_items=snapshot_items,
     )
 

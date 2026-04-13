@@ -40,7 +40,7 @@ class WorkspaceSyncResult:
     review_json_path: str
     review_html_path: str
     operating_workbook_path: str
-    representative_export_count: int
+    export_included_count: int
     total_review_item_count: int
     sync_run_id: int
     notes: list[str] = field(default_factory=list)
@@ -132,6 +132,7 @@ def run_workspace_sync(
             workspace=workspace,
             state_store=state_store,
             report_path=review_report.review_json_path,
+            wrapper=wrapper,
         )
         workbook_result = rebuild_operating_workbook(
             workspace=workspace,
@@ -161,7 +162,7 @@ def run_workspace_sync(
             review_json_path=str(workspace.to_workspace_relative(review_report.review_json_path)),
             review_html_path=str(workspace.to_workspace_relative(review_report.review_html_path)),
             operating_workbook_path=str(workbook_result["operating_workbook_relpath"]),
-            representative_export_count=int(workbook_result["representative_count"]),
+            export_included_count=int(workbook_result["export_included_count"]),
             total_review_item_count=len(review_items),
             sync_run_id=sync_run_id,
             notes=notes,
@@ -203,7 +204,7 @@ def rebuild_operating_workbook(
     template_path: str | Path,
     wrapper: OpenAIResponsesWrapper,
 ) -> dict[str, Any]:
-    """기능: state DB 기준 대표 신청 건만 stable 운영 workbook으로 다시 쓴다."""
+    """기능: state DB 기준 엑셀 반영 대상 신청 건만 stable 운영 workbook으로 다시 쓴다."""
 
     profile_paths = workspace.profile_paths()
     operating_path = profile_paths.operating_export_workbook_path()
@@ -269,7 +270,7 @@ def rebuild_operating_workbook(
     )
     return {
         "operating_workbook_relpath": workbook_relpath,
-        "representative_count": len(workbook_row_items),
+        "export_included_count": len(workbook_row_items),
     }
 
 
@@ -334,8 +335,10 @@ def _write_review_index_sheet(
 
     workbook_dir = workbook_path.parent
     for row_index, item in enumerate(items, start=2):
-        dedupe_status = "representative" if item["is_export_representative"] else (
-            "duplicate_application" if item["duplicate_of_bundle_id"] else ""
+        dedupe_status = (
+            "included_in_export"
+            if item.get("included_in_export")
+            else ("held_in_group" if item.get("application_group_id") else "")
         )
         preview_rel = item.get("preview_relpath") or ""
         raw_eml_rel = item.get("raw_eml_relpath") or ""

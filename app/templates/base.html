@@ -18,6 +18,8 @@
   data-shell-mode="{{ shell_context.shell_mode }}"
   data-native-dialog-state="{{ shell_context.native_dialog_state }}"
   data-native-dialog-expected="{{ 'yes' if shell_context.native_dialog_expected else 'no' }}"
+  data-build-commit="{{ build_info.build_commit if build_info else '' }}"
+  data-build-time="{{ build_info.build_time if build_info else '' }}"
 >
   {% set current_path_value = current_path or request.url.path %}
   <div class="shell">

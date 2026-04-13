@@ -21,6 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.build_info import load_build_info
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
 from runtime import (
     assert_supported_workspace,
@@ -73,6 +74,17 @@ TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
 APP_ID = "email_pilot_ai_desktop"
 APP_VERSION = "0.1.0"
+
+
+def _current_build_info() -> dict[str, str]:
+    info = load_build_info(
+        official_exe_path=str(default_local_portable_exe_path()),
+    )
+    return {
+        "build_commit": info.build_commit,
+        "build_time": info.build_time,
+        "official_exe_path": info.official_exe_path,
+    }
 
 
 @dataclass(slots=True)
@@ -189,6 +201,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
 @app.get("/app-meta")
 def app_meta():
     shell_context = SERVER_STATE.shell_context or _default_shell_context()
+    build_info = _current_build_info()
     return JSONResponse(
         {
             "app_id": APP_ID,
@@ -196,6 +209,9 @@ def app_meta():
             "version": APP_VERSION,
             "shell_mode": shell_context.shell_mode,
             "native_dialog_state": shell_context.native_dialog_state,
+            "build_commit": build_info["build_commit"],
+            "build_time": build_info["build_time"],
+            "official_exe_path": build_info["official_exe_path"],
         }
     )
 
@@ -329,7 +345,7 @@ def _review_query_from_request(request: Request) -> dict[str, Any]:
     page_size = _parse_positive_int_text(_pick_text("page_size", "50"), default=50)
     sort = _pick_text("sort", "received_desc") or "received_desc"
     selected_bundle_id = _pick_text("selected_bundle_id", "")
-    artifact_kind = _pick_text("artifact_kind", "preview") or "preview"
+    artifact_kind = _pick_text("artifact_kind", "overview") or "overview"
 
     local_settings.last_review_filters = {
         "search": search,
@@ -413,20 +429,28 @@ def _read_workspace_text(path: Path, *, default: str = "", max_bytes: int = 1_00
 
 
 def _review_artifact_label(kind: str) -> str:
-    normalized = (kind or "preview").strip().lower()
+    normalized = (kind or "overview").strip().lower()
     return {
+        "overview": "검토 개요",
         "preview": "메일 미리보기",
         "raw": "원본 메일 파일",
         "summary": "요약 메모",
         "record": "추출 결과 원본",
         "projected": "엑셀 반영 미리보기",
-    }.get(normalized, "메일 미리보기")
+    }.get(normalized, "검토 개요")
+
+
+def _review_partial_detail_url(query: dict[str, Any], **overrides: Any) -> str:
+    payload = _review_query_string(query, **overrides)
+    return f"/review/detail?{payload}" if payload else "/review/detail"
 
 
 def _load_review_artifact_preview(*, workspace, item: dict[str, Any] | None, kind: str) -> dict[str, Any] | None:
     if not item:
         return None
-    normalized = (kind or "preview").strip().lower()
+    normalized = (kind or "overview").strip().lower()
+    if normalized == "overview":
+        return None
     mapping = {
         "preview": item.get("preview_relpath"),
         "raw": item.get("raw_eml_relpath"),
@@ -456,6 +480,127 @@ def _load_review_artifact_preview(*, workspace, item: dict[str, Any] | None, kin
         "content_type": "text",
         "relative_path": relative_path,
         "content": text,
+    }
+
+
+def _review_detail_context(
+    *,
+    workspace,
+    selected_item: dict[str, Any] | None,
+    query: dict[str, Any],
+    current_review_url: str,
+) -> dict[str, Any]:
+    selected_bundle_id = str(query.get("selected_bundle_id") or "")
+    artifact_kind = str(query.get("artifact_kind") or "overview")
+    artifact_preview = _load_review_artifact_preview(
+        workspace=workspace,
+        item=selected_item,
+        kind=artifact_kind,
+    )
+    artifact_tabs = [
+        {
+            "key": "overview",
+            "label": "검토 개요",
+            "detail_url": _review_partial_detail_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="overview",
+            ),
+            "review_url": _review_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="overview",
+            ),
+            "active": artifact_kind == "overview",
+            "available": bool(selected_item),
+        },
+        {
+            "key": "preview",
+            "label": "메일 미리보기",
+            "detail_url": _review_partial_detail_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="preview",
+            ),
+            "review_url": _review_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="preview",
+            ),
+            "active": artifact_kind == "preview",
+            "available": bool(selected_item and selected_item.get("preview_relpath")),
+        },
+        {
+            "key": "raw",
+            "label": "원본 메일 파일",
+            "detail_url": _review_partial_detail_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="raw",
+            ),
+            "review_url": _review_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="raw",
+            ),
+            "active": artifact_kind == "raw",
+            "available": bool(selected_item and selected_item.get("raw_eml_relpath")),
+        },
+        {
+            "key": "summary",
+            "label": "요약 메모",
+            "detail_url": _review_partial_detail_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="summary",
+            ),
+            "review_url": _review_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="summary",
+            ),
+            "active": artifact_kind == "summary",
+            "available": bool(selected_item and selected_item.get("summary_relpath")),
+        },
+        {
+            "key": "record",
+            "label": "추출 결과 원본",
+            "detail_url": _review_partial_detail_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="record",
+            ),
+            "review_url": _review_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="record",
+            ),
+            "active": artifact_kind == "record",
+            "available": bool(selected_item and selected_item.get("extracted_record_relpath")),
+        },
+        {
+            "key": "projected",
+            "label": "엑셀 반영 미리보기",
+            "detail_url": _review_partial_detail_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="projected",
+            ),
+            "review_url": _review_url(
+                query,
+                selected_bundle_id=selected_bundle_id,
+                artifact_kind="projected",
+            ),
+            "active": artifact_kind == "projected",
+            "available": bool(selected_item and selected_item.get("projected_row_relpath")),
+        },
+    ]
+    return {
+        "selected_item": selected_item,
+        "artifact_preview": artifact_preview,
+        "artifact_tabs": artifact_tabs,
+        "current_review_url": current_review_url,
+        "query": query,
     }
 
 
@@ -595,6 +740,7 @@ def _dialog_context(*, workspace=None) -> dict[str, Any]:
         window_attached=shell_context.native_dialog_expected,
     )
     return {
+        "build_info": _current_build_info(),
         "native_dialog_supported": picker_diagnostics.native_dialog_supported,
         "dialog_workspace_root": str(workspace.root()) if workspace is not None else "",
         "shell_context": shell_context.to_template_dict(),
@@ -705,7 +851,7 @@ def _sync_action_states(
         "rebuild_workbook": _action_state(
             enabled=not bool(rebuild_reason),
             reason=rebuild_reason,
-            helper="현재 대표 신청 건 기준으로 운영 workbook을 다시 씁니다.",
+            helper="현재 엑셀 반영 대상으로 선택된 신청 메일 기준으로 운영 workbook을 다시 씁니다.",
         ),
         "connection_check": _action_state(
             enabled=not bool(connection_check_reason),
@@ -773,6 +919,28 @@ def _build_onboarding_steps(
     ]
 
 
+def _home_cta_context(*, shared_settings: dict[str, Any]) -> dict[str, str]:
+    mailbox = dict(shared_settings.get("mailbox") or {})
+    connection_status = str(mailbox.get("connection_status") or "").strip().lower()
+    if connection_status == "connected":
+        return {
+            "primary_href": "/review",
+            "primary_label": "리뷰 계속하기",
+            "secondary_href": "/sync",
+            "secondary_label": "동기화 열기",
+            "tertiary_href": "/settings",
+            "tertiary_label": "계정 설정 보기",
+        }
+    return {
+        "primary_href": "/settings",
+        "primary_label": "계정 연결 확인",
+        "secondary_href": "/sync",
+        "secondary_label": "동기화 열기",
+        "tertiary_href": "/review",
+        "tertiary_label": "리뷰센터 열기",
+    }
+
+
 def _workspace_page_context(session: WorkspaceSession) -> dict[str, Any]:
     workspace, secrets_store, state_store = _workspace_objects(session)
     shared_settings = secrets_store.masked_summary()
@@ -793,6 +961,7 @@ def _workspace_page_context(session: WorkspaceSession) -> dict[str, Any]:
         else ("fail" if mailbox.get("connection_status") == "failed" else "warn")
     )
     return {
+        "build_info": _current_build_info(),
         "workspace_open": True,
         "session": session,
         "workspace": workspace,
@@ -812,6 +981,7 @@ def _workspace_page_context(session: WorkspaceSession) -> dict[str, Any]:
         "action_states": action_states,
         "model_options": list(MODEL_OPTIONS),
         "mailbox_folder_options": list(mailbox.get("available_folders") or []),
+        "home_ctas": _home_cta_context(shared_settings=shared_settings),
         "onboarding_steps": _build_onboarding_steps(
             shared_settings=shared_settings,
             latest_sync_run=latest_sync_run,
@@ -828,6 +998,7 @@ def _session_context() -> dict[str, Any]:
     session = SERVER_STATE.current_session
     if session is None:
         return {
+            "build_info": _current_build_info(),
             "workspace_open": False,
             "recent_workspaces": local_settings.recent_workspaces,
             "recent_workspace_items": _recent_workspace_items(),
@@ -1502,18 +1673,10 @@ def review_center(
         "sort": page_result.sort,
         "selected_bundle_id": page_result.selected_bundle_id,
     }
-    detail_result = load_review_detail_service(
-        workspace_root=session.workspace_root,
-        bundle_id=page_result.selected_bundle_id,
-    )
-    if detail_result.item is None and page_result.items:
+    if not page_result.selected_bundle_id and page_result.items:
         fallback_bundle_id = str(page_result.items[0].get("bundle_id") or "")
         if fallback_bundle_id:
             page_result.selected_bundle_id = fallback_bundle_id
-            detail_result = load_review_detail_service(
-                workspace_root=session.workspace_root,
-                bundle_id=fallback_bundle_id,
-            )
             resolved_query["selected_bundle_id"] = fallback_bundle_id
     display_items: list[dict[str, Any]] = []
     for item in page_result.items:
@@ -1522,64 +1685,21 @@ def review_center(
             {
                 **item,
                 "selected": bundle_id == page_result.selected_bundle_id,
-                "select_url": _review_url(
+                "detail_url": _review_partial_detail_url(
                     resolved_query,
                     selected_bundle_id=bundle_id,
-                    artifact_kind="preview",
+                    artifact_kind=str(resolved_query.get("artifact_kind") or "overview"),
+                ),
+                "review_url": _review_url(
+                    resolved_query,
+                    selected_bundle_id=bundle_id,
+                    artifact_kind=str(resolved_query.get("artifact_kind") or "overview"),
                 ),
             }
         )
-    artifact_preview = _load_review_artifact_preview(
-        workspace=workspace,
-        item=detail_result.item,
-        kind=str(query["artifact_kind"]),
-    )
     exports_summary = load_exports_summary_service(workspace_root=session.workspace_root)
     current_review_url = _review_url(resolved_query)
     base_hidden_fields = _review_hidden_fields(resolved_query)
-    detail_base = {
-        "selected_bundle_id": page_result.selected_bundle_id,
-        "page": page_result.page,
-        "page_size": page_result.page_size,
-        "sort": page_result.sort,
-    }
-    artifact_tabs = [
-        {
-            "key": "preview",
-            "label": "메일 미리보기",
-            "url": _review_url(resolved_query, artifact_kind="preview", **detail_base),
-            "active": str(query["artifact_kind"]) == "preview",
-            "available": bool(detail_result.item and detail_result.item.get("preview_relpath")),
-        },
-        {
-            "key": "raw",
-            "label": "원본 메일 파일",
-            "url": _review_url(resolved_query, artifact_kind="raw", **detail_base),
-            "active": str(query["artifact_kind"]) == "raw",
-            "available": bool(detail_result.item and detail_result.item.get("raw_eml_relpath")),
-        },
-        {
-            "key": "summary",
-            "label": "요약 메모",
-            "url": _review_url(resolved_query, artifact_kind="summary", **detail_base),
-            "active": str(query["artifact_kind"]) == "summary",
-            "available": bool(detail_result.item and detail_result.item.get("summary_relpath")),
-        },
-        {
-            "key": "record",
-            "label": "추출 결과 원본",
-            "url": _review_url(resolved_query, artifact_kind="record", **detail_base),
-            "active": str(query["artifact_kind"]) == "record",
-            "available": bool(detail_result.item and detail_result.item.get("extracted_record_relpath")),
-        },
-        {
-            "key": "projected",
-            "label": "엑셀 반영 미리보기",
-            "url": _review_url(resolved_query, artifact_kind="projected", **detail_base),
-            "active": str(query["artifact_kind"]) == "projected",
-            "available": bool(detail_result.item and detail_result.item.get("projected_row_relpath")),
-        },
-    ]
     pagination = {
         "page": page_result.page,
         "page_count": page_result.page_count,
@@ -1599,13 +1719,11 @@ def review_center(
             "readonly": session.readonly,
             "query": resolved_query,
             "review_page": page_result,
-            "selected_item": detail_result.item,
-            "artifact_preview": artifact_preview,
-            "artifact_tabs": artifact_tabs,
             "exports_summary": exports_summary,
             "pagination": pagination,
             "current_review_url": current_review_url,
             "base_hidden_fields": base_hidden_fields,
+            "detail_panel_url": _review_partial_detail_url(resolved_query),
             "page_size_options": [25, 50, 100],
             "sort_options": [
                 ("received_desc", _review_sort_label("received_desc")),
@@ -1614,6 +1732,51 @@ def review_center(
             ],
             **_page_feedback(request),
             **_dialog_context(workspace=workspace),
+        },
+    )
+
+
+@app.get("/review/detail", response_class=HTMLResponse)
+def review_detail_partial(
+    request: Request,
+    selected_bundle_id: str = "",
+    artifact_kind: str = "overview",
+    search: str = "",
+    triage_label: str = "",
+    export_only: str = "false",
+    page: int = 1,
+    page_size: int = 50,
+    sort: str = "received_desc",
+):
+    session = SERVER_STATE.current_session
+    if session is None:
+        return HTMLResponse("<div class='empty-state compact-empty'><h2>세이브 파일을 먼저 열어야 합니다</h2></div>")
+    workspace, _, _ = _workspace_objects(session)
+    query = {
+        "search": search,
+        "triage_label": triage_label,
+        "export_only": _parse_bool_text(export_only, default=False),
+        "page": page,
+        "page_size": page_size,
+        "sort": sort,
+        "selected_bundle_id": selected_bundle_id,
+        "artifact_kind": artifact_kind,
+    }
+    detail_result = load_review_detail_service(
+        workspace_root=session.workspace_root,
+        bundle_id=selected_bundle_id,
+    )
+    return TEMPLATES.TemplateResponse(
+        "_review_detail_panel.html",
+        {
+            "request": request,
+            "readonly": session.readonly,
+            **_review_detail_context(
+                workspace=workspace,
+                selected_item=detail_result.item,
+                query=query,
+                current_review_url=_review_url(query),
+            ),
         },
     )
 
@@ -1699,9 +1862,9 @@ def save_representative_override(
 ):
     session = SERVER_STATE.current_session
     if session is None:
-        return _redirect_with_message("/", error="먼저 세이브 파일을 열어야 대표 메일을 지정할 수 있다.")
+        return _redirect_with_message("/", error="먼저 세이브 파일을 열어야 엑셀 반영 대상을 지정할 수 있다.")
     if session.readonly:
-        return _redirect_with_message(return_to, error="읽기 전용 세션에서는 대표 메일 override를 저장할 수 없다.")
+        return _redirect_with_message(return_to, error="읽기 전용 세션에서는 엑셀 반영 대상 override를 저장할 수 없다.")
     workspace, secrets_store, state_store = _workspace_objects(session)
     state_store.save_user_override(
         bundle_id=bundle_id,
@@ -1822,17 +1985,24 @@ def current_job():
 
 @app.post("/actions/open-path")
 def open_relative_path(
+    request: Request,
     relative_path: str = Form(...),
     return_to: str = Form("/review"),
 ):
     session = SERVER_STATE.current_session
     if session is None:
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"ok": False, "error": "먼저 세이브 파일을 열어야 원본 경로를 열 수 있습니다."}, status_code=400)
         return _redirect_with_message("/", error="먼저 세이브 파일을 열어야 원본 경로를 열 수 있다.")
     workspace, _, _ = _workspace_objects(session)
     target = workspace.from_workspace_relative(relative_path).resolve()
     if not target.is_relative_to(workspace.root().resolve()):
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"ok": False, "error": "세이브 파일 밖 경로는 열 수 없습니다."}, status_code=400)
         return _redirect_with_message(return_to, error="워크스페이스 밖 경로는 열 수 없다.")
     _open_path_in_os(target)
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "relative_path": relative_path})
     return _redirect_with_message(return_to, notice="선택한 파일 또는 폴더를 열었습니다.")
 
 
@@ -1871,11 +2041,6 @@ def _reapply_latest_review_state(*, workspace, secrets_store, state_store) -> No
     latest_json = workspace.review_logs_root() / "latest_inbox_review_board.json"
     if not latest_json.exists():
         return
-    ingest_review_report_into_state(
-        workspace=workspace,
-        state_store=state_store,
-        report_path=latest_json,
-    )
     payload = secrets_store.read()
     wrapper = OpenAIResponsesWrapper(
         OpenAIResponsesConfig(
@@ -1883,6 +2048,12 @@ def _reapply_latest_review_state(*, workspace, secrets_store, state_store) -> No
             api_key=str((payload.get("llm") or {}).get("api_key") or ""),
             usage_log_path=str(workspace.profile_paths().llm_usage_log_path()),
         )
+    )
+    ingest_review_report_into_state(
+        workspace=workspace,
+        state_store=state_store,
+        report_path=latest_json,
+        wrapper=wrapper,
     )
     template_relpath = str((payload.get("exports") or {}).get("template_workbook_relative_path") or "")
     if not template_relpath:

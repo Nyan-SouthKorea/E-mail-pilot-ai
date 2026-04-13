@@ -34,7 +34,7 @@ class WorkspacePipelineSyncResult:
     analysis_reused_count: int
     analysis_rerun_count: int
     total_review_item_count: int
-    representative_export_count: int
+    export_included_count: int
     reuse_counts: dict[str, int]
     details: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
@@ -115,7 +115,7 @@ def run_pipeline_sync_service(
             progress_current=3,
             progress_total=3,
             message="엑셀 결과를 반영하고 있습니다.",
-            next_action="대표 신청 메일만 운영 엑셀에 반영합니다.",
+            next_action="엑셀 반영 대상으로 선택된 메일만 운영 엑셀에 반영합니다.",
             details=[
                 f"분석 재사용: {review_result.analysis_reused_count}",
                 f"분석 재실행: {review_result.analysis_rerun_count}",
@@ -143,7 +143,7 @@ def run_pipeline_sync_service(
             analysis_reused_count=review_result.analysis_reused_count,
             analysis_rerun_count=review_result.analysis_rerun_count,
             total_review_item_count=review_result.state_item_count,
-            representative_export_count=workbook_result.representative_count,
+            export_included_count=workbook_result.export_included_count,
             reuse_counts={
                 "analysis_reused_count": review_result.analysis_reused_count,
                 "analysis_rerun_count": review_result.analysis_rerun_count,
@@ -218,7 +218,7 @@ def run_pipeline_sync_service(
             analysis_reused_count=review_result.analysis_reused_count if review_result else 0,
             analysis_rerun_count=review_result.analysis_rerun_count if review_result else 0,
             total_review_item_count=review_result.state_item_count if review_result else 0,
-            representative_export_count=workbook_result.representative_count if workbook_result else 0,
+            export_included_count=workbook_result.export_included_count if workbook_result else 0,
             reuse_counts={
                 "analysis_reused_count": review_result.analysis_reused_count if review_result else 0,
                 "analysis_rerun_count": review_result.analysis_rerun_count if review_result else 0,

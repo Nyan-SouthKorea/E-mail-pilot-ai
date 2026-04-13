@@ -12,7 +12,7 @@
 - 워크스페이스 열기/생성, 설정, 통합 리뷰센터, 동기화 시작 버튼이 있다.
 - 최근 세이브 바로 다시 열기, 세이브 닫기, 다른 세이브 열기, 마지막 세이브 자동 재개가 있다.
 - 관리도구 화면에서 현재 feature 카탈로그와 직접 실행 가능한 smoke/debug 기능을 보여준다.
-- 리뷰센터는 sqlite state DB 기준으로 triage, dedupe, 엑셀 반영 대상 상태를 보여준다.
+- 리뷰센터는 sqlite state DB 기준으로 triage와 자동 canonical selection 결과, 엑셀 반영 대상 상태를 보여준다.
 - 원본 열기 링크는 workspace 상대경로를 기준으로 OS 파일 열기를 시도한다.
 - `app/ui_smoke.py`로 핵심 화면과 재반영 버튼까지 반복 검증할 수 있다.
 - Windows portable exe는 Windows host build script 기준으로 빌드하고 `D:\EmailPilotAI\portable\EmailPilotAI\`에 단일 publish 한다.
@@ -65,8 +65,19 @@
 - [x] 한국어 artifact 용어와 엑셀 보조화 패널 정리
 - [x] service/CLI 전환 완료 기준으로 app 문서/diagnostics 문구 최종 정리
 - [ ] Windows 실제 native dialog 수동 acceptance 재확인
+- [x] 리뷰 상세 외부 열기 후 필터/페이지/선택 상태 보존 강화
+- [x] build commit / build time / 공식 exe 경로를 고급 진단에 노출
+- [x] review 첫 진입 기본 artifact를 `검토 개요`로 바꿔 무거운 iframe 선로딩 제거
+- [ ] 공식 Windows exe 재빌드 후 최신 UI/CTA/리뷰 반영 수동 확인
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | review detail 기본 탭 경량화와 partial history 보정
+
+- review 상세패널의 기본 artifact를 `검토 개요`로 바꾸고, 첫 진입 시에는 파일 iframe 대신 가벼운 상태 요약만 먼저 보여주게 했다.
+- 목록 row와 상세 탭의 htmx partial update는 이제 `/review/detail`이 아니라 현재 `/review` query 상태를 browser URL로 유지한다.
+- 즉, 상세를 바꾸더라도 필터/정렬/페이지/선택 bundle 맥락이 히스토리에 남고, 외부 파일 열기 후에도 같은 review 상태로 돌아오기 쉬운 구조로 다시 맞췄다.
+- `찾아보기`는 pywebview bridge를 우선 사용하고, bridge가 바로 붙은 경우 `desktop_ready`를 즉시 판정하도록 JS에서 다시 보강했다.
 
 ### 2026-04-13 | Human + Codex | 리뷰센터를 페이지 기반 목록 + 상세패널로 재편
 
@@ -75,6 +86,12 @@
 - `대표 export만`을 `엑셀 반영 대상만`으로 바꾸고, 원본/산출물 버튼은 한국어 이름으로 정리했다.
 - 외부 파일 열기 뒤에도 필터/페이지/선택 상태가 유지되도록 `return_to`와 URL query 보존 흐름을 도입했다.
 - `찾아보기`는 pywebview native dialog를 우선 시도하도록 bridge를 보강했다.
+
+### 2026-04-13 | Human + Codex | 리뷰 상태 유지와 build metadata 진단 강화
+
+- 리뷰 목록 row 자체도 선택 가능하게 바꾸고, 상세패널 partial swap 뒤 현재 선택 행을 다시 강조하게 했다.
+- 외부 파일 열기와 artifact 탭 전환 전후의 현재 리뷰 URL/스크롤을 세션 상태로 기억해, 화면 맥락이 최대한 유지되도록 보강했다.
+- 홈/설정/고급 도구의 진단 패널에 `build commit`, `build time`, `공식 실행 파일`을 함께 노출해, stale exe 여부를 눈으로 바로 확인할 수 있게 했다.
 
 ### 2026-04-13 | Human + Codex | Windows 공식 exe 재빌드와 실제 세이브 quick sync 자동 검증
 

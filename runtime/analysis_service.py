@@ -102,6 +102,7 @@ def refresh_review_board_service(
         workspace=workspace,
         state_store=state_store,
         report_path=report.review_json_path,
+        wrapper=wrapper,
     )
     reused_count = sum(
         1
@@ -148,7 +149,7 @@ def load_review_center_page_service(
     )
     page_count = max(1, ceil(filtered_total_count / resolved_page_size)) if filtered_total_count else 1
     resolved_page = min(resolved_page, page_count)
-    items = state_store.list_review_items(
+    items = state_store.list_review_page_items(
         search=search,
         triage_label=triage_label,
         export_only=export_only,

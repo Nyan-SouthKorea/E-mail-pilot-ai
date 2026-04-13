@@ -85,6 +85,11 @@ class WorkspaceStateStore:
                     preview_relpath TEXT,
                     extracted_record_relpath TEXT,
                     projected_row_relpath TEXT,
+                    application_group_id TEXT,
+                    canonical_bundle_id TEXT,
+                    included_in_export INTEGER NOT NULL DEFAULT 0,
+                    canonical_selection_reason TEXT NOT NULL DEFAULT '',
+                    canonical_selection_confidence REAL,
                     dedupe_group_key TEXT,
                     is_export_representative INTEGER NOT NULL DEFAULT 0,
                     duplicate_of_bundle_id TEXT,
@@ -126,8 +131,56 @@ class WorkspaceStateStore:
                 CREATE INDEX IF NOT EXISTS idx_bundle_review_state_triage
                 ON bundle_review_state (triage_label, is_export_representative);
 
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_received
+                ON bundle_review_state (received_at DESC, bundle_id DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_company
+                ON bundle_review_state (company_name COLLATE NOCASE, received_at DESC, bundle_id DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_sender
+                ON bundle_review_state (sender COLLATE NOCASE, received_at DESC, bundle_id DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_group
+                ON bundle_review_state (application_group_id, included_in_export);
+
                 CREATE INDEX IF NOT EXISTS idx_feature_runs_feature
                 ON feature_runs (feature_id, id DESC);
+                """
+            )
+            self._ensure_column(
+                connection,
+                table_name="bundle_review_state",
+                column_name="application_group_id",
+                column_definition="TEXT",
+            )
+            self._ensure_column(
+                connection,
+                table_name="bundle_review_state",
+                column_name="canonical_bundle_id",
+                column_definition="TEXT",
+            )
+            self._ensure_column(
+                connection,
+                table_name="bundle_review_state",
+                column_name="included_in_export",
+                column_definition="INTEGER NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                connection,
+                table_name="bundle_review_state",
+                column_name="canonical_selection_reason",
+                column_definition="TEXT NOT NULL DEFAULT ''",
+            )
+            self._ensure_column(
+                connection,
+                table_name="bundle_review_state",
+                column_name="canonical_selection_confidence",
+                column_definition="REAL",
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_export
+                ON bundle_review_state (triage_label, included_in_export)
                 """
             )
 
@@ -245,10 +298,12 @@ class WorkspaceStateStore:
                         application_purpose, request_summary, unresolved_columns_json,
                         notes_json, bundle_root_relpath, raw_eml_relpath,
                         attachments_dir_relpath, summary_relpath, preview_relpath,
-                        extracted_record_relpath, projected_row_relpath, dedupe_group_key,
+                        extracted_record_relpath, projected_row_relpath, application_group_id,
+                        canonical_bundle_id, included_in_export, canonical_selection_reason,
+                        canonical_selection_confidence, dedupe_group_key,
                         is_export_representative, duplicate_of_bundle_id,
                         workbook_row_index, user_override_state, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(bundle_id) DO UPDATE SET
                         received_at = excluded.received_at,
                         sender = excluded.sender,
@@ -273,6 +328,11 @@ class WorkspaceStateStore:
                         preview_relpath = excluded.preview_relpath,
                         extracted_record_relpath = excluded.extracted_record_relpath,
                         projected_row_relpath = excluded.projected_row_relpath,
+                        application_group_id = excluded.application_group_id,
+                        canonical_bundle_id = excluded.canonical_bundle_id,
+                        included_in_export = excluded.included_in_export,
+                        canonical_selection_reason = excluded.canonical_selection_reason,
+                        canonical_selection_confidence = excluded.canonical_selection_confidence,
                         dedupe_group_key = excluded.dedupe_group_key,
                         is_export_representative = excluded.is_export_representative,
                         duplicate_of_bundle_id = excluded.duplicate_of_bundle_id,
@@ -305,6 +365,11 @@ class WorkspaceStateStore:
                         item.get("preview_relpath"),
                         item.get("extracted_record_relpath"),
                         item.get("projected_row_relpath"),
+                        item.get("application_group_id"),
+                        item.get("canonical_bundle_id"),
+                        1 if item.get("included_in_export") else 0,
+                        item.get("canonical_selection_reason") or "",
+                        item.get("canonical_selection_confidence"),
                         item.get("dedupe_group_key"),
                         1 if item.get("is_export_representative") else 0,
                         item.get("duplicate_of_bundle_id"),
@@ -469,6 +534,40 @@ class WorkspaceStateStore:
             rows = connection.execute(sql, params).fetchall()
         return [self._row_to_review_item(row) for row in rows]
 
+    def list_review_page_items(
+        self,
+        *,
+        search: str = "",
+        triage_label: str = "",
+        export_only: bool = False,
+        include_duplicates: bool = True,
+        limit: int | None = None,
+        offset: int = 0,
+        sort: str = "received_desc",
+    ) -> list[dict[str, Any]]:
+        query, params = self._build_review_items_query(
+            search=search,
+            triage_label=triage_label,
+            export_only=export_only,
+            include_duplicates=include_duplicates,
+            select_clause=(
+                "SELECT bundle_id, received_at, sender, subject, triage_label, "
+                "export_status, company_name, included_in_export, workbook_row_index, "
+                "unresolved_columns_json FROM bundle_review_state WHERE 1=1"
+            ),
+        )
+        query.append(self._review_sort_clause(sort))
+        if limit is not None:
+            query.append("LIMIT ?")
+            params.append(limit)
+        if offset > 0:
+            query.append("OFFSET ?")
+            params.append(offset)
+        sql = " ".join(query)
+        with self.connect() as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [self._row_to_review_list_item(row) for row in rows]
+
     def count_review_items(
         self,
         *,
@@ -500,44 +599,25 @@ class WorkspaceStateStore:
 
     def summary_counts(self) -> dict[str, int]:
         with self.connect() as connection:
-            total = int(
-                connection.execute("SELECT COUNT(*) FROM bundle_review_state").fetchone()[0]
-            )
-            application = int(
-                connection.execute(
-                    "SELECT COUNT(*) FROM bundle_review_state WHERE triage_label = 'application'"
-                ).fetchone()[0]
-            )
-            not_application = int(
-                connection.execute(
-                    "SELECT COUNT(*) FROM bundle_review_state WHERE triage_label = 'not_application'"
-                ).fetchone()[0]
-            )
-            needs_human_review = int(
-                connection.execute(
-                    "SELECT COUNT(*) FROM bundle_review_state WHERE triage_label = 'needs_human_review'"
-                ).fetchone()[0]
-            )
-            duplicate_application = int(
-                connection.execute(
-                    """
-                    SELECT COUNT(*) FROM bundle_review_state
-                    WHERE triage_label = 'application' AND duplicate_of_bundle_id IS NOT NULL
-                    """
-                ).fetchone()[0]
-            )
-            representatives = int(
-                connection.execute(
-                    "SELECT COUNT(*) FROM bundle_review_state WHERE is_export_representative = 1"
-                ).fetchone()[0]
-            )
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN triage_label = 'application' THEN 1 ELSE 0 END) AS application,
+                    SUM(CASE WHEN triage_label = 'not_application' THEN 1 ELSE 0 END) AS not_application,
+                    SUM(CASE WHEN triage_label = 'needs_human_review' THEN 1 ELSE 0 END) AS needs_human_review,
+                    SUM(CASE WHEN triage_label = 'application' AND included_in_export = 1 THEN 1 ELSE 0 END) AS export_included,
+                    SUM(CASE WHEN triage_label = 'application' AND included_in_export = 0 THEN 1 ELSE 0 END) AS held_application
+                FROM bundle_review_state
+                """
+            ).fetchone()
         return {
-            "total": total,
-            "application": application,
-            "not_application": not_application,
-            "needs_human_review": needs_human_review,
-            "duplicate_application": duplicate_application,
-            "representative_application": representatives,
+            "total": int(row["total"] or 0),
+            "application": int(row["application"] or 0),
+            "not_application": int(row["not_application"] or 0),
+            "needs_human_review": int(row["needs_human_review"] or 0),
+            "export_included_application": int(row["export_included"] or 0),
+            "held_application": int(row["held_application"] or 0),
         }
 
     def _build_review_items_query(
@@ -561,9 +641,9 @@ class WorkspaceStateStore:
             query.append("AND triage_label = ?")
             params.append(triage_label.strip())
         if export_only:
-            query.append("AND is_export_representative = 1")
+            query.append("AND included_in_export = 1")
         if not include_duplicates:
-            query.append("AND duplicate_of_bundle_id IS NULL")
+            query.append("AND included_in_export = 1")
         return query, params
 
     def _review_sort_clause(self, sort: str) -> str:
@@ -661,12 +741,48 @@ class WorkspaceStateStore:
             "preview_relpath": row["preview_relpath"],
             "extracted_record_relpath": row["extracted_record_relpath"],
             "projected_row_relpath": row["projected_row_relpath"],
+            "application_group_id": row["application_group_id"],
+            "canonical_bundle_id": row["canonical_bundle_id"],
+            "included_in_export": bool(row["included_in_export"]),
+            "canonical_selection_reason": row["canonical_selection_reason"] or "",
+            "canonical_selection_confidence": row["canonical_selection_confidence"],
             "dedupe_group_key": row["dedupe_group_key"],
             "is_export_representative": bool(row["is_export_representative"]),
             "duplicate_of_bundle_id": row["duplicate_of_bundle_id"],
             "workbook_row_index": row["workbook_row_index"],
             "user_override_state": row["user_override_state"] or "",
         }
+
+    def _row_to_review_list_item(self, row: sqlite3.Row) -> dict[str, Any]:
+        unresolved_columns = json.loads(row["unresolved_columns_json"] or "[]")
+        return {
+            "bundle_id": row["bundle_id"],
+            "received_at": row["received_at"],
+            "sender": row["sender"],
+            "subject": row["subject"],
+            "triage_label": row["triage_label"],
+            "export_status": row["export_status"],
+            "company_name": row["company_name"],
+            "included_in_export": bool(row["included_in_export"]),
+            "workbook_row_index": row["workbook_row_index"],
+            "unresolved_columns": unresolved_columns,
+            "unresolved_count": len(unresolved_columns),
+        }
+
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        table_name: str,
+        column_name: str,
+        column_definition: str,
+    ) -> None:
+        rows = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+        if any(str(row["name"]) == column_name for row in rows):
+            return
+        connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
+        )
 
     def _row_to_feature_run(self, row: sqlite3.Row) -> dict[str, Any]:
         return {

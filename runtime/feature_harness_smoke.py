@@ -20,6 +20,8 @@ from runtime.analysis_service import (
 from runtime.diagnostics_service import pick_folder_native, picker_bridge_self_test
 from runtime.exports_service import load_exports_summary_service, rebuild_operating_workbook_service
 from runtime.feature_registry import check_feature, list_feature_specs, run_feature
+from runtime.review_state import ingest_review_report_into_state
+from runtime.state_store import WorkspaceStateStore
 from runtime.settings_service import load_workspace_settings_summary
 from runtime.sample_workspace import create_sample_workspace
 from runtime.workspace_service import inspect_workspace_entry, list_recent_workspaces
@@ -39,6 +41,7 @@ class FeatureHarnessSmokeReport:
     service_smokes: dict[str, dict[str, object]] = field(default_factory=dict)
     ui_smoke: dict[str, object] | None = None
     quick_review_regression: dict[str, object] | None = None
+    canonical_selection_smoke: dict[str, object] | None = None
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -154,6 +157,9 @@ def run_feature_harness_smoke(
     quick_review_regression = run_quick_review_regression_smoke(
         workspace_root=str(workspace.root()),
     )
+    canonical_selection_smoke = run_canonical_selection_smoke(
+        workspace_root=str(workspace.root()),
+    )
 
     report = FeatureHarnessSmokeReport(
         generated_at=datetime.now().isoformat(timespec="seconds"),
@@ -165,11 +171,13 @@ def run_feature_harness_smoke(
         service_smokes=service_smokes,
         ui_smoke=ui_smoke.to_dict(),
         quick_review_regression=quick_review_regression,
+        canonical_selection_smoke=canonical_selection_smoke,
         notes=[
             "live credential와 API key가 없는 기능은 prerequisite check만 수행하고 직접 run하지 않는다.",
             "샘플 워크스페이스만으로도 review center, workbook rebuild, admin route 접근을 반복 검증할 수 있다.",
             "quick review board 회귀는 빈 bundle 프로필 + bundle_limit=10 경로로 `notes` 초기화 버그를 다시 잡는다.",
             "workspace/settings/diagnostics/analysis/exports 공용 service를 직접 호출해 결과 계약도 함께 검증한다.",
+            "자동 canonical selection smoke는 같은 회사 신청 메일 2건 중 더 완전한 수정본을 export 기준으로 고르는지 확인한다.",
         ],
     )
     report_path.write_text(
@@ -197,6 +205,85 @@ def run_quick_review_regression_smoke(*, workspace_root: str | Path) -> dict[str
         "total_bundle_count": report.total_bundle_count,
         "notes": list(report.notes),
     }
+
+
+def run_canonical_selection_smoke(*, workspace_root: str | Path) -> dict[str, object]:
+    """기능: 같은 신청 흐름 후보 2건에서 canonical export 대상을 자동 선택하는지 확인한다."""
+
+    workspace = load_shared_workspace(workspace_root)
+    with tempfile.TemporaryDirectory(prefix="epa_canonical_smoke_") as temp_root:
+        report_path = Path(temp_root) / "canonical_selection_report.json"
+        state_db_path = Path(temp_root) / "state.sqlite"
+        payload = {
+            "items": [
+                {
+                    "bundle_id": "20260405_091500_msg_ba92c71f",
+                    "bundle_root": "mail/bundles/20260405_091500_msg_ba92c71f",
+                    "received_at": "2026-04-05T09:15:00+09:00",
+                    "sender": "박서연 <seoyeon@acralight.co.kr>",
+                    "subject": "[샘플] 아크라이트 참가 신청",
+                    "attachment_count": 1,
+                    "triage_label": "application",
+                    "triage_reason": "신청 내용이 포함된 메일이다.",
+                    "triage_confidence": 0.92,
+                    "analysis_source": "smoke_canonical_selection",
+                    "export_status": "pending",
+                    "company_name": "아크라이트",
+                    "contact_name": "박서연",
+                    "email_address": "seoyeon@acralight.co.kr",
+                    "application_purpose": "전시 참가 신청",
+                    "request_summary": "초기 신청서 본문이다.",
+                    "unresolved_columns": [],
+                    "notes": [],
+                },
+                {
+                    "bundle_id": "20260406_142500_msg_b170ce32",
+                    "bundle_root": "mail/bundles/20260406_142500_msg_b170ce32",
+                    "received_at": "2026-04-06T14:25:00+09:00",
+                    "sender": "박서연 <seoyeon@acralight.co.kr>",
+                    "subject": "[샘플] 아크라이트 참가 신청서 수정본",
+                    "attachment_count": 1,
+                    "triage_label": "application",
+                    "triage_reason": "수정된 신청 내용이 포함된 메일이다.",
+                    "triage_confidence": 0.95,
+                    "analysis_source": "smoke_canonical_selection",
+                    "export_status": "pending",
+                    "company_name": "아크라이트",
+                    "contact_name": "박서연",
+                    "email_address": "seoyeon@acralight.co.kr",
+                    "application_purpose": "전시 참가 신청 수정본",
+                    "request_summary": "최신 수정본 신청서다.",
+                    "unresolved_columns": [],
+                    "notes": [],
+                },
+            ]
+        }
+        report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        state_store = WorkspaceStateStore(state_db_path)
+        state_store.ensure_schema()
+        items = ingest_review_report_into_state(
+            workspace=workspace,
+            state_store=state_store,
+            report_path=report_path,
+            wrapper=None,
+        )
+        selected = [item for item in items if item.included_in_export]
+        held = [item for item in items if item.application_group_id and not item.included_in_export]
+        expected_bundle_id = "20260406_142500_msg_b170ce32"
+        if len(selected) != 1 or selected[0].bundle_id != expected_bundle_id:
+            return {
+                "status": "fail",
+                "selected_bundle_ids": [item.bundle_id for item in selected],
+                "held_bundle_ids": [item.bundle_id for item in held],
+                "expected_bundle_id": expected_bundle_id,
+            }
+        return {
+            "status": "pass",
+            "selected_bundle_id": selected[0].bundle_id,
+            "held_bundle_ids": [item.bundle_id for item in held],
+            "canonical_selection_reason": selected[0].canonical_selection_reason,
+            "application_group_id": selected[0].application_group_id,
+        }
 
 
 def main() -> None:

@@ -32,8 +32,8 @@
   <div class="card"><span class="label">신청 메일</span><span class="value">{{ counts.application }}</span></div>
   <div class="card"><span class="label">비신청 메일</span><span class="value">{{ counts.not_application }}</span></div>
   <div class="card"><span class="label">사람 검토 필요</span><span class="value">{{ counts.needs_human_review }}</span></div>
-  <div class="card"><span class="label">중복 신청</span><span class="value">{{ counts.duplicate_application }}</span></div>
-  <div class="card"><span class="label">엑셀 반영 대상</span><span class="value">{{ counts.representative_application }}</span></div>
+  <div class="card"><span class="label">엑셀 반영 대상</span><span class="value">{{ counts.export_included_application }}</span></div>
+  <div class="card"><span class="label">보류된 신청</span><span class="value">{{ counts.held_application }}</span></div>
 </section>
 
 <section class="section">
@@ -53,7 +53,7 @@
     </div>
     <div class="filter-field">
       <label>엑셀 반영 대상만
-        <button class="info-badge" type="button" data-tooltip="중복 신청 묶음에서 실제 운영 엑셀에 들어가는 대표 메일만 표시합니다.">i</button>
+        <button class="info-badge" type="button" data-tooltip="같은 신청 흐름 안에서 실제 운영 엑셀에 반영되는 메일만 표시합니다.">i</button>
       </label>
       <select name="export_only">
         <option value="false" {% if not query.export_only %}selected{% endif %}>아니오</option>
@@ -115,17 +115,46 @@
               <th>제목</th>
               <th>분류</th>
               <th>엑셀</th>
-              <th>중복</th>
               <th>미해결</th>
             </tr>
           </thead>
           <tbody>
             {% for item in items %}
-            <tr class="{% if item.selected %}selected{% endif %}">
-              <td><a class="review-row-link" href="{{ item.select_url }}">{{ item.received_at or "-" }}</a></td>
-              <td>{{ item.company_name or "(기업명 미확정)" }}</td>
+            <tr class="{% if item.selected %}selected{% endif %}" data-review-row data-bundle-id="{{ item.bundle_id }}" data-select-url="{{ item.detail_url }}" data-review-url="{{ item.review_url }}">
+              <td>
+                <a
+                  class="review-row-link"
+                  href="{{ item.review_url }}"
+                  data-bundle-id="{{ item.bundle_id }}"
+                  hx-get="{{ item.detail_url }}"
+                  hx-target="#review-detail-panel"
+                  hx-swap="innerHTML"
+                  hx-push-url="{{ item.review_url }}"
+                >{{ item.received_at or "-" }}</a>
+              </td>
+              <td>
+                <a
+                  class="review-row-link"
+                  href="{{ item.review_url }}"
+                  data-bundle-id="{{ item.bundle_id }}"
+                  hx-get="{{ item.detail_url }}"
+                  hx-target="#review-detail-panel"
+                  hx-swap="innerHTML"
+                  hx-push-url="{{ item.review_url }}"
+                >{{ item.company_name or "(기업명 미확정)" }}</a>
+              </td>
               <td>{{ item.sender }}</td>
-              <td>{{ item.subject }}</td>
+              <td>
+                <a
+                  class="review-row-link"
+                  href="{{ item.review_url }}"
+                  data-bundle-id="{{ item.bundle_id }}"
+                  hx-get="{{ item.detail_url }}"
+                  hx-target="#review-detail-panel"
+                  hx-swap="innerHTML"
+                  hx-push-url="{{ item.review_url }}"
+                >{{ item.subject }}</a>
+              </td>
               <td><span class="badge {{ item.triage_label }}">
                 {% if item.triage_label == 'application' %}신청
                 {% elif item.triage_label == 'not_application' %}비신청
@@ -133,7 +162,7 @@
                 {% endif %}
               </span></td>
               <td>
-                {% if item.is_export_representative %}
+                {% if item.included_in_export %}
                 <span class="badge application">반영 대상</span>
                 {% elif item.export_status %}
                 <span class="badge quiet">{{ item.export_status }}</span>
@@ -141,8 +170,7 @@
                 -
                 {% endif %}
               </td>
-              <td>{{ "중복 신청" if item.duplicate_of_bundle_id else "-" }}</td>
-              <td>{{ item.unresolved_columns | length }}</td>
+              <td>{{ item.unresolved_count }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -158,128 +186,23 @@
   </div>
 
   <aside class="review-sidebar">
-    <section class="section review-detail-card">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">상세</div>
-          <h2>{{ selected_item.company_name if selected_item and selected_item.company_name else "선택한 메일 상세" }}</h2>
+    <div
+      id="review-detail-panel"
+      data-current-review-url="{{ current_review_url }}"
+      hx-get="{{ detail_panel_url }}"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+    >
+      <section class="section review-detail-card review-detail-skeleton">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">상세</div>
+            <h2>선택한 메일을 불러오는 중입니다</h2>
+          </div>
         </div>
-      </div>
-
-      {% if selected_item %}
-      <div class="details-grid compact-grid">
-        <div><span class="label">받은 시각</span><strong>{{ selected_item.received_at or "-" }}</strong></div>
-        <div><span class="label">발신자</span><strong>{{ selected_item.sender }}</strong></div>
-        <div><span class="label">분류</span><strong>
-          {% if selected_item.triage_label == 'application' %}신청 메일
-          {% elif selected_item.triage_label == 'not_application' %}비신청 메일
-          {% else %}사람 검토 필요
-          {% endif %}
-        </strong></div>
-        <div><span class="label">엑셀 행</span><strong>{{ selected_item.workbook_row_index or "-" }}</strong></div>
-      </div>
-
-      <div class="review-detail-block">
-        <div class="detail-label">메일 제목</div>
-        <div class="detail-value">{{ selected_item.subject }}</div>
-      </div>
-      <div class="review-detail-block">
-        <div class="detail-label">분류 근거</div>
-        <div class="detail-value">{{ selected_item.triage_reason or "아직 근거가 없습니다." }}</div>
-      </div>
-      <div class="review-detail-block">
-        <div class="detail-label">요약 메모</div>
-        <div class="detail-value">{{ selected_item.request_summary or "아직 요약이 없습니다." }}</div>
-      </div>
-
-      <div class="details-grid compact-grid">
-        <div><span class="label">회사</span><strong>{{ selected_item.company_name or "-" }}</strong></div>
-        <div><span class="label">담당자</span><strong>{{ selected_item.contact_name or "-" }}</strong></div>
-        <div><span class="label">이메일</span><strong>{{ selected_item.email_address or "-" }}</strong></div>
-        <div><span class="label">신청 목적</span><strong>{{ selected_item.application_purpose or "-" }}</strong></div>
-      </div>
-
-      <div class="field-status {% if selected_item.unresolved_columns|length == 0 %}pass{% else %}warn{% endif %}">
-        미해결 항목: {{ selected_item.unresolved_columns | join(", ") if selected_item.unresolved_columns else "없음" }}
-      </div>
-
-      <div class="review-artifact-tabs">
-        {% for tab in artifact_tabs %}
-          {% if tab.available %}
-          <a href="{{ tab.url }}" class="{% if tab.active %}active{% endif %}">{{ tab.label }}</a>
-          {% endif %}
-        {% endfor %}
-      </div>
-
-      {% if artifact_preview %}
-      <div class="review-artifact-viewer">
-        {% if artifact_preview.content_type == 'html' %}
-        <iframe
-          title="{{ artifact_preview.label }}"
-          src="/review/artifact?bundle_id={{ selected_item.bundle_id | urlencode }}&kind={{ artifact_preview.kind | urlencode }}"
-        ></iframe>
-        {% else %}
-        <iframe
-          title="{{ artifact_preview.label }}"
-          src="/review/artifact?bundle_id={{ selected_item.bundle_id | urlencode }}&kind={{ artifact_preview.kind | urlencode }}"
-        ></iframe>
-        {% endif %}
-      </div>
-      {% endif %}
-
-      <div class="review-external-actions">
-        {% if selected_item.preview_relpath %}
-        <form action="/actions/open-path" method="post">
-          <input type="hidden" name="relative_path" value="{{ selected_item.preview_relpath }}">
-          <input type="hidden" name="return_to" value="{{ current_review_url }}">
-          <button type="submit">메일 미리보기 외부로 열기</button>
-        </form>
-        {% endif %}
-        {% if selected_item.raw_eml_relpath %}
-        <form action="/actions/open-path" method="post">
-          <input type="hidden" name="relative_path" value="{{ selected_item.raw_eml_relpath }}">
-          <input type="hidden" name="return_to" value="{{ current_review_url }}">
-          <button type="submit">원본 메일 파일 열기</button>
-        </form>
-        {% endif %}
-        {% if selected_item.attachments_dir_relpath %}
-        <form action="/actions/open-path" method="post">
-          <input type="hidden" name="relative_path" value="{{ selected_item.attachments_dir_relpath }}">
-          <input type="hidden" name="return_to" value="{{ current_review_url }}">
-          <button type="submit">첨부파일 폴더 열기</button>
-        </form>
-        {% endif %}
-      </div>
-
-      <div class="review-detail-actions">
-        <form action="/review/override/triage" method="post" class="inline-form">
-          <input type="hidden" name="bundle_id" value="{{ selected_item.bundle_id }}">
-          <input type="hidden" name="return_to" value="{{ current_review_url }}">
-          <label>분류</label>
-          <select name="triage_label">
-            <option value="application" {% if selected_item.triage_label == 'application' %}selected{% endif %}>신청 메일</option>
-            <option value="not_application" {% if selected_item.triage_label == 'not_application' %}selected{% endif %}>비신청 메일</option>
-            <option value="needs_human_review" {% if selected_item.triage_label == 'needs_human_review' %}selected{% endif %}>사람 검토 필요</option>
-          </select>
-          <span class="action-shell" data-tooltip="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}선택한 메일의 분류를 저장합니다.{% endif %}">
-            <button type="submit" {% if readonly %}disabled{% endif %}>분류 저장</button>
-          </span>
-        </form>
-        <form action="/review/override/representative" method="post" class="inline-form">
-          <input type="hidden" name="bundle_id" value="{{ selected_item.bundle_id }}">
-          <input type="hidden" name="return_to" value="{{ current_review_url }}">
-          <span class="action-shell" data-tooltip="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}이 메일을 엑셀 반영 대상으로 지정합니다.{% endif %}">
-            <button type="submit" {% if readonly %}disabled{% endif %}>엑셀 반영 대상으로 지정</button>
-          </span>
-        </form>
-      </div>
-      {% else %}
-      <div class="empty-state compact-empty">
-        <h2>오른쪽에서 자세히 볼 메일을 선택해 주세요</h2>
-        <p class="muted">왼쪽 목록에서 회사나 제목을 누르면 원본과 추출 결과를 이 화면 안에서 바로 볼 수 있습니다.</p>
-      </div>
-      {% endif %}
-    </section>
+        <div class="field-status quiet">현재 페이지의 첫 메일부터 가볍게 불러옵니다.</div>
+      </section>
+    </div>
 
     <section class="section exports-summary-card">
       <div class="section-head">
@@ -291,7 +214,7 @@
       <div class="details">
         <div>현재 운영본: {{ exports_summary.operating_workbook_relpath }}</div>
         <div>마지막 갱신 시각: {{ exports_summary.operating_workbook_updated_at or "아직 없음" }}</div>
-        <div>엑셀 반영 대상 메일 수: {{ exports_summary.representative_count }}</div>
+        <div>엑셀 반영 대상 메일 수: {{ exports_summary.export_included_count }}</div>
         <div>엑셀 행으로 연결된 항목 수: {{ exports_summary.workbook_row_count }}</div>
       </div>
       <div class="field-status quiet" style="margin-top:12px">
@@ -300,14 +223,10 @@
       {% if exports_summary.snapshot_items %}
       <div class="review-snapshot-list">
         {% for item in exports_summary.snapshot_items[:5] %}
-        <form action="/actions/open-path" method="post" class="snapshot-item-form">
-          <input type="hidden" name="relative_path" value="{{ item.relative_path }}">
-          <input type="hidden" name="return_to" value="{{ current_review_url }}">
-          <button type="submit" class="snapshot-item-button">
-            <strong>{{ item.name }}</strong>
-            <span class="muted small">{{ item.updated_at }}</span>
-          </button>
-        </form>
+        <button type="button" class="snapshot-item-button" data-open-relative-path="{{ item.relative_path }}">
+          <strong>{{ item.name }}</strong>
+          <span class="muted small">{{ item.updated_at }}</span>
+        </button>
         {% endfor %}
       </div>
       {% endif %}

@@ -1,0 +1,144 @@
+<section
+  class="section review-detail-card"
+  data-selected-bundle-id="{{ selected_item.bundle_id if selected_item else '' }}"
+  data-current-review-url="{{ current_review_url }}"
+>
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">상세</div>
+      <h2>{{ selected_item.company_name if selected_item and selected_item.company_name else "선택한 메일 상세" }}</h2>
+    </div>
+  </div>
+
+  {% if selected_item %}
+  <div class="details-grid compact-grid">
+    <div><span class="label">받은 시각</span><strong>{{ selected_item.received_at or "-" }}</strong></div>
+    <div><span class="label">발신자</span><strong>{{ selected_item.sender }}</strong></div>
+    <div><span class="label">분류</span><strong>
+      {% if selected_item.triage_label == 'application' %}신청 메일
+      {% elif selected_item.triage_label == 'not_application' %}비신청 메일
+      {% else %}사람 검토 필요
+      {% endif %}
+    </strong></div>
+    <div><span class="label">엑셀 행</span><strong>{{ selected_item.workbook_row_index or "-" }}</strong></div>
+  </div>
+
+  <div class="review-detail-block">
+    <div class="detail-label">메일 제목</div>
+    <div class="detail-value">{{ selected_item.subject }}</div>
+  </div>
+  <div class="review-detail-block">
+    <div class="detail-label">분류 근거</div>
+    <div class="detail-value">{{ selected_item.triage_reason or "아직 근거가 없습니다." }}</div>
+  </div>
+  <div class="review-detail-block">
+    <div class="detail-label">요약 메모</div>
+    <div class="detail-value">{{ selected_item.request_summary or "아직 요약이 없습니다." }}</div>
+  </div>
+
+  <div class="details-grid compact-grid">
+    <div><span class="label">회사</span><strong>{{ selected_item.company_name or "-" }}</strong></div>
+    <div><span class="label">담당자</span><strong>{{ selected_item.contact_name or "-" }}</strong></div>
+    <div><span class="label">이메일</span><strong>{{ selected_item.email_address or "-" }}</strong></div>
+    <div><span class="label">신청 목적</span><strong>{{ selected_item.application_purpose or "-" }}</strong></div>
+  </div>
+
+  {% if selected_item.canonical_selection_reason %}
+  <div class="field-status quiet">
+    엑셀 반영 판단: {{ selected_item.canonical_selection_reason }}
+    {% if selected_item.canonical_selection_confidence is not none %}
+    (신뢰도 {{ "%.2f"|format(selected_item.canonical_selection_confidence) }})
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="field-status {% if selected_item.unresolved_columns|length == 0 %}pass{% else %}warn{% endif %}">
+    미해결 항목: {{ selected_item.unresolved_columns | join(", ") if selected_item.unresolved_columns else "없음" }}
+  </div>
+
+  <div class="review-artifact-tabs">
+    {% for tab in artifact_tabs %}
+      {% if tab.available %}
+      <a
+        href="{{ tab.review_url }}"
+        class="{% if tab.active %}active{% endif %}"
+        hx-get="{{ tab.detail_url }}"
+        hx-target="#review-detail-panel"
+        hx-swap="innerHTML"
+        hx-push-url="{{ tab.review_url }}"
+      >{{ tab.label }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {% if artifact_tabs and artifact_tabs[0].active %}
+  <div class="review-detail-block">
+    <div class="detail-label">엑셀 반영 상태</div>
+    <div class="detail-value">
+      {% if selected_item.included_in_export %}
+      현재 운영 엑셀에 반영되는 기준 메일입니다.
+      {% elif selected_item.export_status %}
+      현재 상태는 {{ selected_item.export_status }} 입니다.
+      {% else %}
+      아직 엑셀 반영 상태가 정해지지 않았습니다.
+      {% endif %}
+    </div>
+  </div>
+  <div class="details-grid compact-grid">
+    <div><span class="label">첨부 개수</span><strong>{{ selected_item.attachment_count }}</strong></div>
+    <div><span class="label">엑셀 행</span><strong>{{ selected_item.workbook_row_index or "-" }}</strong></div>
+    <div><span class="label">반영 대상 여부</span><strong>{{ "예" if selected_item.included_in_export else "아니오" }}</strong></div>
+    <div><span class="label">업데이트 시각</span><strong>{{ selected_item.updated_at or "-" }}</strong></div>
+  </div>
+  {% if selected_item.notes %}
+  <div class="review-detail-block">
+    <div class="detail-label">처리 메모</div>
+    <div class="detail-value">{{ selected_item.notes | join(" / ") }}</div>
+  </div>
+  {% endif %}
+  {% elif artifact_preview %}
+  <div class="review-artifact-viewer">
+    <iframe
+      title="{{ artifact_preview.label }}"
+      src="/review/artifact?bundle_id={{ selected_item.bundle_id | urlencode }}&kind={{ artifact_preview.kind | urlencode }}"
+    ></iframe>
+  </div>
+  {% endif %}
+
+  <div class="review-external-actions">
+    {% if selected_item.preview_relpath %}
+    <button type="button" data-open-relative-path="{{ selected_item.preview_relpath }}">메일 미리보기 외부로 열기</button>
+    {% endif %}
+    {% if selected_item.raw_eml_relpath %}
+    <button type="button" data-open-relative-path="{{ selected_item.raw_eml_relpath }}">원본 메일 파일 열기</button>
+    {% endif %}
+    {% if selected_item.attachments_dir_relpath %}
+    <button type="button" data-open-relative-path="{{ selected_item.attachments_dir_relpath }}">첨부파일 폴더 열기</button>
+    {% endif %}
+  </div>
+
+  <div class="review-detail-actions">
+    <form action="/review/override/triage" method="post" class="inline-form">
+      <input type="hidden" name="bundle_id" value="{{ selected_item.bundle_id }}">
+      <input type="hidden" name="return_to" value="{{ current_review_url }}">
+      <label>분류</label>
+      <select name="triage_label">
+        <option value="application" {% if selected_item.triage_label == 'application' %}selected{% endif %}>신청 메일</option>
+        <option value="not_application" {% if selected_item.triage_label == 'not_application' %}selected{% endif %}>비신청 메일</option>
+        <option value="needs_human_review" {% if selected_item.triage_label == 'needs_human_review' %}selected{% endif %}>사람 검토 필요</option>
+      </select>
+      <span class="action-shell" data-tooltip="{% if readonly %}읽기 전용 세션에서는 수정할 수 없습니다.{% else %}선택한 메일의 분류를 저장합니다.{% endif %}">
+        <button type="submit" {% if readonly %}disabled{% endif %}>분류 저장</button>
+      </span>
+    </form>
+  </div>
+  <div class="field-status quiet" style="margin-top:12px">
+    이 화면이 검토의 정본입니다. 엑셀은 외부 전달이나 참고가 필요할 때만 열어도 됩니다.
+  </div>
+  {% else %}
+  <div class="empty-state compact-empty review-detail-placeholder">
+    <h2>오른쪽에서 자세히 볼 메일을 선택해 주세요</h2>
+    <p class="muted">왼쪽 목록에서 회사나 제목을 누르면 메일 미리보기와 추출 결과를 이 화면 안에서 바로 볼 수 있습니다.</p>
+  </div>
+  {% endif %}
+</section>

@@ -247,9 +247,9 @@
       <span class="status-pill">리뷰 항목: {{ state_counts.total }}</span>
     </div>
     <div class="toolbar hero-actions">
-      <a class="button-link primary" href="/settings">계정 연결 계속하기</a>
-      <a class="button-link" href="/sync">동기화 열기</a>
-      <a class="button-link" href="/review">리뷰센터 열기</a>
+      <a class="button-link primary" href="{{ home_ctas.primary_href }}">{{ home_ctas.primary_label }}</a>
+      <a class="button-link" href="{{ home_ctas.secondary_href }}">{{ home_ctas.secondary_label }}</a>
+      <a class="button-link" href="{{ home_ctas.tertiary_href }}">{{ home_ctas.tertiary_label }}</a>
     </div>
   </section>
 
@@ -323,18 +323,18 @@
       <a class="action-tile" href="/review">
         <span class="label">결과 확인</span>
         <strong>리뷰센터 열기</strong>
-        <p class="muted">분류 결과, 원본 링크, 대표 메일, workbook 반영 상태를 확인합니다.</p>
+        <p class="muted">분류 결과, 메일 미리보기, 엑셀 반영 상태를 확인합니다.</p>
       </a>
     </div>
   </section>
 
   <section class="cards">
     <div class="card"><span class="label">총 메일 수</span><span class="value">{{ state_counts.total if state_counts else 0 }}</span></div>
-    <div class="card"><span class="label">application</span><span class="value">{{ state_counts.application if state_counts else 0 }}</span></div>
-    <div class="card"><span class="label">not_application</span><span class="value">{{ state_counts.not_application if state_counts else 0 }}</span></div>
-    <div class="card"><span class="label">needs_human_review</span><span class="value">{{ state_counts.needs_human_review if state_counts else 0 }}</span></div>
-    <div class="card"><span class="label">duplicate_application</span><span class="value">{{ state_counts.duplicate_application if state_counts else 0 }}</span></div>
-    <div class="card"><span class="label">엑셀 반영 대상</span><span class="value">{{ state_counts.representative_application if state_counts else 0 }}</span></div>
+    <div class="card"><span class="label">신청 메일</span><span class="value">{{ state_counts.application if state_counts else 0 }}</span></div>
+    <div class="card"><span class="label">비신청 메일</span><span class="value">{{ state_counts.not_application if state_counts else 0 }}</span></div>
+    <div class="card"><span class="label">검토 필요</span><span class="value">{{ state_counts.needs_human_review if state_counts else 0 }}</span></div>
+    <div class="card"><span class="label">엑셀 반영 대상</span><span class="value">{{ state_counts.export_included_application if state_counts else 0 }}</span></div>
+    <div class="card"><span class="label">보류된 신청</span><span class="value">{{ state_counts.held_application if state_counts else 0 }}</span></div>
   </section>
 
   <section class="split split-main">
@@ -381,16 +381,18 @@
 
   <details class="section diagnostic-box">
     <summary>고급 진단 보기</summary>
-    <div class="details" style="margin-top:12px">
-      <div>실행 모드: <span data-shell-mode-value>{{ shell_context.shell_mode_label }}</span></div>
-      <div>파일 탐색기 상태: <span data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</span></div>
-      <div>현재 실행 경로: {{ shell_context.launch_path or "(감지 정보 없음)" }}</div>
-      <div>공식 실행 파일: {{ shell_context.official_local_bundle_path }}</div>
-      <div>startup.log: {{ shell_context.startup_log_path }}</div>
-      {% if shell_context.unsupported_launch_reason %}
-      <div class="danger">{{ shell_context.unsupported_launch_reason }}</div>
-      {% endif %}
-    </div>
+      <div class="details" style="margin-top:12px">
+        <div>실행 모드: <span data-shell-mode-value>{{ shell_context.shell_mode_label }}</span></div>
+        <div>파일 탐색기 상태: <span data-native-dialog-state-value>{{ shell_context.native_dialog_state_label }}</span></div>
+        <div>현재 실행 경로: {{ shell_context.launch_path or "(감지 정보 없음)" }}</div>
+        <div>공식 실행 파일: {{ shell_context.official_local_bundle_path }}</div>
+        <div>빌드 커밋: {{ build_info.build_commit or "(알 수 없음)" }}</div>
+        <div>빌드 시각: {{ build_info.build_time or "(알 수 없음)" }}</div>
+        <div>startup.log: {{ shell_context.startup_log_path }}</div>
+        {% if shell_context.unsupported_launch_reason %}
+        <div class="danger">{{ shell_context.unsupported_launch_reason }}</div>
+        {% endif %}
+      </div>
   </details>
 {% endif %}
 {% endblock %}

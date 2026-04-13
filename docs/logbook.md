@@ -82,28 +82,34 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `리뷰 성능/사용성 개선 + 앱 정본화 + CLI 우선 검증 체계 재편`
+  - `리뷰 정본화 + 자동 중복 판정 + 최신 exe 게이트 정비`
 - summary:
-  - 병목은 기능 하나가 아니라 구조 문제다. `리뷰`가 전체 항목을 한 번에 읽고 카드형 DOM을 전부 렌더링하던 구조를 페이지 기반 목록 + 선택 상세 기준으로 바꾼다.
+  - 현재 Windows 공식 실행본 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`가 최신 repo 상태보다 오래된 빌드일 수 있으므로, 먼저 stale exe 문제를 구조적으로 막는다.
+  - 이번 리팩터의 목표는 세 가지다. `리뷰`를 몇천 건에서도 버벅이지 않는 제품형 화면으로 바꾸고, `중복/대표 메일` 개념을 사용자 화면에서 없애고, `공식 exe 빌드 -> CLI/service 검증 -> 공식 exe 기준 검증 -> 보고`를 하드 게이트로 고정한다.
+  - 기본 UI에서는 중복/대표 개념을 숨기고, 내부적으로만 LLM과 fallback heuristic으로 canonical 메일을 선택한다.
   - 앱을 검토의 정본으로 두고, 엑셀은 외부 전달/참고용 보조 결과물로 재정의한다.
-  - GUI는 계속 thin wrapper로 두고, 공용 진실은 `runtime service + 명시적 CLI`로 유지한다.
-  - 동기화 범위는 `최근 10 / 100 / 500 / 1000 / 전체 / 직접 입력 N` 프리셋으로 고정하고, `10 -> 100 -> 500 -> 550 -> 전체` 순차 검증 흐름을 운영 기준으로 문서화한다.
 - key changes:
-  - 리뷰센터는 기본 50건 페이지네이션 + 우측 상세패널 + 앱 안 미리보기 탭으로 바꾼다.
-  - `대표 export만`은 `엑셀 반영 대상만`으로 바꾸고, `preview/raw.eml/summary/record/projected/attachments`는 한국어 용어로 정리한다.
-  - 외부 파일 열기 뒤에도 필터/페이지/선택 상태가 유지되도록 URL query와 로컬 설정에 상태를 같이 저장한다.
-  - `analysis review-list`, `analysis review-item`, `exports summary`를 공용 service/CLI 계약으로 올린다.
-  - `docs/feature_catalog.md`에는 기능 id, UI/CLI/service, 입력/출력, 저장 위치, smoke 가능 여부, 수동 acceptance 필요 여부를 빠짐없이 반영한다.
+  - `/app-meta`와 앱 진단에 `build_commit`, `build_time`, `official_exe_path`를 노출하고, 공식 exe 재빌드와 packaged smoke를 완료 보고의 하드 게이트로 둔다.
+  - 계정이 이미 `connected`면 홈의 기본 CTA는 `리뷰 계속하기`로 바꾸고, `계정 연결 계속하기`는 기본 CTA에서 제거한다.
+  - 리뷰는 기본 50건 목록만 먼저 렌더링하고, row 선택과 artifact 탭 전환은 full reload가 아니라 우측 상세패널만 partial update로 갱신한다.
+  - 사용자 화면에서는 `중복` 열과 `대표 메일 지정` 액션을 없애고, 내부 상태에는 `application_group_id`, `canonical_bundle_id`, `included_in_export`, `canonical_selection_reason`, `canonical_selection_confidence`를 유지한다.
+  - `preview/raw.eml/summary/record/projected/attachments`는 모두 한국어 용어로 통일하고, 앱 안 미리보기를 기본으로 둔다.
+  - `docs/feature_catalog.md`에는 기능 id, UI/CLI/service, 입력/출력, 저장 위치, smoke 가능 여부, 수동 acceptance 필요 여부와 함께 `source 반영 / CLI 검증 / 공식 exe 반영 / 수동 acceptance` 구분을 남긴다.
 - public interfaces / types:
   - `runtime.analysis_service:{load_review_center_page_service, load_review_detail_service, refresh_review_board_service}`
   - `runtime.exports_service:{load_exports_summary_service, rebuild_operating_workbook_service}`
   - `runtime.pipeline_service:run_pipeline_sync_service`
-  - `runtime.cli`
-    - `analysis review-list --page --page-size --sort`
-    - `analysis review-item --bundle-id`
-    - `exports summary`
-    - `pipeline sync --scope recent --limit N`
-    - `pipeline sync --scope all`
+  - `runtime.diagnostics_service:picker_bridge_self_test`
+  - `app-meta`
+    - `build_commit`
+    - `build_time`
+    - `official_exe_path`
+  - 내부 canonical selection 메타:
+    - `application_group_id`
+    - `canonical_bundle_id`
+    - `included_in_export`
+    - `canonical_selection_reason`
+    - `canonical_selection_confidence`
 - test plan:
   - smoke-safe
     - 세이브 생성/열기/닫기/최근 세이브
@@ -128,17 +134,20 @@
 - assumptions:
   - 공식 실행 경로는 계속 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
   - GUI는 thin wrapper, 공용 진실은 service/CLI다.
-  - 리뷰 UX는 `페이지 기반 목록 + 우측 상세패널`을 기본으로 하고, 앱이 검토의 정본이다.
+  - 리뷰 UX는 `가벼운 목록 + 비동기 상세패널`을 기본으로 하고, 앱이 검토의 정본이다.
+  - 기본 UI에서는 중복/대표 개념을 제거하고, 자동 canonical selection + 숨은 복구 정책을 쓴다.
   - 기존 beta 세이브의 자동 마이그레이션은 하지 않는다.
   - Windows 네이티브 picker와 exe shell integration만 마지막 수동 acceptance로 남긴다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - service/CLI 골격과 기존 blocker 정리는 끝났고, `리뷰 1000건 이상에서도 버벅이지 않는 구조`로 실제 화면과 공용 조회 계약을 재편하는 1차 구현과 smoke 검증까지 마쳤다.
+  - source/CLI/smoke 기준으로는 `계정 연결 계속하기 CTA`, `중복/대표 UI`, `리뷰 상세 full reload`, `preview click 후 상태 초기화`, `stale exe 게이트`를 모두 정리했다.
+  - 지금 남은 것은 `공식 Windows exe 재빌드 + packaged smoke`와 staged live verification, Windows 수동 acceptance 2개다.
 - 바로 다음 작업:
-  - staged live verification `100 / 500 / 550 / all`을 실제 세이브 기준으로 누적 기록하고, 그 결과를 review/export summary와 같은 진실로 맞춘다.
-  - Windows 수동 acceptance 2개인 `실제 picker dialog`, `exe 아이콘/창 브랜딩`을 닫는다.
+  - current HEAD를 commit/push 한 뒤 공식 Windows exe를 다시 빌드하고 packaged smoke를 통과시킨다.
+  - 그 다음 실제 계정 기준 staged live verification `100 / 500 / 550 / all`을 누적 기록한다.
+  - 마지막으로 Windows 수동 acceptance 2개를 닫는다.
 - publish 상태:
   - 이전 plan publish 완료
   - 현재 plan 구현 중
@@ -146,18 +155,19 @@
 
 ## 현재 활성 체크리스트
 
-- `리뷰 성능/사용성 개선 + 앱 정본화 + CLI 우선 검증 체계 재편`
+- `리뷰 정본화 + 자동 중복 판정 + 최신 exe 게이트 정비`
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
-  - [x] review list/detail/export summary용 공용 service/CLI 추가
-  - [x] review 목록을 전체 카드 렌더에서 페이지 기반 목록으로 전환
-  - [x] 우측 상세패널과 앱 안 미리보기 탭 도입
-  - [x] `대표 export만` -> `엑셀 반영 대상만` 용어 정리
-  - [x] 외부 파일 열기 뒤 필터/페이지/선택 상태 유지
-  - [x] sync 범위 프리셋 `10 / 100 / 500 / 1000 / 직접 입력 / 전체` 유지
-  - [x] `app.ui_smoke`, `feature_harness_smoke`, CLI review/export summary 회귀 추가
-  - [x] `exports summary`와 리뷰 상세패널에서 엑셀을 보조 산출물로 표시
-  - [x] canonical 문서에 review/service/CLI 기준 반영
+  - [x] stale exe 방지용 build metadata / 공식 exe 게이트 추가
+  - [x] 홈 CTA를 계정 연결 상태 기반으로 재구성
+  - [x] 리뷰 row/artifact 전환을 partial update로 전환
+  - [x] review 진입 기본 선택/loading 상태 정리
+  - [x] 사용자 표면에서 `중복` 열과 `대표 메일 지정` 액션 제거
+  - [x] 내부 canonical selection 메타와 자동 판정 도입
+  - [x] artifact / export / home 카피를 한국어 기준으로 전면 정리
+  - [x] `exports summary`와 리뷰 상세패널에 내보내기 요약 강화
+  - [x] feature catalog에 feedback coverage / source-CLI-exe-manual 추적 반영
+  - [x] smoke-safe 자동 검증 재실행
   - [ ] staged live verification: `100 / 500 / 550 / all`
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
@@ -165,7 +175,29 @@
   - [ ] current plan final push 완료
   - [ ] final `git status --short --branch` clean 확인
 
+## 사용자 피드백 커버리지
+
+| 항목 | source 반영 | CLI/smoke 검증 | 공식 exe 반영 | 사용자 수동 acceptance |
+|---|---|---|---|---|
+| stale exe 방지 build metadata와 공식 게이트 | 완료 | 완료 | 대기 | 필요 없음 |
+| 계정 연결 완료 시 홈 CTA 정리 | 완료 | 완료 | 대기 | 선택 |
+| 리뷰 목록 50건 paging + 상세 partial update | 완료 | 완료 | 대기 | 선택 |
+| `메일 미리보기` 탭/외부 열기 후 상태 유지 | 완료 | 완료 | 대기 | 선택 |
+| `중복/대표` 사용자 UI 제거 + 자동 canonical selection | 완료 | 완료 | 대기 | 선택 |
+| artifact/export/home 한국어 용어 통일 | 완료 | 완료 | 대기 | 선택 |
+| Windows native picker 실제 dialog | 완료 | diagnostics/self-test 완료 | 대기 | 필요 |
+| exe 아이콘/창 브랜딩 최신 반영 | 완료 | packaged smoke 전 | 대기 | 필요 |
+
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review service 경량화
+
+- `runtime.review_state`의 application grouping을 `회사 + 연락처 + 신청 주제` 기준으로 보정해, 같은 신청 흐름의 수정본/회신이 thread key 차이만으로 다른 그룹으로 갈라지지 않게 했다.
+- `runtime.feature_harness_smoke`의 canonical selection smoke는 이제 수정본 bundle `20260406_142500_msg_b170ce32`를 export canonical 메일로 고르고, 초기 신청 메일은 held 상태로 남는 것을 다시 통과한다.
+- `runtime.state_store`에는 `list_review_page_items`와 aggregate `summary_counts`를 추가해, 리뷰 목록이 전체 item payload 대신 가벼운 행 데이터만 먼저 읽도록 경량화했다.
+- `runtime.analysis_service`는 위 경량 목록 조회를 사용하고, `app/server.py`와 `review` 템플릿은 기본 artifact를 `검토 개요`로 두어 첫 진입 시 무거운 iframe/파일 미리보기를 먼저 띄우지 않게 했다.
+- `review` row/artifact partial update는 이제 browser URL을 `/review/detail`이 아니라 현재 `/review` query 상태로 유지해, 필터/페이지/선택 맥락이 브라우저 히스토리와 함께 보존되도록 다시 정리했다.
+- 검증은 `python -m runtime.cli analysis review-list --workspace-root /tmp/epa_review_perf_smoke --page 1 --page-size 50 --sort received_desc`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_review_perf_smoke --workspace-password SampleWorkspace260408 --create-sample-if-missing`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_perf_smoke --workspace-password SampleWorkspace260408` 기준으로 통과했다.
 
 ### 2026-04-13 | Human + Codex | 리뷰 성능/사용성 개선 1차: 페이지 기반 목록, 상태 유지, 앱 안 미리보기
 

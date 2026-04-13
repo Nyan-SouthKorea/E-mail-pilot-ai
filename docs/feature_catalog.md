@@ -9,6 +9,16 @@
 - 기능을 새로 추가하거나 기존 동작을 바꾸면 같은 턴에 이 문서를 함께 갱신한다.
 - GUI는 제품용 wrapper고, 공용 실행 진실은 `runtime service + 명시적 CLI`다.
 - 자동 검증 가능한 기능은 CLI/service smoke로 확인하고, Windows 수동 acceptance가 필요한 항목은 별도로 표시한다.
+- 완료 보고 전에는 반드시 `source 반영 -> CLI/service 검증 -> 공식 exe 반영 -> 수동 acceptance 필요 항목 분리` 4단을 확인한다.
+
+## 현재 변경 검증 4단
+
+| 단계 | 의미 | 완료 기준 |
+|---|---|---|
+| `source 반영` | repo 소스와 canonical 문서가 최신 요구를 반영함 | 코드 + `README/logbook/feature_catalog` 동시 갱신 |
+| `CLI/service 검증` | GUI 없이도 핵심 기능이 공용 service와 명시적 CLI로 재현됨 | `runtime.cli`, `feature-harness-smoke`, 관련 smoke 통과 |
+| `공식 exe 반영` | Windows 공식 실행본이 현재 source commit 기준으로 다시 빌드됨 | 공식 exe 재빌드 + packaged smoke 통과 |
+| `수동 acceptance` | 자동화하기 어려운 Windows 셸/네이티브 UI가 실제로 보이는지 최종 확인 | 파일 탐색기 dialog, exe 아이콘/창 브랜딩 등 사용자 눈검증 |
 
 ## 제품 핵심 기능
 
@@ -92,6 +102,10 @@
 - 상태 유지 기준:
   - 필터, 현재 페이지, 정렬, 선택 항목은 URL query와 로컬 설정 둘 다에 저장한다.
   - 외부 파일 열기 뒤에도 같은 리뷰 상태로 돌아와야 한다.
+- 자동 canonical selection 기준:
+  - 사용자 화면에는 `중복` 열과 `대표 메일 지정` 액션을 두지 않는다.
+  - 내부적으로는 `application_group_id`, `canonical_bundle_id`, `included_in_export`, `canonical_selection_reason`, `canonical_selection_confidence`를 저장한다.
+  - 기본 UI에는 `엑셀 반영됨 / 보류 / 검토 필요`만 노출하고, 필요할 때만 고급 복구 경로를 사용한다.
 
 ## 엑셀 역할 계약
 
@@ -100,7 +114,7 @@
   - `기본 양식`
   - `현재 운영본`
   - `스냅샷`
-- `엑셀 반영 대상만`은 dedupe 묶음 안에서 실제 운영 엑셀에 들어가는 대표 메일만 뜻한다.
+- `엑셀 반영 대상만`은 같은 신청 흐름 안에서 자동 canonical selection을 거쳐 실제 운영 엑셀에 포함되는 메일만 뜻한다.
 
 ## 저장 위치 계약
 
@@ -145,6 +159,7 @@
 - Windows 빌드 전제:
   - `build_windows_portable_and_publish.sh`는 GitHub 기준 mirror sync를 쓰므로, dirty working tree 또는 미push HEAD 상태에서는 빌드를 거부한다.
   - launcher는 고정 포트가 점유돼 있으면 다른 로컬 포트를 자동 선택하고, `/app-meta`로 실제 Email Pilot AI 서버인지 확인한 뒤 창을 연다.
+  - packaged smoke는 `/app-meta`의 `build_commit`, `build_time`, `official_exe_path`가 현재 repo HEAD와 공식 exe 경로를 가리키는지도 함께 확인해야 한다.
 
 ## 반복 검증 명령
 

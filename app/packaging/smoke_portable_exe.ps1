@@ -1,5 +1,6 @@
 param(
     [string]$ExePath = "D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe",
+    [string]$RepoRoot = "D:\\EmailPilotAI\\repo",
     [int]$Port = 8876,
     [int]$StartupTimeoutSeconds = 20,
     [int]$GuiStartupWaitSeconds = 8
@@ -43,9 +44,30 @@ try {
         throw "포터블 exe가 제한 시간 안에 올바른 Email Pilot AI /app-meta 와 /jobs/current endpoint를 띄우지 못했다."
     }
 
+    if (-not $metaPayload.build_commit) {
+        throw "packaged /app-meta 에 build_commit 이 비어 있다."
+    }
+    if (-not $metaPayload.build_time) {
+        throw "packaged /app-meta 에 build_time 이 비어 있다."
+    }
+    if (-not $metaPayload.official_exe_path) {
+        throw "packaged /app-meta 에 official_exe_path 가 비어 있다."
+    }
+    if ($metaPayload.official_exe_path -ne $ExePath) {
+        throw "packaged /app-meta 의 official_exe_path 가 현재 smoke 대상 exe 와 다르다. meta=$($metaPayload.official_exe_path) exe=$ExePath"
+    }
+    if (Test-Path (Join-Path $RepoRoot ".git")) {
+        $expectedCommit = (git -C $RepoRoot rev-parse HEAD).Trim()
+        if ($expectedCommit -and $metaPayload.build_commit -ne $expectedCommit) {
+            throw "packaged exe build_commit 이 현재 repo HEAD 와 다르다. meta=$($metaPayload.build_commit) head=$expectedCommit"
+        }
+    }
+
     Write-Host "Portable exe smoke passed:"
     Write-Host $jobUrl
     Write-Host $metaUrl
+    Write-Host "build_commit=$($metaPayload.build_commit)"
+    Write-Host "build_time=$($metaPayload.build_time)"
 }
 finally {
     if ($proc -and -not $proc.HasExited) {

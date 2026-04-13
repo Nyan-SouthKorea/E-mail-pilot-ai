@@ -12,6 +12,7 @@ $ManifestScriptPath = Join-Path $PSScriptRoot "portable_bundle_manifest.py"
 $PublishScriptPath = Join-Path $PSScriptRoot "publish_portable_to_runtime.ps1"
 $BundleRoot = Join-Path $RepoRoot "dist\\EmailPilotAI"
 $ManifestPath = Join-Path $BundleRoot "portable_bundle_manifest.json"
+$BuildInfoPath = Join-Path $BundleRoot "portable_build_info.json"
 $RuntimeBundleRoot = "D:\\EmailPilotAI\\portable\\EmailPilotAI"
 
 Set-Location $RepoRoot
@@ -26,6 +27,14 @@ if ($Clean) {
 }
 
 & $PythonExe -m PyInstaller --noconfirm --clean $SpecPath
+
+$buildCommit = (& git -C $RepoRoot rev-parse HEAD).Trim()
+$buildInfo = @{
+    build_commit = $buildCommit
+    build_time = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+    official_exe_path = (Join-Path $RuntimeBundleRoot "EmailPilotAI.exe")
+}
+$buildInfo | ConvertTo-Json | Set-Content -Encoding UTF8 $BuildInfoPath
 
 $WarnFile = Join-Path $RepoRoot "build\\EmailPilotAI\\warn-EmailPilotAI.txt"
 if (Test-Path $WarnFile) {

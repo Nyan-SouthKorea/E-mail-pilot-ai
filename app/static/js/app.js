@@ -70,6 +70,24 @@
     );
   }
 
+  function invokePywebviewPicker(button, input, workspaceRoot) {
+    var api = getPywebviewApi();
+    if (!api) {
+      return Promise.reject(new Error('전용 창 bridge를 아직 찾지 못했습니다.'));
+    }
+    var pickerKind = button.dataset.pickerKind || 'folder';
+    var picker = pickerKind === 'file' ? api.pick_file : api.pick_folder;
+    if (typeof picker !== 'function') {
+      return Promise.reject(new Error('전용 창 bridge에 파일 탐색기 함수가 아직 준비되지 않았습니다.'));
+    }
+    return Promise.resolve(
+      picker(
+        input.value || '',
+        workspaceRoot || ''
+      )
+    );
+  }
+
   function getTooltipElement() {
     if (tooltipEl) return tooltipEl;
     tooltipEl = document.createElement('div');
@@ -139,6 +157,8 @@
       });
     });
 
+    if (bindTooltips.globalsBound === 'yes') return;
+    bindTooltips.globalsBound = 'yes';
     document.addEventListener('click', function (event) {
       if (!tooltipEl || tooltipEl.hidden) return;
       if (tooltipOwner && (tooltipOwner === event.target || tooltipOwner.contains(event.target))) {
@@ -306,23 +326,8 @@
       return Promise.resolve(false);
     }
     if (hasReadyPywebviewBridge()) {
-      return getPywebviewApi().dialog_capabilities()
-        .then(function (payload) {
-          if (payload && payload.native_dialog_supported) {
-            setNativeDialogState('desktop_ready');
-            return true;
-          }
-          setNativeDialogState(
-            'desktop_failed',
-            (payload && payload.message) || '전용 창 연결은 되었지만 파일 탐색기를 열 수 없습니다.'
-          );
-          return false;
-        })
-        .catch(function () {
-          setNativeDialogState('desktop_pending', '전용 창 연결을 다시 확인하고 있습니다.');
-          queueNativeDialogDetection(300);
-          return false;
-        });
+      setNativeDialogState('desktop_ready');
+      return Promise.resolve(true);
     }
     return fetch('/diagnostics/picker-bridge')
       .then(function (response) { return response.json(); })
@@ -369,58 +374,226 @@
       status: 'quiet',
       message: '파일 탐색기를 여는 중입니다.',
     });
-    detectNativeDialogs().finally(function () {
-      var pickerKind = button.dataset.pickerKind || 'folder';
-      var bridgeApi = hasReadyPywebviewBridge() ? getPywebviewApi() : null;
-      var pickerPromise;
-      if (bridgeApi) {
-        pickerPromise = (
-          pickerKind === 'file'
-            ? bridgeApi.pick_file(input.value || '', workspaceRoot || '', ['Excel (*.xlsx;*.xlsm;*.xltx;*.xltm)'])
-            : bridgeApi.pick_folder(input.value || '', workspaceRoot || '')
-        );
-      } else {
+    var pywebviewReady = hasReadyPywebviewBridge();
+    var pickerKind = button.dataset.pickerKind || 'folder';
+
+    function handlePickerPayload(payload) {
+      if (payload && payload.ok && payload.path) {
+        setNativeDialogState('desktop_ready');
+        input.value = payload.path;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        if (targetId === 'save_parent_dir') updateSaveFolderPreview();
+        renderPathStatus(statusTarget, {
+          status: 'pass',
+          message: '선택한 경로를 입력했습니다.',
+        });
+        return true;
+      }
+      renderPathStatus(statusTarget, {
+        status: (payload && payload.error === '선택이 취소되었습니다.') ? 'quiet' : 'warn',
+        message: (payload && payload.error) || '파일 탐색기를 열지 못했습니다. 다시 시도하거나 경로를 직접 입력해 주세요.',
+      });
+      return false;
+    }
+
+    function invokeServerFallback() {
+      detectNativeDialogs().finally(function () {
         var form = new FormData();
         form.append('current_path', input.value || '');
         form.append('workspace_root', workspaceRoot || '');
-        pickerPromise = fetch(pickerKind === 'file' ? '/diagnostics/pick-file' : '/diagnostics/pick-folder', {
-          method: 'POST',
-          body: form,
-        }).then(function (response) { return response.json(); });
-      }
-      pickerPromise
-        .then(function (payload) {
-          if (payload && payload.ok && payload.path) {
-            setNativeDialogState('desktop_ready');
-            input.value = payload.path;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            if (targetId === 'save_parent_dir') updateSaveFolderPreview();
-            renderPathStatus(statusTarget, {
-              status: 'pass',
-              message: '선택한 경로를 입력했습니다.',
-            });
-            return;
+        fetch(
+          pickerKind === 'file' ? '/diagnostics/pick-file' : '/diagnostics/pick-folder',
+          {
+            method: 'POST',
+            body: form,
           }
-          renderPathStatus(statusTarget, {
-            status: (payload && payload.error === '선택이 취소되었습니다.') ? 'quiet' : 'warn',
-            message: (payload && payload.error) || '전용 창 연결이 아직 준비되지 않았습니다. 다시 시도하거나 경로를 직접 입력해 주세요.',
+        )
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            handlePickerPayload(payload);
+          })
+          .catch(function () {
+            setNativeDialogState('desktop_failed', '파일 탐색기를 열지 못했습니다. 다시 시도하거나 경로를 직접 입력해 주세요.');
+            renderPathStatus(statusTarget, {
+              status: 'fail',
+              message: '파일 탐색기를 열지 못했습니다. 다시 시도하거나 경로를 직접 입력해 주세요.',
+            });
           });
+      });
+    }
+
+    if (pywebviewReady) {
+      invokePywebviewPicker(button, input, workspaceRoot)
+        .then(function (payload) {
+          if (handlePickerPayload(payload)) return;
+          invokeServerFallback();
         })
         .catch(function () {
-          renderPathStatus(statusTarget, {
-            status: 'fail',
-            message: '파일 탐색기를 열지 못했습니다. 다시 시도하거나 경로를 직접 입력해 주세요.',
-          });
+          invokeServerFallback();
         });
-    });
+      return;
+    }
+
+    invokeServerFallback();
   }
 
   function bindNativePickerButtons() {
     document.querySelectorAll('[data-picker-target]').forEach(function (button) {
+      if (button.dataset.nativePickerBound === 'yes') return;
+      button.dataset.nativePickerBound = 'yes';
       button.addEventListener('click', function () {
         openNativePicker(button);
       });
     });
+  }
+
+  function updateSelectedReviewRow(bundleId) {
+    document.querySelectorAll('[data-review-row]').forEach(function (row) {
+      row.classList.toggle('selected', !!bundleId && row.dataset.bundleId === bundleId);
+    });
+  }
+
+  function currentReviewUrl() {
+    if (document.body.dataset.currentPath === '/review') {
+      return window.location.pathname + window.location.search;
+    }
+    var detailSection = document.querySelector('#review-detail-panel [data-current-review-url]');
+    if (detailSection && detailSection.dataset.currentReviewUrl) {
+      return detailSection.dataset.currentReviewUrl;
+    }
+    try {
+      var raw = window.sessionStorage.getItem(reviewStateStorageKey());
+      if (raw) {
+        var payload = JSON.parse(raw);
+        if (payload && payload.url) return payload.url;
+      }
+    } catch (error) {
+    }
+    return window.location.pathname + window.location.search;
+  }
+
+  function reviewStateStorageKey() {
+    var workspaceRoot = document.body.dataset.workspaceRoot || '';
+    return 'epa-review-state:' + workspaceRoot;
+  }
+
+  function captureReviewState() {
+    if (document.body.dataset.currentPath !== '/review') return;
+    try {
+      var selectedSection = document.querySelector('#review-detail-panel [data-selected-bundle-id]');
+      var activeArtifactTab = document.querySelector('#review-detail-panel .review-artifact-tabs a.active');
+      var payload = {
+        url: currentReviewUrl(),
+        scrollY: window.scrollY || window.pageYOffset || 0,
+        selectedBundleId: selectedSection ? (selectedSection.dataset.selectedBundleId || '') : '',
+        artifactKind: activeArtifactTab ? (activeArtifactTab.getAttribute('href') || '') : '',
+      };
+      window.sessionStorage.setItem(reviewStateStorageKey(), JSON.stringify(payload));
+    } catch (error) {
+    }
+  }
+
+  function restoreReviewScrollPosition() {
+    if (document.body.dataset.currentPath !== '/review') return;
+    try {
+      var raw = window.sessionStorage.getItem(reviewStateStorageKey());
+      if (!raw) return;
+      var payload = JSON.parse(raw);
+      if (!payload || typeof payload.scrollY !== 'number') return;
+      window.setTimeout(function () {
+        window.scrollTo(0, payload.scrollY);
+      }, 30);
+    } catch (error) {
+    }
+  }
+
+  function pushTransientBanner(kind, text) {
+    var main = document.querySelector('.workspace-main');
+    if (!main || !text) return;
+    var banner = document.createElement('div');
+    banner.className = 'banner ' + (kind === 'error' ? 'error' : 'success') + ' transient-banner';
+    banner.textContent = text;
+    main.insertBefore(banner, main.firstChild);
+    window.setTimeout(function () {
+      if (banner.parentNode) banner.parentNode.removeChild(banner);
+    }, 4000);
+  }
+
+  function openRelativeWorkspacePath(relativePath) {
+    if (!relativePath) return Promise.resolve();
+    var form = new FormData();
+    form.append('relative_path', relativePath);
+    form.append('return_to', currentReviewUrl());
+    return fetch('/actions/open-path', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+      },
+      body: form,
+    }).then(function (response) {
+      return response.json().then(function (payload) {
+        if (!response.ok || !payload.ok) {
+          throw new Error((payload && payload.error) || '파일을 열지 못했습니다.');
+        }
+        return payload;
+      });
+    });
+  }
+
+  function bindOpenRelativePathButtons() {
+    document.querySelectorAll('[data-open-relative-path]').forEach(function (button) {
+      if (button.dataset.openRelativeBound === 'yes') return;
+      button.dataset.openRelativeBound = 'yes';
+      button.addEventListener('click', function () {
+        captureReviewState();
+        openRelativeWorkspacePath(button.dataset.openRelativePath || '')
+          .then(function () {
+            pushTransientBanner('success', '선택한 파일 또는 폴더를 열었습니다.');
+          })
+          .catch(function (error) {
+            pushTransientBanner('error', error && error.message ? error.message : '파일을 열지 못했습니다.');
+          });
+      });
+    });
+  }
+
+  function bindReviewRowLinks() {
+    document.querySelectorAll('.review-row-link').forEach(function (link) {
+      if (link.dataset.reviewRowBound === 'yes') return;
+      link.dataset.reviewRowBound = 'yes';
+      link.addEventListener('click', function () {
+        updateSelectedReviewRow(link.dataset.bundleId || '');
+        captureReviewState();
+      });
+    });
+    document.querySelectorAll('[data-review-row]').forEach(function (row) {
+      if (row.dataset.reviewRowClickBound === 'yes') return;
+      row.dataset.reviewRowClickBound = 'yes';
+      row.addEventListener('click', function (event) {
+        if (event.target.closest('a, button, input, select, textarea, form')) return;
+        var selectUrl = row.dataset.selectUrl || '';
+        var bundleId = row.dataset.bundleId || '';
+        if (!selectUrl) return;
+        updateSelectedReviewRow(bundleId);
+        captureReviewState();
+        if (window.htmx) {
+          window.htmx.ajax('GET', selectUrl, {
+            target: '#review-detail-panel',
+            swap: 'innerHTML',
+            pushUrl: row.dataset.reviewUrl || currentReviewUrl(),
+          });
+        } else {
+          window.location.href = row.dataset.reviewUrl || selectUrl;
+        }
+      });
+    });
+  }
+
+  function bindDynamicUi() {
+    bindTooltips();
+    bindNativePickerButtons();
+    bindOpenRelativePathButtons();
+    bindReviewRowLinks();
   }
 
   function initializeShellContext() {
@@ -556,9 +729,8 @@
   }
 
   function initializeUi() {
-    bindTooltips();
+    bindDynamicUi();
     bindPathInspection();
-    bindNativePickerButtons();
     bindModalButtons();
     bindDialogRecheck();
     bindWizardTabs();
@@ -566,13 +738,31 @@
     bindSaveFolderPreview();
     initializeShellContext();
     openAutoModal();
+    restoreReviewScrollPosition();
     pollJobState();
     window.setInterval(pollJobState, 1500);
+    window.addEventListener('scroll', function () {
+      if (document.body.dataset.currentPath === '/review') {
+        captureReviewState();
+      }
+    }, { passive: true });
   }
 
   document.addEventListener('DOMContentLoaded', initializeUi);
   window.addEventListener('pywebviewready', function () {
     detectRetryCount = 0;
     detectNativeDialogs();
+  });
+  document.body.addEventListener('htmx:afterSwap', function (event) {
+    bindDynamicUi();
+    var target = event.target;
+    if (!target) return;
+    if (target.id === 'review-detail-panel') {
+      var selectedSection = target.querySelector('[data-selected-bundle-id]');
+      if (selectedSection) {
+        updateSelectedReviewRow(selectedSection.dataset.selectedBundleId || '');
+      }
+      captureReviewState();
+    }
   });
 })();

@@ -296,7 +296,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec(
         feature_id="exports.operating_workbook.rebuild",
         title="운영 workbook 재반영",
-        summary="현재 review state 기준 대표 신청 건만 운영 workbook과 검토 인덱스로 다시 쓴다.",
+        summary="현재 review state 기준 엑셀 반영 대상으로 선택된 신청 메일만 운영 workbook과 검토 인덱스로 다시 쓴다.",
         owner_module="exports",
         audience="operator",
         access_modes=("ui", "admin", "cli"),
@@ -307,7 +307,7 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         prerequisites=("template workbook exists", "review state available"),
         outputs=("operating workbook", "snapshot workbook", "review index sheet"),
         result_paths=("exports/output/", "state/state.sqlite"),
-        test_scenarios=("대표 메일만 workbook 반영", "검토_인덱스 시트 확인"),
+        test_scenarios=("엑셀 반영 대상만 workbook 반영", "검토_인덱스 시트 확인"),
         supports_run=True,
         requires_write_lock=True,
     ),
@@ -666,6 +666,7 @@ def _run_review_refresh(
             workspace=context.workspace,
             state_store=context.state_store,
             report_path=report.review_json_path,
+            wrapper=wrapper,
         )
         if context.existing_lock_handle is not None:
             context.existing_lock_handle.refresh()
@@ -702,6 +703,7 @@ def _run_workbook_rebuild(
                 workspace=context.workspace,
                 state_store=context.state_store,
                 report_path=latest_review_json,
+                wrapper=wrapper,
             )
         result = rebuild_operating_workbook(
             workspace=context.workspace,
@@ -713,7 +715,7 @@ def _run_workbook_rebuild(
             context.existing_lock_handle.refresh()
     outputs = {
         "operating_workbook_path": result["operating_workbook_relpath"],
-        "representative_count": result["representative_count"],
+        "export_included_count": result["export_included_count"],
     }
     return FeatureRunResult(
         feature_id=spec.feature_id,

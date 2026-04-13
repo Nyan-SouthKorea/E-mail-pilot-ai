@@ -10,7 +10,7 @@
 
 - 공유 워크스페이스 manifest, 암호화 secret blob, sqlite state, write lock이 있다.
 - 기존 엔진을 `mail / exports / logs` 기준의 v2 세이브 구조로 다시 돌리는 sync service가 있다.
-- review report를 state DB로 ingest하고 회사 기준 dedupe를 적용한다.
+- review report를 state DB로 ingest하고, 내부 canonical selection 기준으로 엑셀 반영 대상을 자동 고른다.
 - stable 운영 workbook을 다시 만들고 `검토_인덱스` 시트를 함께 쓴다.
 - CLI로 workspace/settings/mailbox/analysis/exports/pipeline/diagnostics 명령을 실행할 수 있다.
 - analysis service는 리뷰 목록 1페이지와 선택 상세 1건을 따로 읽는 조회 계약을 지원한다.
@@ -28,7 +28,7 @@
 - [x] sqlite state DB와 write lock 도입
 - [x] 이전 beta 세이브 차단과 새 v2 세이브 구조 정리
 - [x] review report -> state DB ingest 경로 도입
-- [x] 대표 신청 건 기준 stable 운영 workbook 재구성 경로 도입
+- [x] 자동 canonical selection 기준 stable 운영 workbook 재구성 경로 도입
 - [x] feature 카탈로그와 feature run history 도입
 - [x] repo-safe sample workspace seed 도입
 - [x] feature-check-all, feature-harness-smoke, app UI smoke 연동
@@ -38,6 +38,8 @@
 - [x] diagnostics picker self-test/test override 도입
 - [x] feature harness에 service smoke 추가
 - [x] review list/detail paging service와 exports summary service 추가
+- [x] canonical selection smoke가 수정본 canonical 선택을 안정적으로 검증하도록 grouping 기준 보정
+- [x] review list 조회를 경량 row 전용 쿼리로 최적화
 - [x] Windows saved workspace 기준 `pipeline sync --scope recent --limit 10` 자동 검증
 - [ ] staged live verification 결과를 review/export summary와 함께 누적 기록
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
@@ -46,12 +48,25 @@
 
 ## 최근 로그
 
+### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review list 경량화
+
+- `runtime.review_state`의 application grouping 기준을 `회사 + 연락처 + 신청 주제` 우선으로 보정해, 같은 신청 흐름의 수정본/회신이 서로 다른 thread key 때문에 별도 그룹으로 갈라지지 않게 했다.
+- `runtime.feature_harness_smoke`의 canonical selection smoke는 이제 수정본 신청 메일을 canonical bundle로 고르고, 초기 신청 메일은 held 상태로 남기는 경로를 다시 통과한다.
+- `runtime.state_store.summary_counts()`는 단일 aggregate query로 바꾸고, `list_review_page_items()`를 추가해 review 목록은 전체 payload가 아니라 가벼운 행 데이터만 먼저 읽도록 최적화했다.
+- `runtime.analysis_service.load_review_center_page_service()`는 위 경량 목록 조회를 사용하게 바뀌어, review 기본 진입 시 선택되지 않은 상세 payload까지 함께 읽지 않게 됐다.
+
 ### 2026-04-13 | Human + Codex | 리뷰 목록/상세/엑셀 요약 조회 계약 추가
 
 - `runtime.analysis_service`에 `load_review_center_page_service`, `load_review_detail_service`를 추가해 GUI와 CLI가 같은 페이지 기반 리뷰 조회 계약을 쓰게 했다.
 - `runtime.exports_service`에는 `load_exports_summary_service`를 추가해 운영본/스냅샷/반영 대상 수를 별도 조회할 수 있게 했다.
 - `runtime.cli`는 `analysis review-list`, `analysis review-item`, `exports summary` 명령을 지원하게 됐다.
 - `feature_harness_smoke`는 위 service 결과를 함께 확인하도록 보강했고, 샘플 세이브 기준 자동 검증도 다시 통과했다.
+
+### 2026-04-13 | Human + Codex | canonical selection 메타와 review/export 기준 정리
+
+- review state에는 `application_group_id`, `canonical_bundle_id`, `included_in_export`, `canonical_selection_reason`, `canonical_selection_confidence`를 저장하게 했다.
+- 기본 UI에서는 `중복`과 `대표 메일 지정`을 숨기고, 엑셀 반영 대상 여부만 노출한다.
+- feature harness smoke에는 같은 회사 신청 메일 2건에서 수정본이 canonical로 선택되는지 확인하는 smoke를 추가했다.
 
 ### 2026-04-13 | Human + Codex | Windows saved workspace 기준 service 자동 검증
 
