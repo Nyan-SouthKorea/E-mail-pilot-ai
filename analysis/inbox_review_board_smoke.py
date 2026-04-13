@@ -162,6 +162,7 @@ def run_inbox_review_board_smoke(
         template_profile=mapped_profile,
     )
 
+    notes: list[str] = []
     if bundle_root:
         bundle_directories = [Path(bundle_root)]
     else:
@@ -177,7 +178,6 @@ def run_inbox_review_board_smoke(
     items: list[InboxReviewBoardItem] = []
     exported_count = 0
     failed_count = 0
-    notes: list[str] = []
     notes.append("전량 review board에는 모든 valid bundle을 포함하고, 첨부/신청 신호가 없는 메일은 heuristic prefilter로 비신청 선분류했다.")
 
     if mapping.unresolved_headers:

@@ -275,6 +275,19 @@ def _job_progress_percent(current: int, total: int) -> int:
     return max(0, min(100, int((current / total) * 100)))
 
 
+def _job_failure_stage_label(*, stage_id: str, stage_label: str) -> str:
+    if stage_label:
+        return stage_label
+    return {
+        "prepare": "준비 중",
+        "fetch": "메일 가져오는 중",
+        "analysis": "분석 중",
+        "export": "엑셀 반영 중",
+        "partial": "부분 완료 정리",
+        "failed": "실패 정리",
+    }.get(stage_id, "후속 처리")
+
+
 def _set_job_state(
     session: WorkspaceSession,
     *,
@@ -1148,6 +1161,10 @@ def _start_sync_job(*, session: WorkspaceSession, sync_mode: str) -> None:
             )
         except Exception as exc:
             notes = [f"{exc.__class__.__name__}: {exc}"]
+            failed_stage_label = _job_failure_stage_label(
+                stage_id=session.job_state.stage_id,
+                stage_label=session.job_state.stage_label,
+            )
             if backfill_report is not None:
                 state_store.finish_sync_run(
                     sync_run_id,
@@ -1173,17 +1190,18 @@ def _start_sync_job(*, session: WorkspaceSession, sync_mode: str) -> None:
                     session,
                     status="partial_success",
                     feature_id=feature_id,
-                    message="메일은 저장했지만 분석 또는 엑셀 반영 단계에서 문제가 생겼습니다.",
+                    message="메일 저장은 끝났지만 다음 처리 단계에서 확인이 필요한 문제가 생겼습니다.",
                     stage_id="partial",
                     stage_label="부분 완료",
                     progress_current=4,
                     progress_total=total_steps,
                     next_action="로그를 확인하거나 설정을 다시 확인한 뒤 빠른 테스트를 다시 실행해 주세요.",
                     details=[
-                        f"저장된 메일: {backfill_report.fetched_count}",
-                        f"건너뛴 메일: {backfill_report.skipped_existing_count}",
-                        f"실패 단계: {exc.__class__.__name__}",
-                        str(exc),
+                        f"메일 저장 완료: {backfill_report.fetched_count}건",
+                        f"이미 있던 메일 건너뜀: {backfill_report.skipped_existing_count}건",
+                        f"실패 단계: {failed_stage_label}",
+                        "다음 행동: 로그 보기 또는 설정 확인 뒤 다시 시도",
+                        f"기술 상세: {exc.__class__.__name__}: {exc}",
                     ],
                     last_result={
                         "sync_mode": sync_mode,
@@ -1211,7 +1229,10 @@ def _start_sync_job(*, session: WorkspaceSession, sync_mode: str) -> None:
                 progress_current=4,
                 progress_total=total_steps,
                 next_action="설정을 다시 확인하고 재시도해 주세요.",
-                details=[str(exc)],
+                details=[
+                    f"실패 단계: {failed_stage_label}",
+                    f"기술 상세: {exc.__class__.__name__}: {exc}",
+                ],
                 preserve_started_at=True,
             )
 

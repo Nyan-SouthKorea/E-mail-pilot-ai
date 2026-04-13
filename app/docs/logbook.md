@@ -22,6 +22,9 @@
 
 ## 현재 활성 체크리스트
 
+- [ ] blocker hotfix: 홈/설정 `찾아보기`가 실제 exe에서 즉시 브라우징을 열게 복구
+- [ ] blocker hotfix: quick sync `notes referenced before assignment` 예외 복구
+- [ ] blocker hotfix: Windows 재빌드와 packaged smoke 재검증
 - [x] 데스크톱 셸과 로컬 Web UI 골격 도입
 - [x] 세이브 파일 불러오기 / 새 워크스페이스 만들기 화면 도입
 - [x] 설정 화면과 저장 위치 안내 도입
@@ -51,6 +54,12 @@
 - [x] 진행률 표시와 장시간 sync 폴링 UX 보강
 
 ## 최근 로그
+
+### 2026-04-13 | Human + Codex | blocker hotfix 착수
+
+- 현재 사용자 blocker를 `찾아보기` 브리지 복구와 quick sync `notes` 예외 복구로 다시 좁혔다.
+- 브리지 쪽은 런처가 `desktop_ready`를 너무 일찍 선언하고, 프런트엔드가 `window.pywebview.api` 객체 존재만으로 준비 완료로 보던 점을 원인 후보로 확정했다.
+- quick sync 쪽은 `analysis/inbox_review_board_smoke.py`의 `bundle_limit` 경로에서 `notes`를 초기화하기 전에 `notes.append(...)`가 먼저 호출되는 결함을 확인했다.
 
 ### 2026-04-13 | Human + Codex | 고객 서비스형 UI/세이브 구조 리팩터 v3
 

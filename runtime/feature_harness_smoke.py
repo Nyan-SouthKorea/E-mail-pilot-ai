@@ -7,7 +7,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
 from pathlib import Path
+import tempfile
 
+from analysis.inbox_review_board_smoke import run_inbox_review_board_smoke
 from app.ui_smoke import run_app_ui_smoke
 from runtime.feature_registry import check_feature, list_feature_specs, run_feature
 from runtime.sample_workspace import create_sample_workspace
@@ -25,6 +27,7 @@ class FeatureHarnessSmokeReport:
     feature_checks: dict[str, list[dict[str, object]]] = field(default_factory=dict)
     executed_feature_runs: list[dict[str, object]] = field(default_factory=list)
     ui_smoke: dict[str, object] | None = None
+    quick_review_regression: dict[str, object] | None = None
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -81,6 +84,9 @@ def run_feature_harness_smoke(
         workspace_root=str(workspace.root()),
         workspace_password=workspace_password,
     )
+    quick_review_regression = run_quick_review_regression_smoke(
+        workspace_root=str(workspace.root()),
+    )
 
     report = FeatureHarnessSmokeReport(
         generated_at=datetime.now().isoformat(timespec="seconds"),
@@ -90,9 +96,11 @@ def run_feature_harness_smoke(
         feature_checks=feature_checks,
         executed_feature_runs=executed_feature_runs,
         ui_smoke=ui_smoke.to_dict(),
+        quick_review_regression=quick_review_regression,
         notes=[
             "live credential와 API key가 없는 기능은 prerequisite check만 수행하고 직접 run하지 않는다.",
             "샘플 워크스페이스만으로도 review center, workbook rebuild, admin route 접근을 반복 검증할 수 있다.",
+            "quick review board 회귀는 빈 bundle 프로필 + bundle_limit=10 경로로 `notes` 초기화 버그를 다시 잡는다.",
         ],
     )
     report_path.write_text(
@@ -100,6 +108,26 @@ def run_feature_harness_smoke(
         encoding="utf-8",
     )
     return report
+
+
+def run_quick_review_regression_smoke(*, workspace_root: str | Path) -> dict[str, object]:
+    """기능: bundle_limit 경로의 review board 회귀를 실제 LLM 없이 점검한다."""
+
+    workspace = load_shared_workspace(workspace_root)
+    template_path = workspace.profile_paths().template_workbook_path()
+    with tempfile.TemporaryDirectory(prefix="epa_quick_review_empty_") as empty_profile_root:
+        report = run_inbox_review_board_smoke(
+            profile_id="feature-harness-empty-profile",
+            profile_root=empty_profile_root,
+            template_path=str(template_path),
+            bundle_limit=10,
+            reuse_existing_analysis=True,
+        )
+    return {
+        "status": "pass",
+        "total_bundle_count": report.total_bundle_count,
+        "notes": list(report.notes),
+    }
 
 
 def main() -> None:

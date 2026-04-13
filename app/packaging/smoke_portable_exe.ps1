@@ -69,6 +69,9 @@ try {
     if ($startupLog -notmatch "launcher: imported pywebview") {
         throw "GUI smoke에서 pywebview import 로그를 찾지 못했다."
     }
+    if ($startupLog -notmatch "launcher: pywebview window created and bridge attached") {
+        throw "GUI smoke에서 pywebview bridge attach 로그를 찾지 못했다."
+    }
     if ($startupLog -match "launcher: pywebview failed") {
         throw "GUI smoke에서 pywebview 실패 로그가 감지됐다."
     }

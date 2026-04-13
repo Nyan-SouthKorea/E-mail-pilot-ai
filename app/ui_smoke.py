@@ -122,6 +122,7 @@ def run_app_ui_smoke(
                 and "처음 사용하는 방법" in home_text
                 and "기존 세이브 열기" in home_text
                 and "새 세이브 만들기" in home_text
+                and "파일 탐색기 다시 확인" in home_text
                 and "브라우저 fallback" not in home_text
                 and re.search(r'<button[^>]*data-picker-target="open_workspace_root"[^>]*disabled', home_text) is None
                 and re.search(r'<button[^>]*data-picker-target="save_parent_dir"[^>]*disabled', home_text) is None
@@ -185,6 +186,22 @@ def run_app_ui_smoke(
                 and "계정 연결 확인" in settings_save_response.text
             ),
             detail="설정 저장 후 성공 배너와 마지막 저장 안내가 보여야 한다.",
+        )
+
+        settings_page_response = client.get("/settings")
+        settings_page_text = settings_page_response.text
+        _record(
+            step="settings_browse_button_enabled",
+            response=settings_page_response,
+            ok=(
+                settings_page_response.status_code == 200
+                and 'data-picker-target="template_workbook_relative_path"' in settings_page_text
+                and re.search(
+                    r'<button[^>]*data-picker-target="template_workbook_relative_path"[^>]*disabled',
+                    settings_page_text,
+                ) is None
+            ),
+            detail="설정 화면의 엑셀 양식 찾아보기 버튼도 기본 disabled가 아니어야 한다.",
         )
 
         rebuild_response = client.post("/review/rebuild", follow_redirects=False)

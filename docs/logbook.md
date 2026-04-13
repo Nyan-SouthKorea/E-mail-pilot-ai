@@ -99,16 +99,19 @@
 ## 현재 체크포인트
 
 - 지금 단계:
-  - v3 구현, 검증, publish까지 마친 상태
+  - v3 구현 이후 사용자 blocker hotfix를 우선 처리하는 단계
 - 바로 다음 작업:
-  - 다음 active plan을 잡기 전 현재 결과를 사용자 검증 기준으로 정리한다
+  - `찾아보기` 브리지와 quick sync `notes` 예외를 먼저 복구하고 다시 Windows exe로 검증한다
 - publish 상태:
   - 이전 plan publish 완료
-  - current plan publish 완료
+  - blocker hotfix 작업 중
 
 ## 현재 활성 체크리스트
 
 - `고객 서비스형 UI/세이브 구조 리팩터 v3`
+  - [ ] blocker checkpoint: `찾아보기` 브리지 복구
+  - [ ] blocker checkpoint: quick sync `notes` 예외 복구
+  - [ ] blocker checkpoint: Windows exe 재빌드와 사용자 재검증 기준 반영
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
   - [x] v2 세이브 구조 helper와 manifest 버전 교체
@@ -141,6 +144,14 @@
 - 최근 세이브 재열기, 새 v2 세이브 생성, UI smoke, feature harness smoke를 다시 검증했고, 최종 샘플 세이브 기준 `logs/app/260413_1128_ui_smoke.json`, `logs/runtime/260413_1128_feature_harness_smoke.json`까지 확인했다.
 - `packaging.portable_exe.build` prerequisite check는 Linux 개발 호스트에서는 Windows 전용 의존성을 `warn`으로만 보게 바꿔, 실제 Windows 패키징 검증기와 로컬 feature harness가 서로의 의미를 침범하지 않게 정리했다.
 - GitHub `main`에는 `13ce5b1 Refine customer save UX and workspace v2 flow`를 push 했고, reverse SSH 기준 Windows 빌드도 다시 실행해 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 최신 상태로 publish 했다.
+
+### 2026-04-13 | Human + Codex | blocker hotfix 착수: `찾아보기` 브리지와 quick sync 예외
+
+- 사용자 검증 기준 현재 blocker를 두 가지로 고정했다.
+  - 홈/설정의 `찾아보기`를 눌러도 브라우징이 열리지 않는 문제
+  - 빠른 테스트 동기화에서 메일 저장 후 `UnboundLocalError: local variable 'notes' referenced before assignment`로 `부분 완료`에 떨어지는 문제
+- 원인 점검 결과, 브라우저 브리지는 `pywebview` API 객체 존재만으로 준비 완료로 보던 판정이 너무 이르고, quick review board는 `bundle_limit` 분기에서 `notes` 초기화보다 먼저 `notes.append(...)`를 호출하는 결함이 있었다.
+- 이번 hotfix는 위 두 문제를 먼저 닫고, 그 다음 서비스형 polish를 다시 이어가는 순서로 진행한다.
 
 ### 2026-04-13 | Human + Codex | 서비스형 고객 UI 리팩터 v2 구현
 

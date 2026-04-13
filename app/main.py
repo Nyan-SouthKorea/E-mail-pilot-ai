@@ -37,6 +37,10 @@ class DesktopBridge:
         self.window = window
 
     def dialog_capabilities(self) -> dict[str, object]:
+        _append_startup_log(
+            "bridge: dialog_capabilities called "
+            + ("with window" if self.window is not None else "without window")
+        )
         return {
             "native_dialog": self.window is not None,
         }
@@ -71,6 +75,7 @@ class DesktopBridge:
         file_types: tuple[str, ...],
     ) -> dict[str, object]:
         if self.window is None:
+            _append_startup_log("bridge: create_file_dialog requested before window attach")
             return {
                 "ok": False,
                 "error": "이 환경에서는 네이티브 파일 탐색기를 열 수 없다.",
@@ -90,12 +95,17 @@ class DesktopBridge:
                 file_types=file_types,
             )
             selected = str(result[0]) if result else ""
+            _append_startup_log(
+                f"bridge: {dialog_type_name} "
+                + ("selected path" if selected else "cancelled")
+            )
             return {
                 "ok": bool(selected),
                 "error": "" if selected else "선택이 취소되었다.",
                 "path": selected,
             }
         except Exception as exc:
+            _append_startup_log(f"bridge: {dialog_type_name} failed: {exc.__class__.__name__}: {exc}")
             return {
                 "ok": False,
                 "error": f"{exc.__class__.__name__}: {exc}",
@@ -306,9 +316,10 @@ def main() -> None:
             height=local_settings.window_height,
         )
         bridge.attach_window(window)
+        _append_startup_log("launcher: pywebview window created and bridge attached")
         set_shell_context(
             shell_mode="desktop_window",
-            native_dialog_state="desktop_ready",
+            native_dialog_state="desktop_pending",
             startup_log_path=str(startup_log_path),
             official_local_bundle_path=str(official_local_exe_path),
             native_dialog_expected=True,

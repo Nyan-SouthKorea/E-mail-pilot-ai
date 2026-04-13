@@ -59,6 +59,33 @@
     return !!(window.pywebview && window.pywebview.api);
   }
 
+  function hasDesktopPickerBridge() {
+    return !!(
+      ensurePywebviewApi()
+      && typeof window.pywebview.api.dialog_capabilities === 'function'
+      && typeof window.pywebview.api.pick_folder === 'function'
+      && typeof window.pywebview.api.pick_file === 'function'
+    );
+  }
+
+  function waitForDesktopPickerBridge(maxWaitMs, intervalMs) {
+    var startedAt = Date.now();
+    return new Promise(function (resolve) {
+      function check() {
+        if (hasDesktopPickerBridge()) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - startedAt >= maxWaitMs) {
+          resolve(false);
+          return;
+        }
+        window.setTimeout(check, intervalMs || 120);
+      }
+      check();
+    });
+  }
+
   function getTooltipElement() {
     if (tooltipEl) return tooltipEl;
     tooltipEl = document.createElement('div');
@@ -298,7 +325,7 @@
       setNativeDialogState('desktop_failed');
       return Promise.resolve(false);
     }
-    if (!ensurePywebviewApi() || !window.pywebview.api.dialog_capabilities) {
+    if (!hasDesktopPickerBridge()) {
       detectRetryCount += 1;
       if (detectRetryCount >= maxDetectRetryCount) {
         setNativeDialogState('desktop_failed', '전용 창 연결이 지연되고 있습니다. 찾아보기를 다시 누르거나 경로를 직접 입력해 주세요.');
@@ -308,7 +335,10 @@
       queueNativeDialogDetection(250);
       return Promise.resolve(false);
     }
-    return window.pywebview.api.dialog_capabilities()
+    return Promise.resolve()
+      .then(function () {
+        return window.pywebview.api.dialog_capabilities();
+      })
       .then(function (payload) {
         if (payload && payload.native_dialog) {
           setNativeDialogState('desktop_ready');
@@ -339,7 +369,7 @@
     }
 
     function launchPicker() {
-      if (!ensurePywebviewApi() || !window.pywebview.api) {
+      if (!hasDesktopPickerBridge()) {
         renderPathStatus(statusTarget, {
           status: 'warn',
           message: '전용 창 연결이 아직 준비되지 않았습니다. 잠시 후 다시 시도하거나 경로를 직접 입력해 주세요.',
@@ -349,21 +379,34 @@
 
       var pickerKind = button.dataset.pickerKind || 'folder';
       var promise;
-      if (pickerKind === 'file') {
-        promise = window.pywebview.api.pick_file(
-          input.value || '',
-          workspaceRoot,
-          ['Excel (*.xlsx;*.xlsm;*.xltx;*.xltm)']
-        );
-      } else {
-        promise = window.pywebview.api.pick_folder(input.value || '', workspaceRoot);
+      try {
+        if (pickerKind === 'file') {
+          promise = window.pywebview.api.pick_file(
+            input.value || '',
+            workspaceRoot,
+            ['Excel (*.xlsx;*.xlsm;*.xltx;*.xltm)']
+          );
+        } else {
+          promise = window.pywebview.api.pick_folder(input.value || '', workspaceRoot);
+        }
+      } catch (error) {
+        renderPathStatus(statusTarget, {
+          status: 'fail',
+          message: '파일 탐색기를 여는 중 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.',
+        });
+        return;
       }
-      promise
+      Promise.resolve(promise)
         .then(function (payload) {
           if (payload && payload.ok && payload.path) {
+            setNativeDialogState('desktop_ready');
             input.value = payload.path;
             input.dispatchEvent(new Event('change', { bubbles: true }));
             if (targetId === 'save_parent_dir') updateSaveFolderPreview();
+            renderPathStatus(statusTarget, {
+              status: 'pass',
+              message: '선택한 경로를 입력했습니다.',
+            });
             return;
           }
           renderPathStatus(statusTarget, {
@@ -374,19 +417,25 @@
         .catch(function (error) {
           renderPathStatus(statusTarget, {
             status: 'fail',
-            message: '파일 탐색기를 열지 못했습니다: ' + error,
+            message: '파일 탐색기를 열지 못했습니다. 잠시 후 다시 시도해 주세요.',
           });
         });
     }
 
-    if (ensurePywebviewApi()) {
+    renderPathStatus(statusTarget, {
+      status: 'quiet',
+      message: '파일 탐색기를 여는 중입니다.',
+    });
+
+    if (hasDesktopPickerBridge()) {
       detectNativeDialogs().then(function () { launchPicker(); });
       return;
     }
+
     setNativeDialogState('desktop_pending');
-    window.setTimeout(function () {
-      detectNativeDialogs().then(function (ready) {
-        if (ready || ensurePywebviewApi()) {
+    waitForDesktopPickerBridge(2200, 110).then(function (ready) {
+      detectNativeDialogs().then(function (bridgeReady) {
+        if (ready || bridgeReady || hasDesktopPickerBridge()) {
           launchPicker();
           return;
         }
@@ -395,7 +444,7 @@
           message: '전용 창 연결이 아직 준비되지 않았습니다. 다시 시도하거나 경로를 직접 입력해 주세요.',
         });
       });
-    }, 220);
+    });
   }
 
   function bindNativePickerButtons() {
@@ -417,8 +466,8 @@
       setNativeDialogState('desktop_failed', 'headless 실행이라 파일 탐색기를 열 수 없습니다.');
       return;
     }
-    if (initialState === 'desktop_ready') {
-      setNativeDialogState('desktop_ready');
+    if (initialState === 'desktop_failed') {
+      setNativeDialogState('desktop_failed');
       return;
     }
     setNativeDialogState('desktop_pending');
