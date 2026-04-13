@@ -99,12 +99,12 @@
 ## 현재 체크포인트
 
 - 지금 단계:
-  - v3 구현과 검증을 마쳤고, publish 마감만 남은 단계
+  - v3 구현, 검증, publish까지 마친 상태
 - 바로 다음 작업:
-  - current plan commit, push, clean status 확인으로 마감한다
+  - 다음 active plan을 잡기 전 현재 결과를 사용자 검증 기준으로 정리한다
 - publish 상태:
   - 이전 plan publish 완료
-  - current plan 작업 중
+  - current plan publish 완료
 
 ## 현재 활성 체크리스트
 
@@ -124,9 +124,9 @@
   - [x] exe 아이콘 및 브랜딩 갱신
   - [x] `app.ui_smoke`와 관련 검증 갱신
   - [x] canonical 문서 반영
-  - [ ] current plan commit 완료
-  - [ ] current plan push 완료
-  - [ ] `git status --short --branch` clean 확인
+  - [x] current plan commit 완료
+  - [x] current plan push 완료
+  - [x] `git status --short --branch` clean 확인
 
 ## 최근 로그
 
@@ -138,8 +138,9 @@
 - 계정 연결 확인은 background job으로 전환해 `입력 확인 -> 서버 후보 확인 -> 로그인 시도 -> 폴더 목록 읽기 -> 완료` 단계와 진행률을 즉시 보여주게 했다.
 - 빠른 테스트/전체 동기화는 background job 진행 카드와 진행률, 부분 완료, 다음 행동 안내를 보여주게 했고, 메일 저장 성공 후 분석/내보내기 실패를 `부분 완료`로 따로 표현한다.
 - `(i)` 도움말과 disabled 이유 안내는 실제 tooltip/popover 컴포넌트로 통일했고, 고객용 UI 용어는 `기본 받은편지함`, `엑셀 양식`, `세이브 파일` 중심으로 다시 정리했다.
-- 최근 세이브 재열기, 새 v2 세이브 생성, UI smoke, feature harness smoke를 다시 검증했고, 샘플 세이브 기준 `logs/app/260413_1122_ui_smoke.json`, `logs/runtime/260413_1122_feature_harness_smoke.json`까지 확인했다.
+- 최근 세이브 재열기, 새 v2 세이브 생성, UI smoke, feature harness smoke를 다시 검증했고, 최종 샘플 세이브 기준 `logs/app/260413_1128_ui_smoke.json`, `logs/runtime/260413_1128_feature_harness_smoke.json`까지 확인했다.
 - `packaging.portable_exe.build` prerequisite check는 Linux 개발 호스트에서는 Windows 전용 의존성을 `warn`으로만 보게 바꿔, 실제 Windows 패키징 검증기와 로컬 feature harness가 서로의 의미를 침범하지 않게 정리했다.
+- GitHub `main`에는 `13ce5b1 Refine customer save UX and workspace v2 flow`를 push 했고, reverse SSH 기준 Windows 빌드도 다시 실행해 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 최신 상태로 publish 했다.
 
 ### 2026-04-13 | Human + Codex | 서비스형 고객 UI 리팩터 v2 구현
 
