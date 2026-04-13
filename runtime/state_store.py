@@ -127,60 +127,85 @@ class WorkspaceStateStore:
                     row_index INTEGER NOT NULL,
                     updated_at TEXT NOT NULL
                 );
-
-                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_triage
-                ON bundle_review_state (triage_label, is_export_representative);
-
-                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_received
-                ON bundle_review_state (received_at DESC, bundle_id DESC);
-
-                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_company
-                ON bundle_review_state (company_name COLLATE NOCASE, received_at DESC, bundle_id DESC);
-
-                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_sender
-                ON bundle_review_state (sender COLLATE NOCASE, received_at DESC, bundle_id DESC);
-
-                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_group
-                ON bundle_review_state (application_group_id, included_in_export);
-
-                CREATE INDEX IF NOT EXISTS idx_feature_runs_feature
-                ON feature_runs (feature_id, id DESC);
                 """
             )
-            self._ensure_column(
-                connection,
-                table_name="bundle_review_state",
-                column_name="application_group_id",
-                column_definition="TEXT",
+            bundle_review_columns = [
+                ("raw_eml_relpath", "TEXT"),
+                ("attachments_dir_relpath", "TEXT"),
+                ("summary_relpath", "TEXT"),
+                ("preview_relpath", "TEXT"),
+                ("extracted_record_relpath", "TEXT"),
+                ("projected_row_relpath", "TEXT"),
+                ("application_group_id", "TEXT"),
+                ("canonical_bundle_id", "TEXT"),
+                ("included_in_export", "INTEGER NOT NULL DEFAULT 0"),
+                ("canonical_selection_reason", "TEXT NOT NULL DEFAULT ''"),
+                ("canonical_selection_confidence", "REAL"),
+                ("dedupe_group_key", "TEXT"),
+                ("is_export_representative", "INTEGER NOT NULL DEFAULT 0"),
+                ("duplicate_of_bundle_id", "TEXT"),
+                ("workbook_row_index", "INTEGER"),
+                ("user_override_state", "TEXT NOT NULL DEFAULT ''"),
+            ]
+            for column_name, column_definition in bundle_review_columns:
+                self._ensure_column(
+                    connection,
+                    table_name="bundle_review_state",
+                    column_name=column_name,
+                    column_definition=column_definition,
+                )
+            feature_run_columns = [
+                ("trigger_source", "TEXT NOT NULL DEFAULT ''"),
+                ("outputs_json", "TEXT NOT NULL DEFAULT '{}'"),
+                ("error_summary", "TEXT NOT NULL DEFAULT ''"),
+            ]
+            for column_name, column_definition in feature_run_columns:
+                self._ensure_column(
+                    connection,
+                    table_name="feature_runs",
+                    column_name=column_name,
+                    column_definition=column_definition,
+                )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_triage
+                ON bundle_review_state (triage_label, is_export_representative)
+                """
             )
-            self._ensure_column(
-                connection,
-                table_name="bundle_review_state",
-                column_name="canonical_bundle_id",
-                column_definition="TEXT",
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_received
+                ON bundle_review_state (received_at DESC, bundle_id DESC)
+                """
             )
-            self._ensure_column(
-                connection,
-                table_name="bundle_review_state",
-                column_name="included_in_export",
-                column_definition="INTEGER NOT NULL DEFAULT 0",
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_company
+                ON bundle_review_state (company_name COLLATE NOCASE, received_at DESC, bundle_id DESC)
+                """
             )
-            self._ensure_column(
-                connection,
-                table_name="bundle_review_state",
-                column_name="canonical_selection_reason",
-                column_definition="TEXT NOT NULL DEFAULT ''",
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_sender
+                ON bundle_review_state (sender COLLATE NOCASE, received_at DESC, bundle_id DESC)
+                """
             )
-            self._ensure_column(
-                connection,
-                table_name="bundle_review_state",
-                column_name="canonical_selection_confidence",
-                column_definition="REAL",
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_bundle_review_state_group
+                ON bundle_review_state (application_group_id, included_in_export)
+                """
             )
             connection.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_bundle_review_state_export
                 ON bundle_review_state (triage_label, included_in_export)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_feature_runs_feature
+                ON feature_runs (feature_id, id DESC)
                 """
             )
 

@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import sqlite3
 import tempfile
 
 from analysis.inbox_review_board_smoke import run_inbox_review_board_smoke
@@ -42,6 +43,7 @@ class FeatureHarnessSmokeReport:
     ui_smoke: dict[str, object] | None = None
     quick_review_regression: dict[str, object] | None = None
     canonical_selection_smoke: dict[str, object] | None = None
+    schema_upgrade_smoke: dict[str, object] | None = None
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -160,6 +162,7 @@ def run_feature_harness_smoke(
     canonical_selection_smoke = run_canonical_selection_smoke(
         workspace_root=str(workspace.root()),
     )
+    schema_upgrade_smoke = run_schema_upgrade_smoke()
 
     report = FeatureHarnessSmokeReport(
         generated_at=datetime.now().isoformat(timespec="seconds"),
@@ -172,12 +175,14 @@ def run_feature_harness_smoke(
         ui_smoke=ui_smoke.to_dict(),
         quick_review_regression=quick_review_regression,
         canonical_selection_smoke=canonical_selection_smoke,
+        schema_upgrade_smoke=schema_upgrade_smoke,
         notes=[
             "live credential와 API key가 없는 기능은 prerequisite check만 수행하고 직접 run하지 않는다.",
             "샘플 워크스페이스만으로도 review center, workbook rebuild, admin route 접근을 반복 검증할 수 있다.",
             "quick review board 회귀는 빈 bundle 프로필 + bundle_limit=10 경로로 `notes` 초기화 버그를 다시 잡는다.",
             "workspace/settings/diagnostics/analysis/exports 공용 service를 직접 호출해 결과 계약도 함께 검증한다.",
             "자동 canonical selection smoke는 같은 회사 신청 메일 2건 중 더 완전한 수정본을 export 기준으로 고르는지 확인한다.",
+            "schema upgrade smoke는 오래된 state.sqlite를 현재 bundle_review_state / feature_runs 스키마로 자동 승격할 수 있는지 확인한다.",
         ],
     )
     report_path.write_text(
@@ -284,6 +289,106 @@ def run_canonical_selection_smoke(*, workspace_root: str | Path) -> dict[str, ob
             "canonical_selection_reason": selected[0].canonical_selection_reason,
             "application_group_id": selected[0].application_group_id,
         }
+
+
+def run_schema_upgrade_smoke() -> dict[str, object]:
+    """기능: 오래된 state DB도 현재 스키마로 자동 승격되는지 확인한다."""
+
+    with tempfile.TemporaryDirectory(prefix="epa_schema_upgrade_") as temp_root:
+        db_path = Path(temp_root) / "state.sqlite"
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.executescript(
+                """
+                CREATE TABLE bundle_review_state (
+                    bundle_id TEXT PRIMARY KEY,
+                    received_at TEXT,
+                    sender TEXT NOT NULL DEFAULT '',
+                    subject TEXT NOT NULL DEFAULT '',
+                    attachment_count INTEGER NOT NULL DEFAULT 0,
+                    triage_label TEXT NOT NULL DEFAULT 'needs_human_review',
+                    triage_reason TEXT NOT NULL DEFAULT '',
+                    triage_confidence REAL,
+                    analysis_source TEXT NOT NULL DEFAULT '',
+                    export_status TEXT NOT NULL DEFAULT '',
+                    company_name TEXT NOT NULL DEFAULT '',
+                    contact_name TEXT NOT NULL DEFAULT '',
+                    email_address TEXT NOT NULL DEFAULT '',
+                    application_purpose TEXT NOT NULL DEFAULT '',
+                    request_summary TEXT NOT NULL DEFAULT '',
+                    unresolved_columns_json TEXT NOT NULL DEFAULT '[]',
+                    notes_json TEXT NOT NULL DEFAULT '[]',
+                    bundle_root_relpath TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE feature_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    feature_id TEXT NOT NULL,
+                    app_kind TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    status TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    notes_json TEXT NOT NULL DEFAULT '[]'
+                );
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        store = WorkspaceStateStore(db_path)
+        store.ensure_schema()
+
+        connection = sqlite3.connect(db_path)
+        try:
+            bundle_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(bundle_review_state)")
+            }
+            feature_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(feature_runs)")
+            }
+            bundle_indexes = {
+                row[1] for row in connection.execute("PRAGMA index_list(bundle_review_state)")
+            }
+        finally:
+            connection.close()
+
+    required_bundle_columns = {
+        "application_group_id",
+        "canonical_bundle_id",
+        "included_in_export",
+        "canonical_selection_reason",
+        "canonical_selection_confidence",
+        "dedupe_group_key",
+        "is_export_representative",
+        "duplicate_of_bundle_id",
+        "workbook_row_index",
+        "user_override_state",
+    }
+    required_feature_columns = {
+        "trigger_source",
+        "outputs_json",
+        "error_summary",
+    }
+    missing_bundle_columns = sorted(required_bundle_columns - bundle_columns)
+    missing_feature_columns = sorted(required_feature_columns - feature_columns)
+    index_present = "idx_bundle_review_state_group" in bundle_indexes
+
+    if missing_bundle_columns or missing_feature_columns or not index_present:
+        return {
+            "status": "fail",
+            "missing_bundle_columns": missing_bundle_columns,
+            "missing_feature_columns": missing_feature_columns,
+            "idx_bundle_review_state_group_present": index_present,
+        }
+    return {
+        "status": "pass",
+        "bundle_column_count": len(bundle_columns),
+        "feature_column_count": len(feature_columns),
+        "idx_bundle_review_state_group_present": True,
+    }
 
 
 def main() -> None:

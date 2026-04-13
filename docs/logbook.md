@@ -143,11 +143,14 @@
 
 - 지금 단계:
   - source/CLI/smoke 기준으로는 `계정 연결 계속하기 CTA`, `중복/대표 UI`, `리뷰 상세 full reload`, `preview click 후 상태 초기화`, `stale exe 게이트`를 모두 정리했다.
-  - 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`도 current commit `915c494` 기준으로 다시 빌드했고, packaged smoke와 GUI smoke까지 통과했다.
-  - 지금 남은 것은 staged live verification `100 / 500 / 550 / all`과 Windows 수동 acceptance 2개다.
+  - 실제 Windows 세이브 기준으로 `state.sqlite` migration 버그(`application_group_id` 없는 오래된 DB에서 index 생성 실패)를 재현했고, `runtime.state_store.ensure_schema()`가 오래된 `bundle_review_state`와 `feature_runs` 테이블을 먼저 컬럼 승격한 뒤 index를 만들도록 고쳤다.
+  - `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 승격하는 `schema_upgrade_smoke`를 추가했고, 로컬 자동 검증은 다시 통과했다.
+  - staged live verification은 `recent 100`, `recent 500`, `recent 550`까지 실제 Windows 세이브 기준으로 통과했다.
+  - `all`은 실제 inbox 규모가 `4750`건이어서 장시간 backfill/review가 필요했고, 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 확인한 뒤 장기 운영 검증으로 분리했다.
+  - 현재 source는 위 migration 수정까지 반영돼 있지만, 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`는 아직 이번 수정 기준으로 재빌드 전이다.
 - 바로 다음 작업:
-  - 실제 계정 기준 staged live verification `100 / 500 / 550 / all`을 순서대로 누적 기록한다.
-  - 마지막으로 Windows 수동 acceptance 2개를 닫는다.
+  - 현재 source 기준 commit/push를 먼저 끝낸 뒤, 공식 Windows exe를 current commit 기준으로 다시 재빌드하고 packaged smoke를 다시 통과시킨다.
+  - 그 다음 Windows 수동 acceptance 2개와 `sync --all` 장기 운영 검증을 별도 operator-run 절차로 닫는다.
 - publish 상태:
   - 이전 plan publish 완료
   - 현재 plan 구현 중
@@ -168,7 +171,10 @@
   - [x] `exports summary`와 리뷰 상세패널에 내보내기 요약 강화
   - [x] feature catalog에 feedback coverage / source-CLI-exe-manual 추적 반영
   - [x] smoke-safe 자동 검증 재실행
-  - [ ] staged live verification: `100 / 500 / 550 / all`
+  - [x] state DB schema upgrade 보정과 regression smoke 추가
+  - [x] staged live verification: `100 / 500 / 550`
+  - [ ] staged live verification: `all` long-run operator acceptance
+  - [ ] current source 기준 공식 Windows exe 재빌드 + packaged smoke 재확인
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
   - [ ] current plan final commit 완료
@@ -198,6 +204,19 @@
 - 결과적으로 Windows 공식 실행본 `D:\\EmailPilotAI\\portable\\EmailPilotAI\\EmailPilotAI.exe`는 `build_commit=915c49445ac8da7ea0dd9e7777376fec704c2559`, `build_time=2026-04-13T17:48:21` 기준으로 다시 publish 되었고 packaged smoke와 GUI smoke를 통과했다.
 - 같은 시점에 `python -m py_compile ...`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_review_canonical_smoke --workspace-password SampleWorkspace260408 --create-sample-if-missing`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_canonical_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.cli analysis review-list --workspace-root /tmp/epa_review_canonical_smoke --page 1 --page-size 50 --sort received_desc`, `python -m runtime.cli exports summary --workspace-root /tmp/epa_review_canonical_smoke`도 다시 통과했다.
 - 따라서 현재 active plan 기준에서 자동 검증과 공식 exe 반영은 닫혔고, 남은 것은 staged live verification `100 / 500 / 550 / all`과 Windows 수동 acceptance 2개다.
+
+### 2026-04-13 | Human + Codex | 실제 Windows 세이브 migration 보정과 staged live verification 100/500/550 통과
+
+- 실제 Windows 세이브 기준 `recent 100` live verification에서 `sqlite3.OperationalError: no such column: application_group_id`를 재현했다.
+- 원인은 오래된 `bundle_review_state`에 새 컬럼이 없는데도 index를 먼저 만드는 `runtime.state_store.ensure_schema()` 순서 문제였다.
+- `runtime.state_store`는 이제 오래된 `bundle_review_state`와 `feature_runs`를 `_ensure_column()`으로 먼저 승격한 뒤 index를 만들게 바꿨다.
+- `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 자동 승격하는 `schema_upgrade_smoke`를 추가했고, 로컬 `feature-harness-smoke`는 다시 통과했다.
+- 실제 Windows 세이브 기준 staged live verification 결과는 아래와 같다.
+  - `recent 100`: `status=completed`, `fetched=2`, `skipped=98`, `analysis_reused=1`, `analysis_rerun=0`
+  - `recent 500`: `status=completed`, `fetched=0`, `skipped=500`, `analysis_reused=36`, `analysis_rerun=0`
+  - `recent 550`: `status=completed`, `fetched=0`, `skipped=550`, `analysis_reused=51`, `analysis_rerun=0`
+- `all`은 실제 inbox 규모가 `4750`건이어서 장기 운영 검증으로 분리했다. 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 진행해 구조적 blocker가 없음을 확인했다.
+- 이번 수정은 source와 CLI/smoke에는 반영됐지만, 공식 Windows exe에는 아직 다시 실리지 않았으므로 다음 마감 전 current commit 기준 재빌드가 필요하다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review service 경량화
 

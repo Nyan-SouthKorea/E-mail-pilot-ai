@@ -153,6 +153,7 @@
   - 실제 메일 fetch
   - 실제 OpenAI 호출
   - 실제 recent N / all sync
+  - `sync --all`은 실제 inbox 규모와 API 비용 때문에 long-run operator acceptance로 보고, 짧은 개발 턴에서는 `10 / 100 / 500 / 550` staged live verification을 기본으로 본다.
 - Windows 수동 acceptance 2개:
   - `찾아보기`를 눌렀을 때 실제 폴더/파일 선택창이 뜨는지
   - exe 아이콘/창 브랜딩이 새 기준대로 보이는지

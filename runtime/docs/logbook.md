@@ -41,10 +41,12 @@
 - [x] canonical selection smoke가 수정본 canonical 선택을 안정적으로 검증하도록 grouping 기준 보정
 - [x] review list 조회를 경량 row 전용 쿼리로 최적화
 - [x] Windows saved workspace 기준 `pipeline sync --scope recent --limit 10` 자동 검증
-- [ ] staged live verification 결과를 review/export summary와 함께 누적 기록
+- [x] 오래된 state DB schema upgrade 보정과 regression smoke 추가
+- [x] staged live verification `recent 100 / 500 / 550` 결과를 누적 기록
+- [ ] staged live verification `all` 장기 운영 검증 결과 누적
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
-- [ ] live-required staged verification 10/100/500/550/all 실행 결과 축적
+- [ ] live-required staged verification `all` 최종 완료 결과 축적
 
 ## 최근 로그
 
@@ -74,6 +76,18 @@
 - 결과는 `status=completed`, `fetched_count=0`, `skipped_existing_count=10`, `analysis_reused_count=0`, `analysis_rerun_count=0`이었다.
 - 즉 실제 세이브 기준으로도 pipeline service가 끝까지 실행됐고, 이전에 보이던 `update_latest_review_pointers` / 후속 단계 NameError는 재현되지 않았다.
 - 아직 누적해야 할 것은 staged live verification `100 / 500 / 550 / all` 결과다.
+
+### 2026-04-13 | Human + Codex | 실제 Windows 세이브 migration 보정과 staged live verification 100/500/550 통과
+
+- 실제 Windows 세이브 기준 `recent 100` sync에서 `application_group_id` 없는 오래된 `bundle_review_state`에 index를 먼저 만들다 실패하는 migration bug를 재현했다.
+- `runtime.state_store.ensure_schema()`는 이제 `bundle_review_state`와 `feature_runs`의 누락 컬럼을 먼저 `_ensure_column()`으로 승격한 뒤 index를 만들게 바뀌었다.
+- `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 올리는 `schema_upgrade_smoke`를 추가했고, 로컬 하네스는 다시 통과했다.
+- staged live verification은 실제 Windows 세이브 기준 아래 범위까지 통과했다.
+  - `recent 100`: `fetched=2`, `skipped=98`, `analysis_reused=1`, `analysis_rerun=0`
+  - `recent 500`: `fetched=0`, `skipped=500`, `analysis_reused=36`, `analysis_rerun=0`
+  - `recent 550`: `fetched=0`, `skipped=550`, `analysis_reused=51`, `analysis_rerun=0`
+- `all`은 실제 inbox 규모 `4750`건 기준 장기 운영 검증으로 돌렸고, 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 확인했다.
+- 이 단계는 source/service 기준 구조적 blocker가 없음을 확인하는 데는 충분했지만, 전체 완료까지는 시간이 길어 current turn 마감용 long-run acceptance로 분리해 둔다.
 
 ### 2026-04-13 | Human + Codex | service/CLI 단일 진실 강화와 picker diagnostics 계약 정리
 
