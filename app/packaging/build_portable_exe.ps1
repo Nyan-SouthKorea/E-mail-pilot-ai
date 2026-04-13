@@ -34,7 +34,12 @@ $buildInfo = @{
     build_time = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
     official_exe_path = (Join-Path $RuntimeBundleRoot "EmailPilotAI.exe")
 }
-$buildInfo | ConvertTo-Json | Set-Content -Encoding UTF8 $BuildInfoPath
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText(
+    $BuildInfoPath,
+    ($buildInfo | ConvertTo-Json -Depth 4),
+    $utf8NoBom
+)
 
 $WarnFile = Join-Path $RepoRoot "build\\EmailPilotAI\\warn-EmailPilotAI.txt"
 if (Test-Path $WarnFile) {

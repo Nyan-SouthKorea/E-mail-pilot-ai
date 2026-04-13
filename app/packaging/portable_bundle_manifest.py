@@ -11,6 +11,7 @@ MANIFEST_BASENAME = "portable_bundle_manifest"
 MANIFEST_FILENAME = f"{MANIFEST_BASENAME}.json"
 REQUIRED_RELATIVE_PATHS = (
     "EmailPilotAI.exe",
+    "portable_build_info.json",
     "_internal/python310.dll",
     "_internal/python3.dll",
     "_internal/VCRUNTIME140.dll",

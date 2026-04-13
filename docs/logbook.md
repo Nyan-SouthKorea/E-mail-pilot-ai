@@ -197,6 +197,9 @@
 - `runtime.state_store`에는 `list_review_page_items`와 aggregate `summary_counts`를 추가해, 리뷰 목록이 전체 item payload 대신 가벼운 행 데이터만 먼저 읽도록 경량화했다.
 - `runtime.analysis_service`는 위 경량 목록 조회를 사용하고, `app/server.py`와 `review` 템플릿은 기본 artifact를 `검토 개요`로 두어 첫 진입 시 무거운 iframe/파일 미리보기를 먼저 띄우지 않게 했다.
 - `review` row/artifact partial update는 이제 browser URL을 `/review/detail`이 아니라 현재 `/review` query 상태로 유지해, 필터/페이지/선택 맥락이 브라우저 히스토리와 함께 보존되도록 다시 정리했다.
+- pushed head 기준 Windows 빌드에서는 packaged `/app-meta`의 `build_commit`이 비어 있는 것을 smoke가 잡아냈고, 원인을 `portable_build_info.json` BOM/필수 파일 관리 문제로 좁혔다.
+- 이에 따라 `app/build_info.py`는 BOM이 있는 UTF-8도 읽게 하고, Windows build script는 `portable_build_info.json`을 UTF-8 without BOM으로 쓰게 바꿨다.
+- `portable_bundle_manifest.py`는 이제 `portable_build_info.json`도 필수 파일로 검사한다.
 - 검증은 `python -m runtime.cli analysis review-list --workspace-root /tmp/epa_review_perf_smoke --page 1 --page-size 50 --sort received_desc`, `python -m runtime.cli feature-harness-smoke --workspace-root /tmp/epa_review_perf_smoke --workspace-password SampleWorkspace260408 --create-sample-if-missing`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_perf_smoke --workspace-password SampleWorkspace260408` 기준으로 통과했다.
 
 ### 2026-04-13 | Human + Codex | 리뷰 성능/사용성 개선 1차: 페이지 기반 목록, 상태 유지, 앱 안 미리보기

@@ -43,7 +43,7 @@ def _load_bundled_build_info() -> BuildInfo | None:
     if not build_info_path.exists():
         return None
     try:
-        payload = json.loads(build_info_path.read_text(encoding="utf-8"))
+        payload = json.loads(build_info_path.read_text(encoding="utf-8-sig"))
     except Exception:
         return None
     return BuildInfo(

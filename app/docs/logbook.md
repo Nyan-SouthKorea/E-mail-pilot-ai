@@ -78,6 +78,7 @@
 - 목록 row와 상세 탭의 htmx partial update는 이제 `/review/detail`이 아니라 현재 `/review` query 상태를 browser URL로 유지한다.
 - 즉, 상세를 바꾸더라도 필터/정렬/페이지/선택 bundle 맥락이 히스토리에 남고, 외부 파일 열기 후에도 같은 review 상태로 돌아오기 쉬운 구조로 다시 맞췄다.
 - `찾아보기`는 pywebview bridge를 우선 사용하고, bridge가 바로 붙은 경우 `desktop_ready`를 즉시 판정하도록 JS에서 다시 보강했다.
+- Windows packaged smoke는 `/app-meta`의 build metadata가 비어 있는 문제를 다시 잡아냈고, `portable_build_info.json`을 UTF-8 without BOM으로 쓰고 읽는 방향으로 packaging helper를 보강했다.
 
 ### 2026-04-13 | Human + Codex | 리뷰센터를 페이지 기반 목록 + 상세패널로 재편
 
