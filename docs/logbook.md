@@ -160,8 +160,8 @@
   - `sync --all` 장기 운영 검증은 별도 acceptance로 계속 누적한다.
 - publish 상태:
   - 이전 plan publish 완료
-  - 현재 plan 구현 중
-  - 이번 턴 마감 시 commit/push 예정
+  - 현재 plan은 web-first 체크포인트까지 publish 완료
+  - 공식 Windows exe 패키징은 사용자 web 검증 뒤 마지막 단계로 남김
 
 ## 현재 활성 체크리스트
 
@@ -195,9 +195,9 @@
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
   - [ ] Windows 수동 acceptance: web에서 닫은 리뷰 UX가 exe에서도 그대로 보이는지
-  - [ ] current plan final commit 완료
-  - [ ] current plan final push 완료
-  - [ ] final `git status --short --branch` clean 확인
+  - [x] current checkpoint commit 완료
+  - [x] current checkpoint push 완료
+  - [x] final `git status --short --branch` clean 확인
 
 ## 사용자 피드백 커버리지
 
@@ -229,6 +229,11 @@
 - row를 선택할 때 오른쪽 상세패널을 빈 skeleton으로 바로 교체하지 않고, 기존 상세 위에 로딩 표시만 얹도록 바꿨다. 느린 응답이어도 사용자는 기존 상세를 계속 보면서 현재 로딩 중이라는 사실만 확인하게 했다.
 - 전역 `scroll-behavior:smooth`를 꺼서 리뷰 선택/탭 전환 때의 부자연스러운 점프 가능성을 줄였고, detail partial load 성공/실패 뒤 목록/상세/window scroll을 보수적으로 복원하도록 JS를 보강했다.
 - 최신 web 서버(8028)에서 `/_dev/open-workspace?workspace_root=/tmp/epa_review_webfirst_smoke&workspace_password=SampleWorkspace260408&target=/review` 경로를 다시 확인했고, review/detail HTML에 `운영 엑셀에 들어간 메일만`, 한국어 artifact 탭, 한국어 우선 미해결 라벨이 들어가는 것을 재확인했다.
+
+### 2026-04-14 | Human + Codex | web-first 리뷰 체크포인트 publish 완료
+
+- review workbench 개편과 web-first helper 링크, synthetic performance smoke, scroll jump 완화, 용어 정리까지 현재 source 기준으로 다시 묶어 commit `33e5a86`으로 push 했다.
+- 이번 publish는 web-first 체크포인트를 닫는 목적이라 공식 Windows exe 재빌드는 의도적으로 하지 않았다. 다음 단계는 사용자가 web 링크에서 실제 체감을 확인하고, 남은 polish를 source에서 더 닫은 뒤 마지막에만 공식 exe를 다시 패키징하는 것이다.
 
 ### 2026-04-13 | Human + Codex | packaged metadata path 정규화와 current commit 기준 Windows 공식 exe 재빌드 완료
 
