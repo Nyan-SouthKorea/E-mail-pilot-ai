@@ -79,7 +79,7 @@
 - 사용자가 올린 흰 화면 screenshot을 기준으로 Windows 공식 exe의 `/` route를 다시 조회했고, launcher는 정상인데 홈 route가 `500 Internal Server Error`로 죽는 것을 먼저 확인했다.
 - Windows 쪽 `TestClient(app).get('/')` traceback으로 root cause를 고정했다. 마지막 세이브 자동 복원 중 runtime lockfile stale pid 확인이 예외를 던지며 홈 context 생성이 깨지고 있었다.
 - `app.server`에는 전역 예외 logging middleware를 추가해, 앞으로 같은 route 500이 나면 `%APPDATA%\\EmailPilotAI\\startup.log`에 traceback이 남게 했다.
-- 앱 쪽에서는 source route smoke 기준 홈 `/`가 다시 `200`으로 유지되는 것을 먼저 확인했고, 공식 Windows exe 재빌드와 packaged smoke 재검증은 바로 다음 단계로 이어진다.
+- 앱 쪽에서는 source route smoke 기준 홈 `/`가 다시 `200`으로 유지되는 것을 먼저 확인했고, 이어서 commit `d615cbb` 기준 공식 Windows exe를 재빌드해 packaged smoke와 Windows route 재검증까지 다시 닫았다.
 
 ### 2026-04-13 | Human + Codex | packaged metadata path 보정 후 공식 Windows 실행본 재빌드 완료
 

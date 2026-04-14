@@ -157,9 +157,8 @@
   - `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 승격하는 `schema_upgrade_smoke`를 추가했고, 로컬 자동 검증은 다시 통과했다.
   - staged live verification은 `recent 100`, `recent 500`, `recent 550`까지 실제 Windows 세이브 기준으로 통과했다.
   - `all`은 실제 inbox 규모가 `4750`건이어서 장시간 backfill/review가 필요했고, 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 확인한 뒤 장기 운영 검증으로 분리했다.
-  - 가장 최근 pushed `main` 기준으로 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 재빌드하고, 흰 화면 500이 사라졌는지 packaged smoke와 Windows route 재검증까지 다시 닫아야 한다.
+  - 가장 최근 pushed `main` 기준으로 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 재빌드했고, packaged smoke와 Windows route 재검증 기준으로 흰 화면 500이 사라진 것을 확인했다.
 - 바로 다음 작업:
-  - Windows 공식 exe를 current source 기준으로 다시 재빌드하고 `/`, `/app-meta`가 현재 세이브 복원 상황에서도 500 없이 뜨는지 먼저 닫는다.
   - 그 다음 Windows 수동 acceptance 2개를 현재 공식 exe 기준으로 직접 닫는다.
   - `sync --all`은 이번 staged live verification 결과를 바탕으로 별도 operator-run 장기 검증으로 닫는다.
 - publish 상태:
@@ -244,7 +243,9 @@
 - `runtime.lockfile`은 이제 Windows에서 `tasklist` 기반으로 local process 존재를 보수적으로 확인하고, pid probe 중 예외가 나도 `False`로 안전 종료하게 보강했다.
 - `app.server`에는 전역 예외 logging middleware를 추가해, 다음에 같은 흰 화면이 나더라도 `%APPDATA%\\EmailPilotAI\\startup.log`에 route traceback이 남게 했다.
 - `runtime.feature_harness_smoke`에는 `lockfile_windows_safety_smoke`를 추가했고, 로컬 harness와 route smoke는 다시 통과했다.
-- 이 로그 시점에는 source 반영과 로컬 smoke만 닫힌 상태이고, 공식 Windows exe 재빌드와 packaged smoke 재검증은 바로 다음 단계로 이어진다.
+- 이어서 이 수정은 commit `d615cbb`로 push 되었고, `bash app/packaging/build_windows_portable_and_publish.sh --clean`으로 공식 Windows exe를 다시 재빌드했다.
+- packaged smoke는 `build_commit=d615cbbc7889555d701c1834b725591f7bb6509e`, `build_time=2026-04-14T09:23:39` 기준으로 다시 통과했다.
+- 같은 source를 Windows build mirror에서 `TestClient(app).get('/')`로 다시 확인했을 때도 `STATUS 200`이 나와, 사용자가 본 흰 화면 500의 직접 원인이 사라진 것을 닫았다.
 
 ### 2026-04-13 | Human + Codex | 완료 보고 형식과 AGENTS 재독 기록 규칙 강화
 

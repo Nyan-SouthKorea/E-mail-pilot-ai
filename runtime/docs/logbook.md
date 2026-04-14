@@ -57,6 +57,7 @@
 - Windows 쪽 traceback으로 원인을 고정했다. `_try_restore_last_workspace_session()`가 `acquire_workspace_write_lock()`를 부르고, 그 안의 `_is_local_dead_process()`가 Windows `os.kill(pid, 0)` 계열 pid probe에서 `SystemError`를 던져 홈 전체를 깨뜨리고 있었다.
 - `runtime.lockfile`은 이제 Windows에서는 `tasklist` 기반으로 local pid 존재를 보수적으로 확인하고, 예외가 나도 stale 여부는 heartbeat fallback만 보게 바꿨다.
 - `feature_harness_smoke`에는 `lockfile_windows_safety_smoke`를 추가해, stale lock local pid 확인 중 예외가 나도 `False`로 안전 종료하는 회귀를 고정했다.
+- 이 수정은 commit `d615cbb`로 push 되었고, 같은 commit 기준 공식 Windows exe 재빌드 뒤 packaged smoke와 Windows route 재검증까지 다시 닫았다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review list 경량화
 
