@@ -69,9 +69,17 @@
 - [x] build commit / build time / 공식 exe 경로를 고급 진단에 노출
 - [x] review 첫 진입 기본 artifact를 `검토 개요`로 바꿔 무거운 iframe 선로딩 제거
 - [x] packaged `/app-meta official_exe_path` 경로 정규화와 current commit 기준 공식 exe 재빌드
+- [x] 홈 첫 진입 500 시 route traceback이 startup.log에 남도록 전역 예외 logging 추가
 - [ ] 공식 Windows exe 재빌드 후 최신 UI/CTA/리뷰 반영 수동 확인
 
 ## 최근 로그
+
+### 2026-04-14 | Human + Codex | Windows 흰 화면 500 실제 원인 추적과 server traceback logging 추가
+
+- 사용자가 올린 흰 화면 screenshot을 기준으로 Windows 공식 exe의 `/` route를 다시 조회했고, launcher는 정상인데 홈 route가 `500 Internal Server Error`로 죽는 것을 먼저 확인했다.
+- Windows 쪽 `TestClient(app).get('/')` traceback으로 root cause를 고정했다. 마지막 세이브 자동 복원 중 runtime lockfile stale pid 확인이 예외를 던지며 홈 context 생성이 깨지고 있었다.
+- `app.server`에는 전역 예외 logging middleware를 추가해, 앞으로 같은 route 500이 나면 `%APPDATA%\\EmailPilotAI\\startup.log`에 traceback이 남게 했다.
+- 앱 쪽에서는 source route smoke 기준 홈 `/`가 다시 `200`으로 유지되는 것을 먼저 확인했고, 공식 Windows exe 재빌드와 packaged smoke 재검증은 바로 다음 단계로 이어진다.
 
 ### 2026-04-13 | Human + Codex | packaged metadata path 보정 후 공식 Windows 실행본 재빌드 완료
 

@@ -43,12 +43,20 @@
 - [x] Windows saved workspace 기준 `pipeline sync --scope recent --limit 10` 자동 검증
 - [x] 오래된 state DB schema upgrade 보정과 regression smoke 추가
 - [x] staged live verification `recent 100 / 500 / 550` 결과를 누적 기록
+- [x] Windows stale lock pid probe가 홈 화면 500을 내지 않도록 보강
 - [ ] staged live verification `all` 장기 운영 검증 결과 누적
 - [ ] override 저장 후 UI에서 더 정교한 diff/재계산 표시 보강
 - [ ] 증분 sync 성능과 장시간 heartbeat 운영성 보강
 - [ ] live-required staged verification `all` 최종 완료 결과 축적
 
 ## 최근 로그
+
+### 2026-04-14 | Human + Codex | Windows stale lock pid probe 500 hotfix
+
+- 사용자가 올린 흰 화면을 실제 Windows 공식 exe 기준으로 재현했고, launcher가 아니라 홈 화면 첫 route에서 500이 나는 것을 확인했다.
+- Windows 쪽 traceback으로 원인을 고정했다. `_try_restore_last_workspace_session()`가 `acquire_workspace_write_lock()`를 부르고, 그 안의 `_is_local_dead_process()`가 Windows `os.kill(pid, 0)` 계열 pid probe에서 `SystemError`를 던져 홈 전체를 깨뜨리고 있었다.
+- `runtime.lockfile`은 이제 Windows에서는 `tasklist` 기반으로 local pid 존재를 보수적으로 확인하고, 예외가 나도 stale 여부는 heartbeat fallback만 보게 바꿨다.
+- `feature_harness_smoke`에는 `lockfile_windows_safety_smoke`를 추가해, stale lock local pid 확인 중 예외가 나도 `False`로 안전 종료하는 회귀를 고정했다.
 
 ### 2026-04-13 | Human + Codex | canonical selection grouping 보정과 review list 경량화
 

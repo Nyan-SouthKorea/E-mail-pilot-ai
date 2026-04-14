@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import subprocess
 import uuid
 
 
@@ -169,6 +170,8 @@ def _is_local_dead_process(lock_data: WorkspaceLockData) -> bool:
         return False
     if lock_data.process_id <= 0:
         return False
+    if os.name == "nt":
+        return _is_local_dead_process_windows(lock_data.process_id)
     try:
         os.kill(lock_data.process_id, 0)
     except ProcessLookupError:
@@ -177,4 +180,37 @@ def _is_local_dead_process(lock_data: WorkspaceLockData) -> bool:
         return False
     except OSError:
         return False
+    except SystemError:
+        return False
+    except Exception:
+        return False
+    return False
+
+
+def _is_local_dead_process_windows(process_id: int) -> bool:
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        result = subprocess.run(
+            [
+                "tasklist",
+                "/FI",
+                f"PID eq {process_id}",
+                "/FO",
+                "CSV",
+                "/NH",
+            ],
+            capture_output=True,
+            text=True,
+            creationflags=creationflags,
+            check=False,
+        )
+    except Exception:
+        return False
+
+    output = (result.stdout or "").strip()
+    if not output:
+        return True
+    lowered = output.lower()
+    if "no tasks are running" in lowered:
+        return True
     return False

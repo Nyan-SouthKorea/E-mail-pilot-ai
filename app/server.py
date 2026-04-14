@@ -13,6 +13,7 @@ import subprocess
 import ssl
 import sys
 import threading
+import traceback
 from typing import Any
 from urllib.parse import urlencode
 
@@ -74,6 +75,13 @@ TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
 APP_ID = "email_pilot_ai_desktop"
 APP_VERSION = "0.1.0"
+
+
+def _append_server_error_log(message: str) -> None:
+    log_path = default_startup_log_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(message.rstrip() + "\n")
 
 
 def _current_build_info() -> dict[str, str]:
@@ -196,6 +204,18 @@ def _default_shell_context() -> ShellContext:
 SERVER_STATE = ServerState(shell_context=_default_shell_context())
 app = FastAPI(title="Email Pilot AI Desktop")
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
+
+
+@app.middleware("http")
+async def log_unhandled_server_exceptions(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        _append_server_error_log(
+            f"server: unhandled exception on {request.method} {request.url.path}"
+        )
+        _append_server_error_log(traceback.format_exc())
+        raise
 
 
 @app.get("/app-meta")

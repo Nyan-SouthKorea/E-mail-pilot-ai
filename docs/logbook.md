@@ -147,14 +147,20 @@
 ## 현재 체크포인트
 
 - 지금 단계:
+  - 사용자가 올린 흰 화면 `Internal Server Error`를 실제 Windows 공식 exe 기준으로 재현했고, launcher 자체가 아니라 홈 화면 첫 진입에서 500이 나는 것을 확인했다.
+  - Windows 쪽 `TestClient(app).get('/')` traceback으로 원인을 고정했다. 마지막 세이브 자동 복원 중 `runtime.lockfile._is_local_dead_process()`의 Windows pid probe가 `SystemError`를 던지며 홈 화면 전체가 죽고 있었다.
+  - stale lock local pid 확인은 이제 Windows에서 `tasklist` 기반으로 보수적으로 판정하고, 예외가 나도 heartbeat fallback으로만 처리하게 고쳤다.
+  - `app.server`에는 전역 예외 logging middleware를 추가해, 다음에 같은 흰 화면이 나더라도 `%APPDATA%\\EmailPilotAI\\startup.log`에서 route traceback을 바로 읽을 수 있게 했다.
+  - `runtime.feature_harness_smoke`에는 `lockfile_windows_safety_smoke`를 추가해, stale lock pid 확인 중 예외가 나도 앱이 죽지 않는 regression을 고정했다.
   - source/CLI/smoke 기준으로는 `계정 연결 계속하기 CTA`, `중복/대표 UI`, `리뷰 상세 full reload`, `preview click 후 상태 초기화`, `stale exe 게이트`를 모두 정리했다.
   - 실제 Windows 세이브 기준으로 `state.sqlite` migration 버그(`application_group_id` 없는 오래된 DB에서 index 생성 실패)를 재현했고, `runtime.state_store.ensure_schema()`가 오래된 `bundle_review_state`와 `feature_runs` 테이블을 먼저 컬럼 승격한 뒤 index를 만들도록 고쳤다.
   - `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 승격하는 `schema_upgrade_smoke`를 추가했고, 로컬 자동 검증은 다시 통과했다.
   - staged live verification은 `recent 100`, `recent 500`, `recent 550`까지 실제 Windows 세이브 기준으로 통과했다.
   - `all`은 실제 inbox 규모가 `4750`건이어서 장시간 backfill/review가 필요했고, 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 확인한 뒤 장기 운영 검증으로 분리했다.
-  - 가장 최근 pushed `main` 기준으로 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 재빌드했고, packaged smoke와 GUI smoke를 다시 통과했다.
+  - 가장 최근 pushed `main` 기준으로 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 재빌드하고, 흰 화면 500이 사라졌는지 packaged smoke와 Windows route 재검증까지 다시 닫아야 한다.
 - 바로 다음 작업:
-  - Windows 수동 acceptance 2개를 현재 공식 exe 기준으로 직접 닫는다.
+  - Windows 공식 exe를 current source 기준으로 다시 재빌드하고 `/`, `/app-meta`가 현재 세이브 복원 상황에서도 500 없이 뜨는지 먼저 닫는다.
+  - 그 다음 Windows 수동 acceptance 2개를 현재 공식 exe 기준으로 직접 닫는다.
   - `sync --all`은 이번 staged live verification 결과를 바탕으로 별도 operator-run 장기 검증으로 닫는다.
 - publish 상태:
   - 이전 plan publish 완료
@@ -230,6 +236,15 @@
 - packaged smoke는 `/jobs/current`, `/app-meta`를 다시 통과했고, `/app-meta` 기준 `build_commit`, `build_time`, `official_exe_path`가 최신 공식 실행본과 맞는지 확인했다.
 - Portable GUI smoke도 다시 통과해 `startup.log` 기준 launcher와 packaged runtime이 current main 기준으로 다시 올라온 것을 확인했다.
 - 따라서 지금 시점의 남은 항목은 `sync --all` 장기 운영 검증과 Windows 수동 acceptance 2개뿐이다.
+
+### 2026-04-14 | Human + Codex | Windows 흰 화면 `Internal Server Error` 실제 traceback 고정과 lockfile hotfix 진행 중
+
+- 사용자가 올린 흰 화면 screenshot을 기준으로 Windows 공식 exe의 `/` route를 실제로 다시 조회했고, `500 Internal Server Error`가 launcher 단계가 아니라 홈 화면 route 자체에서 나는 것을 먼저 확인했다.
+- Windows 쪽 `TestClient(app).get('/')` traceback으로 원인을 고정했다. 마지막 세이브 자동 복원 중 `runtime.lockfile._is_local_dead_process()`가 Windows `pid` probe에서 `SystemError`를 던지며 `_try_restore_last_workspace_session()` 전체를 깨뜨리고 있었다.
+- `runtime.lockfile`은 이제 Windows에서 `tasklist` 기반으로 local process 존재를 보수적으로 확인하고, pid probe 중 예외가 나도 `False`로 안전 종료하게 보강했다.
+- `app.server`에는 전역 예외 logging middleware를 추가해, 다음에 같은 흰 화면이 나더라도 `%APPDATA%\\EmailPilotAI\\startup.log`에 route traceback이 남게 했다.
+- `runtime.feature_harness_smoke`에는 `lockfile_windows_safety_smoke`를 추가했고, 로컬 harness와 route smoke는 다시 통과했다.
+- 이 로그 시점에는 source 반영과 로컬 smoke만 닫힌 상태이고, 공식 Windows exe 재빌드와 packaged smoke 재검증은 바로 다음 단계로 이어진다.
 
 ### 2026-04-13 | Human + Codex | 완료 보고 형식과 AGENTS 재독 기록 규칙 강화
 

@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import socket
 import tempfile
 
 from analysis.inbox_review_board_smoke import run_inbox_review_board_smoke
@@ -21,6 +22,7 @@ from runtime.analysis_service import (
 from runtime.diagnostics_service import pick_folder_native, picker_bridge_self_test
 from runtime.exports_service import load_exports_summary_service, rebuild_operating_workbook_service
 from runtime.feature_registry import check_feature, list_feature_specs, run_feature
+from runtime.lockfile import WorkspaceLockData, _is_local_dead_process
 from runtime.review_state import ingest_review_report_into_state
 from runtime.state_store import WorkspaceStateStore
 from runtime.settings_service import load_workspace_settings_summary
@@ -44,6 +46,7 @@ class FeatureHarnessSmokeReport:
     quick_review_regression: dict[str, object] | None = None
     canonical_selection_smoke: dict[str, object] | None = None
     schema_upgrade_smoke: dict[str, object] | None = None
+    lockfile_windows_safety_smoke: dict[str, object] | None = None
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -163,6 +166,7 @@ def run_feature_harness_smoke(
         workspace_root=str(workspace.root()),
     )
     schema_upgrade_smoke = run_schema_upgrade_smoke()
+    lockfile_windows_safety_smoke = run_lockfile_windows_safety_smoke()
 
     report = FeatureHarnessSmokeReport(
         generated_at=datetime.now().isoformat(timespec="seconds"),
@@ -176,6 +180,7 @@ def run_feature_harness_smoke(
         quick_review_regression=quick_review_regression,
         canonical_selection_smoke=canonical_selection_smoke,
         schema_upgrade_smoke=schema_upgrade_smoke,
+        lockfile_windows_safety_smoke=lockfile_windows_safety_smoke,
         notes=[
             "live credential와 API key가 없는 기능은 prerequisite check만 수행하고 직접 run하지 않는다.",
             "샘플 워크스페이스만으로도 review center, workbook rebuild, admin route 접근을 반복 검증할 수 있다.",
@@ -183,6 +188,7 @@ def run_feature_harness_smoke(
             "workspace/settings/diagnostics/analysis/exports 공용 service를 직접 호출해 결과 계약도 함께 검증한다.",
             "자동 canonical selection smoke는 같은 회사 신청 메일 2건 중 더 완전한 수정본을 export 기준으로 고르는지 확인한다.",
             "schema upgrade smoke는 오래된 state.sqlite를 현재 bundle_review_state / feature_runs 스키마로 자동 승격할 수 있는지 확인한다.",
+            "lockfile Windows safety smoke는 local stale lock 확인 중 예외가 나도 홈 화면 전체가 500으로 죽지 않도록 보장한다.",
         ],
     )
     report_path.write_text(
@@ -388,6 +394,35 @@ def run_schema_upgrade_smoke() -> dict[str, object]:
         "bundle_column_count": len(bundle_columns),
         "feature_column_count": len(feature_columns),
         "idx_bundle_review_state_group_present": True,
+    }
+
+
+def run_lockfile_windows_safety_smoke() -> dict[str, object]:
+    """기능: local stale lock pid 확인 중 예외가 나도 안전하게 False로 끝나는지 확인한다."""
+
+    original_kill = os.kill
+    lock_data = WorkspaceLockData(
+        lock_id="lock-smoke",
+        workspace_id="workspace-smoke",
+        host=socket.gethostname(),
+        user="smoke",
+        process_id=max(1, os.getpid()),
+        app_kind="feature-harness-smoke",
+        opened_at=datetime.now().isoformat(timespec="seconds"),
+        heartbeat_at=datetime.now().isoformat(timespec="seconds"),
+    )
+    try:
+        def _raise_system_error(*args, **kwargs):
+            raise SystemError("simulated os.kill failure")
+
+        os.kill = _raise_system_error  # type: ignore[assignment]
+        is_dead = _is_local_dead_process(lock_data)
+    finally:
+        os.kill = original_kill  # type: ignore[assignment]
+
+    return {
+        "status": "pass" if is_dead is False else "fail",
+        "is_dead": is_dead,
     }
 
 
