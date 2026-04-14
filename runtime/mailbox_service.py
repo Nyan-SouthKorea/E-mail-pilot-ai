@@ -18,7 +18,11 @@ from mailbox.imap_fetch_smoke import (
     resolve_successful_imap_login_username,
     resolve_successful_imap_login_username_kind,
 )
-from runtime.device_secret_store import load_local_device_secrets, remember_default_openai_api_key
+from runtime.device_secret_store import (
+    load_local_device_secrets,
+    remember_default_openai_api_key,
+    sanitize_openai_api_key,
+)
 from runtime.secrets_store import WorkspaceSecretsStore
 from runtime.workspace import load_shared_workspace
 
@@ -82,9 +86,9 @@ def run_mailbox_connection_check_service(
     resolved_login_username = login_username.strip() or str(current_mailbox.get("login_username") or "")
     resolved_password = mailbox_password.strip() or str(current_mailbox.get("password") or "")
     resolved_api_key = (
-        llm_api_key.strip()
-        or str(current_llm.get("api_key") or "")
-        or device_secrets.default_openai_api_key
+        sanitize_openai_api_key(llm_api_key)
+        or sanitize_openai_api_key(str(current_llm.get("api_key") or ""))
+        or sanitize_openai_api_key(device_secrets.default_openai_api_key)
     )
     if not resolved_email:
         raise RuntimeError("이메일 주소를 먼저 입력해 주세요.")
@@ -225,6 +229,7 @@ def run_mailbox_fetch_service(
     workspace_password: str,
     limit: int | None,
     app_kind_note: str,
+    on_stage: StageCallback | None = None,
 ) -> MailboxFetchResult:
     workspace = load_shared_workspace(workspace_root)
     secrets_store = WorkspaceSecretsStore(
@@ -245,6 +250,25 @@ def run_mailbox_fetch_service(
         account_config=account_config,
         folder=str(mailbox_settings.get("default_folder") or mailbox_settings.get("recommended_folder") or "INBOX"),
         latest_limit=limit,
+        on_progress=lambda payload: _emit_stage(
+            on_stage,
+            stage_id="fetch",
+            stage_label="메일 가져오는 중",
+            progress_current=int(payload.get("processed_count") or 0),
+            progress_total=int(payload.get("total_count") or 0),
+            stage_progress_current=int(payload.get("processed_count") or 0),
+            stage_progress_total=int(payload.get("total_count") or 0),
+            details=[
+                f"새로 저장한 메일: {int(payload.get('fetched_count') or 0)}건",
+                f"이미 있던 메일 건너뜀: {int(payload.get('skipped_existing_count') or 0)}건",
+                f"문제 있는 메일: {int(payload.get('failed_count') or 0)}건",
+            ],
+            message=(
+                f"메일을 가져오는 중입니다. {int(payload.get('processed_count') or 0)} / "
+                f"{int(payload.get('total_count') or 0)}"
+            ),
+            next_action="이미 받은 메일은 건너뛰고 새 메일부터 저장합니다.",
+        ),
     )
     report_path = default_backfill_report_path(
         str(workspace.profile_root()),
@@ -262,10 +286,7 @@ def run_mailbox_fetch_service(
     )
 
 
-def _emit_stage(
-    callback: StageCallback | None,
-    **payload: object,
-) -> None:
+def _emit_stage(callback: StageCallback | None, **payload: object) -> None:
     if callback is None:
         return
     callback(payload)
@@ -276,7 +297,7 @@ def _list_imap_folders(*, candidate, login_username: str, password: str, timeout
     import ssl
 
     socket = imaplib.IMAP4_SSL(
-        host=candidate.hostname,
+        host=candidate.host,
         port=candidate.port,
         ssl_context=ssl.create_default_context(),
         timeout=timeout_seconds,

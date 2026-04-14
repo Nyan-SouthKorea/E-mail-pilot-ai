@@ -11,6 +11,7 @@ from typing import Any
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 from os import urandom
+from runtime.device_secret_store import sanitize_openai_api_key
 
 SECRETS_SCHEMA_VERSION = "runtime.workspace_secrets.v1"
 
@@ -61,11 +62,20 @@ class WorkspaceSecretsStore:
 
     def masked_summary(self) -> dict[str, object]:
         payload = self.read()
+        sanitized_api_key = sanitize_openai_api_key((payload.get("llm") or {}).get("api_key"))
+        raw_api_key = str((payload.get("llm") or {}).get("api_key") or "").strip()
+        if sanitized_api_key:
+            api_key_status = "saved"
+        elif raw_api_key:
+            api_key_status = "invalid_placeholder"
+        else:
+            api_key_status = "missing"
         return {
             "workspace": dict(payload.get("workspace") or {}),
             "llm": {
                 "model": str((payload.get("llm") or {}).get("model") or ""),
-                "api_key_saved": bool((payload.get("llm") or {}).get("api_key")),
+                "api_key_saved": bool(sanitized_api_key),
+                "api_key_status": api_key_status,
             },
             "mailbox": {
                 "email_address": str((payload.get("mailbox") or {}).get("email_address") or ""),
@@ -80,6 +90,9 @@ class WorkspaceSecretsStore:
                 "login_username_kind": str((payload.get("mailbox") or {}).get("login_username_kind") or "email_address_fallback"),
             },
             "exports": dict(payload.get("exports") or {}),
+            "analysis": {
+                "classification_guidance": str((payload.get("analysis") or {}).get("classification_guidance") or ""),
+            },
         }
 
 

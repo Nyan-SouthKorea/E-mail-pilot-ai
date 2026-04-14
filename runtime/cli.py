@@ -94,6 +94,7 @@ def main() -> None:
     settings_save.add_argument("--mailbox-password", default="")
     settings_save.add_argument("--default-folder", default="")
     settings_save.add_argument("--template-workbook-relative-path", default="")
+    settings_save.add_argument("--classification-guidance", default="")
 
     mailbox_parser = subparsers.add_parser("mailbox")
     mailbox_sub = mailbox_parser.add_subparsers(dest="mailbox_command", required=True)
@@ -108,6 +109,7 @@ def main() -> None:
     mailbox_connect.add_argument("--mailbox-password", default="")
     mailbox_connect.add_argument("--default-folder", default="")
     mailbox_connect.add_argument("--template-workbook-relative-path", default="")
+    mailbox_connect.add_argument("--classification-guidance", default="")
 
     mailbox_fetch = mailbox_sub.add_parser("fetch")
     mailbox_fetch.add_argument("--workspace-root", required=True)
@@ -267,6 +269,7 @@ def main() -> None:
                     mailbox_password=args.mailbox_password,
                     default_folder=args.default_folder,
                     template_workbook_relative_path=args.template_workbook_relative_path,
+                    classification_guidance=args.classification_guidance,
                 ).to_dict()
             )
             return
@@ -284,6 +287,7 @@ def main() -> None:
                     mailbox_password=args.mailbox_password,
                     default_folder=args.default_folder,
                     template_workbook_relative_path=args.template_workbook_relative_path,
+                    classification_guidance=args.classification_guidance,
                 ).to_dict()
             )
             return

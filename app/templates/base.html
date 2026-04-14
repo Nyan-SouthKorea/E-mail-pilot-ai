@@ -120,6 +120,20 @@
         {% if error %}
         <div class="banner error">{{ error }}</div>
         {% endif %}
+        <section class="global-job-progress" data-global-job-progress hidden>
+          <div class="global-job-progress-head">
+            <div class="global-job-progress-title" data-global-job-title>작업 진행 상태</div>
+            <div class="global-job-progress-meta">
+              <span class="status-pill quiet" data-global-job-stage>대기 중</span>
+              <span class="status-pill quiet" data-global-job-count>0%</span>
+            </div>
+          </div>
+          <div class="progress-bar-shell">
+            <div class="progress-bar-fill" data-global-job-fill style="width:0%"></div>
+          </div>
+          <div class="global-job-progress-note" data-global-job-note>아직 실행 중인 작업이 없습니다.</div>
+          <ul class="global-job-progress-details" data-global-job-details hidden></ul>
+        </section>
         {% block body %}{% endblock %}
       </main>
     </div>

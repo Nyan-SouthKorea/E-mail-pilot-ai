@@ -32,6 +32,7 @@
     <div><span class="label">상태</span><strong data-job-status-label>대기 중</strong></div>
     <div><span class="label">현재 단계</span><strong data-job-stage-label>-</strong></div>
     <div><span class="label">진행률</span><strong data-job-progress-label>0%</strong></div>
+    <div><span class="label">진행 개수</span><strong data-job-stage-progress>표시할 내용이 없습니다.</strong></div>
     <div><span class="label">다음 행동</span><strong data-job-next-action>표시할 내용이 없습니다.</strong></div>
   </div>
   <div class="field-status quiet" data-job-message>아직 실행 중인 작업이 없습니다.</div>
@@ -62,7 +63,7 @@
       </ul>
       <div class="action-foot">
         <span class="action-shell" data-tooltip="{{ action_states.quick_sync.tooltip }}">
-          <form action="/sync" method="post">
+          <form action="/sync" method="post" data-preserve-window-scroll>
             <input type="hidden" name="scope" value="recent">
             <label style="margin-bottom:6px">동기화 개수</label>
             <div class="row" style="margin-bottom:10px">
@@ -99,7 +100,7 @@
       </ul>
       <div class="action-foot">
         <span class="action-shell" data-tooltip="{{ action_states.full_sync.tooltip }}">
-          <form action="/sync" method="post">
+          <form action="/sync" method="post" data-preserve-window-scroll>
             <input type="hidden" name="scope" value="all">
             <button type="submit" {% if action_states.full_sync.disabled %}disabled{% endif %}>전체 동기화</button>
           </form>

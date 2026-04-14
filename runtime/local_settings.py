@@ -8,6 +8,9 @@ import os
 from pathlib import Path
 
 
+LOCAL_SETTINGS_PATH_ENV = "EPA_LOCAL_SETTINGS_PATH"
+STARTUP_LOG_PATH_ENV = "EPA_STARTUP_LOG_PATH"
+
 @dataclass(slots=True)
 class LocalAppSettings:
     """기능: 로컬 장치 전용 앱 설정을 표현한다."""
@@ -35,6 +38,9 @@ class LocalAppSettings:
 def default_local_settings_path() -> Path:
     """기능: 현재 OS 기준 로컬 전용 설정 파일 경로를 반환한다."""
 
+    override = str(os.environ.get(LOCAL_SETTINGS_PATH_ENV) or "").strip()
+    if override:
+        return Path(override)
     if os.name == "nt":
         appdata = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
         return appdata / "EmailPilotAI" / "local_settings.json"
@@ -44,6 +50,9 @@ def default_local_settings_path() -> Path:
 def default_startup_log_path() -> Path:
     """기능: 데스크톱 런처 startup log의 기본 경로를 반환한다."""
 
+    override = str(os.environ.get(STARTUP_LOG_PATH_ENV) or "").strip()
+    if override:
+        return Path(override)
     if os.name == "nt":
         appdata = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
         return appdata / "EmailPilotAI" / "startup.log"
@@ -78,7 +87,10 @@ def load_local_app_settings(path: str | Path | None = None) -> LocalAppSettings:
     settings_path = Path(path or default_local_settings_path())
     if not settings_path.exists():
         return LocalAppSettings()
-    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return LocalAppSettings()
     return LocalAppSettings.from_dict(payload)
 
 

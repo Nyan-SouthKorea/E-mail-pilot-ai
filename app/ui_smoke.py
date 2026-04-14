@@ -15,8 +15,11 @@ from fastapi.testclient import TestClient
 
 from app.server import SERVER_STATE, app, set_shell_context
 from runtime import (
+    DEVICE_SECRETS_PATH_ENV,
     LocalAppSettings,
     LocalDeviceSecrets,
+    LOCAL_SETTINGS_PATH_ENV,
+    STARTUP_LOG_PATH_ENV,
     default_device_secrets_path,
     default_local_settings_path,
     save_local_app_settings,
@@ -72,18 +75,16 @@ def run_app_ui_smoke(
     app_logs_root.mkdir(parents=True, exist_ok=True)
     report_path = app_logs_root / f"{datetime.now().strftime('%y%m%d_%H%M')}_ui_smoke.json"
     template_relpath = workspace.to_workspace_relative(workspace.profile_paths().template_workbook_path())
+    smoke_local_root = app_logs_root / "_ui_smoke_local_state"
+    smoke_local_root.mkdir(parents=True, exist_ok=True)
+    previous_local_settings_env = os.environ.get(LOCAL_SETTINGS_PATH_ENV)
+    previous_device_secrets_env = os.environ.get(DEVICE_SECRETS_PATH_ENV)
+    previous_startup_log_env = os.environ.get(STARTUP_LOG_PATH_ENV)
+    os.environ[LOCAL_SETTINGS_PATH_ENV] = str(smoke_local_root / "local_settings.json")
+    os.environ[DEVICE_SECRETS_PATH_ENV] = str(smoke_local_root / "device_secrets.json")
+    os.environ[STARTUP_LOG_PATH_ENV] = str(smoke_local_root / "startup.log")
     local_settings_path = default_local_settings_path()
     device_secrets_path = default_device_secrets_path()
-    previous_local_settings = (
-        local_settings_path.read_text(encoding="utf-8")
-        if local_settings_path.exists()
-        else None
-    )
-    previous_device_secrets = (
-        device_secrets_path.read_text(encoding="utf-8")
-        if device_secrets_path.exists()
-        else None
-    )
     previous_picker_test_response = os.environ.get("EPA_PICKER_TEST_RESPONSE")
 
     steps: list[AppUiSmokeStep] = []
@@ -152,7 +153,7 @@ def run_app_ui_smoke(
             ("/", "home_with_workspace", "다음 행동"),
             ("/sync", "sync_page", "선택한 개수로 동기화"),
             ("/settings", "settings_page", "계정 연결 확인"),
-            ("/review", "review_page", "운영 엑셀에 들어간 메일만"),
+            ("/review", "review_page", "실제 엑셀에 들어간 메일만"),
             ("/admin/features", "admin_features_page", "고급 도구"),
             ("/jobs/current", "job_status_api", '"status"'),
             ("/app-meta", "app_meta_api", '"app_id":"email_pilot_ai_desktop"'),
@@ -256,7 +257,7 @@ def run_app_ui_smoke(
                 review_page_response.status_code == 200
                 and "선택한 메일을 불러오는 중입니다" not in review_page_text
                 and "검토 개요" in review_page_text
-                and "운영 엑셀에 들어간 메일만" in review_page_text
+                and "실제 엑셀에 들어간 메일만" in review_page_text
                 and "보기 방식" in review_page_text
                 and "200개" in review_page_text
             ),
@@ -322,16 +323,20 @@ def run_app_ui_smoke(
             shell_mode="browser_fallback",
             native_dialog_state="browser_fallback",
         )
-        if previous_local_settings is None:
-            local_settings_path.unlink(missing_ok=True)
+        local_settings_path.unlink(missing_ok=True)
+        device_secrets_path.unlink(missing_ok=True)
+        if previous_local_settings_env is None:
+            os.environ.pop(LOCAL_SETTINGS_PATH_ENV, None)
         else:
-            local_settings_path.parent.mkdir(parents=True, exist_ok=True)
-            local_settings_path.write_text(previous_local_settings, encoding="utf-8")
-        if previous_device_secrets is None:
-            device_secrets_path.unlink(missing_ok=True)
+            os.environ[LOCAL_SETTINGS_PATH_ENV] = previous_local_settings_env
+        if previous_device_secrets_env is None:
+            os.environ.pop(DEVICE_SECRETS_PATH_ENV, None)
         else:
-            device_secrets_path.parent.mkdir(parents=True, exist_ok=True)
-            device_secrets_path.write_text(previous_device_secrets, encoding="utf-8")
+            os.environ[DEVICE_SECRETS_PATH_ENV] = previous_device_secrets_env
+        if previous_startup_log_env is None:
+            os.environ.pop(STARTUP_LOG_PATH_ENV, None)
+        else:
+            os.environ[STARTUP_LOG_PATH_ENV] = previous_startup_log_env
         if previous_picker_test_response is None:
             os.environ.pop("EPA_PICKER_TEST_RESPONSE", None)
         else:

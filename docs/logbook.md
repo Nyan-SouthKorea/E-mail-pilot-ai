@@ -154,9 +154,22 @@
   - `운영 엑셀에 들어간 메일만`은 내부적으로 `included_in_export = true`를 뜻하며, 같은 신청 흐름 안에서 실제 운영 엑셀에 들어가는 기준 메일만 보는 필터로 정리했다.
   - 리뷰 관련 자동 canonical selection은 내부적으로 동작하고 있고, 사용자 표면에서는 `중복/대표 메일` 대신 `엑셀 반영됨 / 보류 / 검토 필요`만 남긴 상태다.
   - 개발 기본 루프는 이제 브라우저 기반 web UI에서 먼저 닫고, 마지막에 최신 pushed `main` 기준으로만 공식 exe를 다시 빌드하는 방향으로 전환한다.
+  - 이번 체크포인트는 사용자가 직접 보고 있는 web UX 기준 피드백 7개를 묶어, `정리` 클릭 시 스크롤 점프, 도움말 아이콘 스타일, 설정 저장 후 빈 입력 신뢰성, 리뷰 상세 외부 열기 무반응, 1000건 동기화 진행률, 신청 메일 분류/설명/재분류, 요약 메모 표시를 한 번에 정리하는 단계로 다시 좁혔다.
+  - 특히 이번 턴은 사용자가 말한 control 하나만 고치지 않고, 같은 흐름의 loading / empty / error / success / persistence / scale / copy를 함께 점검하는 adjacent acceptance 턴으로 본다.
+  - source 기준 최신 보정으로 최근 세이브 `정리`는 더 이상 anchor 기준 보정으로 window scroll을 흔들지 않고 현재 scroll top을 그대로 복원한다.
+  - review 목록의 핵심 클릭부는 링크 대신 버튼형 partial update로 바꿔, 긴 목록에서 선택할 때 window scroll jump를 줄이는 방향으로 정리했다.
+  - review 레이아웃은 sticky 의존을 낮추고 양쪽 패널을 같은 높이의 독립 스크롤로 유지하도록 다시 조정했다.
+  - review 상단에는 `현재 분류 현황`, `자동 요약과 분류가 제한됨`, `분류 기준 바꾸기` 가이드를 추가해 왜 `신청 메일`이 적게 보일 수 있는지와 사용자가 기준을 어디서 바꾸는지 바로 알 수 있게 했다.
+  - settings 화면은 비밀번호 입력칸이 비어 보여도 기존 저장값을 지우지 않는다는 문구를 저장 버튼 근처에 다시 명시했다.
+  - review 상세의 `요약 메모` 탭은 summary 파일이 비어 있을 때도 API key/분석 실패 힌트를 fallback으로 보여주게 다시 맞췄다.
+  - review 상세의 외부 열기 액션은 web 모드에서 실제 새 탭 anchor를 기본으로 쓰고, desktop window에서는 기존 native open 경로를 계속 쓰도록 분리했다.
+  - 공통 정보 아이콘은 SVG 점(dot) 렌더를 path 기반으로 바꾸고 hover/focus 배경과 비례를 다시 조정했다.
+  - global progress card는 하단 고정 카드로 유지하되 더 크게 보이고 단계/메시지가 더 또렷하게 읽히도록 시각 톤을 보강했다.
 - 바로 다음 작업:
-  - 최신 web-first 검증 링크를 사용자에게 전달하고 실제 브라우저 피드백을 받는다.
-  - 남은 review polish를 source/web에서 먼저 닫고, 마지막에 공식 Windows exe 재빌드와 packaged smoke를 수행한다.
+  - web 서버를 현재 source 기준으로 다시 띄우고, 실제 세이브 링크에서 review 패널과 외부 열기/분류 가이드를 직접 확인한다.
+  - sync 진행 상태는 fetch / analysis / export 단계별 개수와 진행률이 review/sync 화면에서 실제로 눈에 띄는지 real workspace 기준으로 다시 검증한다.
+  - review 외부 열기와 native picker는 web/exe 차이가 있어, web 기준 상태 유지와 exe 기준 shell-specific acceptance를 분리해 닫는다.
+  - 위 web/source 검증이 닫히면 마지막에만 공식 Windows exe 재빌드와 packaged smoke를 수행한다.
   - `sync --all` 장기 운영 검증은 별도 acceptance로 계속 누적한다.
 - publish 상태:
   - 이전 plan publish 완료
@@ -212,8 +225,37 @@
 | web-first sample review 진입 링크 | 완료 | 완료 | 필요 없음 | 선택 |
 | Windows native picker 실제 dialog | 완료 | diagnostics/self-test 완료 | 대기 | 필요 |
 | exe 아이콘/창 브랜딩 최신 반영 | 완료 | packaged smoke 대기 | 대기 | 필요 |
+| 최근 세이브 `정리` 후 window scroll 유지 | 완료 | 부분 | 대기 | 선택 |
+| settings 저장 후 저장된 이메일/비밀번호 신뢰성 표시 | 완료 | 부분 | 대기 | 선택 |
+| review 상세 외부 열기 무반응 방지와 이유 안내 | 완료 | 부분 | 대기 | 선택 |
+| 1000건 sync 단계별 진행률/개수 표시 | 완료 | 부분 | 대기 | 선택 |
+| 신청 메일 분류 기준 설명과 사용자 가이던스 재분류 | 완료 | 부분 | 대기 | 선택 |
+| 요약 메모 표시/생성 경로 점검 | 완료 | 부분 | 대기 | 선택 |
+| review 패널 독립 스크롤과 클릭 시 jump 완화 | 완료 | 완료 | 대기 | 선택 |
+| help 아이콘 시각 톤 정리 | 완료 | 부분 | 대기 | 선택 |
 
 ## 최근 로그
+
+### 2026-04-14 | Human + Codex | review 피드백 7종 2차 보정과 web-first 링크 준비
+
+- 최근 세이브 `정리` 버튼은 더 이상 `data-preserve-window-scroll`과 AJAX 후 anchor 보정이 겹치지 않게 정리해, 현재 window scroll top만 그대로 복원하도록 단순화했다.
+- review 상세 외부 열기 액션은 web 모드에서 실제 새 탭 anchor를 기본으로 열고, desktop window에서는 기존 native open 경로를 유지하도록 분기해 “눌렀는데 아무 반응이 없는 느낌”을 줄였다.
+- review 목록의 핵심 클릭부는 button 기반 partial update를 유지하고, detail panel은 로딩 중에도 기존 내용을 남긴 채 overlay만 얹는 방식으로 다시 보강했다.
+- review workbench는 sticky 의존을 더 낮추고 양쪽 패널 높이를 맞춘 독립 스크롤 구조로 다시 조정했다.
+- 공통 SVG 정보 아이콘은 점(dot)을 path로 바꾸고 외곽 감싸기 느낌을 줄여, plain `i`보다 자연스럽고 덜 어색한 톤으로 다듬었다.
+- 실제 사용자 세이브를 다시 확인한 결과 `OpenAI API key`는 현재 `invalid_placeholder` 상태였고, 이 때문에 신청 메일/요약 메모 품질이 제한될 수 있다는 점을 확인했다.
+- 검증은 `python -m py_compile ...`, `node --check app/static/js/app.js`, `python -m runtime.cli create-sample-workspace ...`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_feedback_smoke --workspace-password SampleWorkspace260408`, 실제 세이브 기준 `settings show`, `analysis review-list`, FastAPI `TestClient` 기준 `/review?triage_label=application`까지 다시 돌렸다.
+- 추가 검증 중 `8028` 포트에 예전 browser-fallback 서버가 남아 있어 최신 no-window 서버와 헷갈리는 문제를 발견했고, 충돌 없는 `8031` 포트에 최신 headless 서버를 따로 띄워 web-first 링크 검증을 다시 수행했다.
+
+### 2026-04-14 | Human + Codex | review web UX 피드백 7종 보정과 web-first 재검증
+
+- 최근 세이브 `정리`는 AJAX 제거 후 anchor 차이로 scroll을 보정하던 방식을 버리고, 현재 window scroll top 자체를 그대로 복원하도록 단순화했다.
+- review 목록은 핵심 클릭부를 button 기반 partial update로 바꿨고, detail partial load 전후에 window scroll도 함께 보수적으로 복원하도록 맞췄다.
+- review 레이아웃은 양쪽 패널을 같은 높이의 독립 스크롤로 다시 조정하고, global progress card는 더 크게 보이고 진행 개수를 note에 함께 적도록 보강했다.
+- review 화면에는 `실제 엑셀에 들어간 메일만`, `현재 분류 현황`, `자동 요약과 분류가 제한됨`, `분류 기준 바꾸기` 가이드를 추가해 분류/요약이 왜 기대와 다를 수 있는지 바로 설명하게 했다.
+- settings 화면은 비밀번호 입력칸이 비어 보여도 기존 저장값을 지우지 않는다는 문구를 저장 액션 근처에 다시 명시했다.
+- `summary` artifact preview는 summary 파일이 비어 있을 때도 analysis failure hint를 fallback으로 보여주게 수정했다.
+- 검증은 `python -m py_compile ...`, `EPA_LOCAL_SETTINGS_PATH=... python -m app.ui_smoke --workspace-root /tmp/epa_review_webfirst_smoke --workspace-password SampleWorkspace260408`, `python -m runtime.feature_harness_smoke --workspace-root /tmp/epa_review_webfirst_smoke --workspace-password SampleWorkspace260408 --create-sample-if-missing`, 실제 workspace 기준 `python -m runtime.cli settings show ...`, `python -m runtime.cli analysis review-list ... --triage-label application|needs_human_review`까지 다시 확인했다.
 
 ### 2026-04-14 | Human + Codex | review workbench 고정 2단 패널, web-first helper 링크, synthetic performance smoke 정리
 

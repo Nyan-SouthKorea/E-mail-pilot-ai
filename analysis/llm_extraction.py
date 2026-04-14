@@ -106,7 +106,7 @@ def build_extracted_record_text_config() -> dict[str, Any]:
     }
 
 
-def build_extraction_instructions() -> str:
+def build_extraction_instructions(*, custom_guidance: str = "") -> str:
     """기능: 이메일/첨부 분석용 시스템 지시문을 반환한다.
 
     입력:
@@ -116,7 +116,7 @@ def build_extraction_instructions() -> str:
     - 지시문 문자열
     """
 
-    return (
+    instructions = (
         "당신은 이메일 신청 접수 문서를 읽고 구조화된 업무 레코드를 만드는 분석기다.\n"
         "주어진 자료는 이메일 메타데이터, 이메일 본문, 첨부 요약, "
         "그리고 필요할 때 실제 이미지 입력이다.\n"
@@ -164,6 +164,14 @@ def build_extraction_instructions() -> str:
         "summary_one_line과 summary_short는 본문 정보가 충분하면 비워 두지 마라.\n"
         "내부 관리용 human-only 필드(예: internal_status, internal_notes)는 자동으로 채우지 마라."
     )
+    if custom_guidance.strip():
+        instructions += (
+            "\n"
+            "아래는 현재 운영자가 이번 세이브 파일에 맞게 추가한 분류/판정 기준 메모다. "
+            "기본 계약을 깨지 않는 범위에서 이 메모를 함께 반영해 판단하라.\n"
+            f"{custom_guidance.strip()}\n"
+        )
+    return instructions
 
 
 def parse_extracted_record_payload(
@@ -266,6 +274,10 @@ def _ensure_triage_fallback(record: ExtractedRecord) -> None:
         _field_value(record, field_name).strip()
         for field_name in ["contact_name", "phone_number", "email_address"]
     )
+    has_application_summary_signal = any(
+        _field_value(record, field_name).strip()
+        for field_name in ["request_summary", "application_purpose"]
+    )
     text_blob = _record_text_blob(record)
     looks_like_application = any(
         token in text_blob
@@ -274,6 +286,10 @@ def _ensure_triage_fallback(record: ExtractedRecord) -> None:
             "신청 드립니다",
             "신청합니다",
             "참가기업 모집",
+            "참가신청",
+            "신청서",
+            "지원서",
+            "지원 서류",
             "application",
             "registration",
             "submit",
@@ -292,7 +308,12 @@ def _ensure_triage_fallback(record: ExtractedRecord) -> None:
     )
 
     if record.triage_label == "needs_human_review":
-        if looks_like_application and has_company_signal and has_contact_signal:
+        if looks_like_application and (
+            (has_company_signal and has_contact_signal)
+            or (has_company_signal and has_application_summary_signal)
+            or (has_contact_signal and has_application_summary_signal)
+            or has_application_summary_signal
+        ):
             record.triage_label = "application"
         elif looks_like_overview and not has_contact_signal:
             record.triage_label = "not_application"
@@ -313,7 +334,11 @@ def _ensure_triage_fallback(record: ExtractedRecord) -> None:
 
     if record.triage_confidence is None:
         if record.triage_label == "application":
-            record.triage_confidence = 0.84 if has_company_signal and has_contact_signal else 0.72
+            record.triage_confidence = (
+                0.84
+                if has_company_signal and has_contact_signal
+                else (0.76 if has_application_summary_signal else 0.72)
+            )
         elif record.triage_label == "not_application":
             record.triage_confidence = 0.82 if looks_like_overview else 0.7
         else:

@@ -22,6 +22,7 @@ from exports import (
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
 from mailbox import build_local_mailbox_account_config, run_imap_inbox_backfill_smoke
 from mailbox.imap_backfill_smoke import default_backfill_report_path
+from runtime.device_secret_store import sanitize_openai_api_key
 from runtime.lockfile import WorkspaceWriteLockHandle, acquire_workspace_write_lock
 from runtime.review_state import ingest_review_report_into_state
 from runtime.secrets_store import WorkspaceSecretsStore
@@ -105,7 +106,7 @@ def run_workspace_sync(
         wrapper = OpenAIResponsesWrapper(
             OpenAIResponsesConfig(
                 model=str(llm_settings.get("model") or "gpt-5.4"),
-                api_key=str(llm_settings.get("api_key") or ""),
+                api_key=sanitize_openai_api_key(str(llm_settings.get("api_key") or "")),
                 usage_log_path=str(workspace.profile_paths().llm_usage_log_path()),
             )
         )

@@ -92,6 +92,7 @@ def run_materialized_bundle_analysis_smoke(
     bundle_root: str | None = None,
     reuse_existing_analysis: bool = False,
     wrapper: OpenAIResponsesWrapper | None = None,
+    custom_guidance: str = "",
 ) -> list[MaterializedBundleAnalysisResult]:
     """기능: materialized bundle을 직접 읽어 LLM 분석 smoke를 실행한다.
 
@@ -127,6 +128,7 @@ def run_materialized_bundle_analysis_smoke(
                 profile_paths=profile_paths,
                 wrapper=wrapper,
                 reuse_existing_analysis=reuse_existing_analysis,
+                custom_guidance=custom_guidance,
             )
         )
     return results
@@ -138,6 +140,7 @@ def _analyze_single_bundle(
     profile_paths: ProfilePaths,
     wrapper: OpenAIResponsesWrapper,
     reuse_existing_analysis: bool,
+    custom_guidance: str,
 ) -> MaterializedBundleAnalysisResult:
     normalized = load_normalized_message_from_bundle(bundle_root)
     artifact_summaries = summarize_attachment_paths(
@@ -150,14 +153,21 @@ def _analyze_single_bundle(
         / f"{normalized.bundle_id}_extracted_record.json"
     )
     meta_path = output_path.with_suffix(".meta.json")
+    summary_path = bundle_root / "summary.md"
     notes: list[str] = []
     current_fingerprint = build_bundle_analysis_fingerprint(bundle_root)
+    current_guidance_fingerprint = sha256(custom_guidance.strip().encode("utf-8")).hexdigest()
 
     if reuse_existing_analysis and output_path.exists() and _can_reuse_existing_analysis(
         output_path=output_path,
         meta_path=meta_path,
         current_fingerprint=current_fingerprint,
+        current_guidance_fingerprint=current_guidance_fingerprint,
     ):
+        _ensure_summary_markdown_from_record(
+            output_path=output_path,
+            summary_path=summary_path,
+        )
         notes.append("기존 bundle 분석 결과 JSON을 fingerprint 기준으로 재사용했다.")
         return MaterializedBundleAnalysisResult(
             bundle_id=normalized.bundle_id,
@@ -168,7 +178,7 @@ def _analyze_single_bundle(
 
     envelope = wrapper.create_response(
         operation="materialized_bundle_analysis_smoke",
-        instructions=build_extraction_instructions(),
+        instructions=build_extraction_instructions(custom_guidance=custom_guidance),
         input_payload=build_materialized_bundle_analysis_input_payload(
             normalized_message=normalized,
             artifact_summaries=artifact_summaries,
@@ -203,11 +213,16 @@ def _analyze_single_bundle(
         json.dumps(extracted_record.to_dict(), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    summary_path.write_text(
+        _build_summary_markdown(extracted_record),
+        encoding="utf-8",
+    )
     meta_path.write_text(
         json.dumps(
             {
                 "analysis_revision": ANALYSIS_REVISION,
                 "bundle_fingerprint": current_fingerprint,
+                "guidance_fingerprint": current_guidance_fingerprint,
             },
             ensure_ascii=False,
             indent=2,
@@ -241,6 +256,7 @@ def _can_reuse_existing_analysis(
     output_path: Path,
     meta_path: Path,
     current_fingerprint: str,
+    current_guidance_fingerprint: str,
 ) -> bool:
     if not output_path.exists() or not meta_path.exists():
         return False
@@ -251,7 +267,45 @@ def _can_reuse_existing_analysis(
     return (
         str(payload.get("analysis_revision") or "") == ANALYSIS_REVISION
         and str(payload.get("bundle_fingerprint") or "") == current_fingerprint
+        and str(payload.get("guidance_fingerprint") or "") == current_guidance_fingerprint
     )
+
+
+def _ensure_summary_markdown_from_record(*, output_path: Path, summary_path: Path) -> None:
+    if summary_path.exists():
+        return
+    try:
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    extracted_record = parse_extracted_record_payload(
+        bundle_id=str(payload.get("bundle_id") or ""),
+        message_key=str(payload.get("message_key") or ""),
+        payload=payload,
+    )
+    summary_path.write_text(
+        _build_summary_markdown(extracted_record),
+        encoding="utf-8",
+    )
+
+
+def _build_summary_markdown(extracted_record) -> str:
+    summary_lines = [
+        "# 요약 메모",
+        "",
+        f"- 한 줄 요약: {extracted_record.summary_one_line or '(없음)'}",
+        f"- 짧은 요약: {extracted_record.summary_short or '(없음)'}",
+        f"- 분류: {extracted_record.triage_label or '(없음)'}",
+        f"- 분류 근거: {extracted_record.triage_reason or '(없음)'}",
+    ]
+    request_summary = ""
+    for field in extracted_record.fields:
+        if getattr(field, "field_name", "") == "request_summary":
+            request_summary = (getattr(field, "normalized_value", None) or getattr(field, "value", "") or "").strip()
+            break
+    if request_summary:
+        summary_lines.append(f"- 요청 요약: {request_summary}")
+    return "\n".join(summary_lines).strip() + "\n"
 
 
 def build_materialized_bundle_analysis_input_payload(

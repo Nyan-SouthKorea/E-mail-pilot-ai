@@ -6,7 +6,11 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-from runtime.device_secret_store import load_local_device_secrets, remember_default_openai_api_key
+from runtime.device_secret_store import (
+    load_local_device_secrets,
+    remember_default_openai_api_key,
+    sanitize_openai_api_key,
+)
 from runtime.secrets_store import WorkspaceSecretsStore
 from runtime.workspace import assess_workspace_path, load_shared_workspace
 
@@ -56,6 +60,7 @@ def save_workspace_settings(
     mailbox_password: str,
     default_folder: str,
     template_workbook_relative_path: str,
+    classification_guidance: str = "",
 ) -> WorkspaceSettingsSummary:
     workspace = load_shared_workspace(workspace_root)
     secrets_store = WorkspaceSecretsStore(
@@ -67,10 +72,11 @@ def save_workspace_settings(
     current_llm = dict(payload.get("llm") or {})
     current_mailbox = dict(payload.get("mailbox") or {})
     current_exports = dict(payload.get("exports") or {})
+    current_analysis = dict(payload.get("analysis") or {})
     resolved_api_key = (
-        llm_api_key.strip()
-        or str(current_llm.get("api_key") or "")
-        or device_secrets.default_openai_api_key
+        sanitize_openai_api_key(llm_api_key)
+        or sanitize_openai_api_key(str(current_llm.get("api_key") or ""))
+        or sanitize_openai_api_key(device_secrets.default_openai_api_key)
     )
     resolved_template_path = normalize_workspace_relative_input(
         workspace_root=str(workspace.root()),
@@ -99,6 +105,13 @@ def save_workspace_settings(
         "template_workbook_relative_path": resolved_template_path,
         "operating_workbook_relative_path": workspace.to_workspace_relative(
             workspace.profile_paths().operating_export_workbook_path()
+        ),
+    }
+    payload["analysis"] = {
+        **current_analysis,
+        "classification_guidance": (
+            classification_guidance.strip()
+            or str(current_analysis.get("classification_guidance") or "")
         ),
     }
     secrets_store.write(payload)

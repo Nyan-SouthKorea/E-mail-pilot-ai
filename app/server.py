@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape
 import imaplib
+import json
 import os
 from pathlib import Path
 import re
@@ -18,7 +19,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -66,6 +67,7 @@ from runtime import (
     run_feature,
     save_local_app_settings,
     save_workspace_settings,
+    sanitize_openai_api_key,
     suggest_workspace_root,
     template_status_for_workspace,
 )
@@ -105,6 +107,8 @@ class BackgroundJobState:
     progress_current: int = 0
     progress_total: int = 0
     progress_percent: int = 0
+    stage_progress_current: int = 0
+    stage_progress_total: int = 0
     next_action: str = ""
     details: list[str] = field(default_factory=list)
     started_at: str = ""
@@ -121,6 +125,8 @@ class BackgroundJobState:
             "progress_current": self.progress_current,
             "progress_total": self.progress_total,
             "progress_percent": self.progress_percent,
+            "stage_progress_current": self.stage_progress_current,
+            "stage_progress_total": self.stage_progress_total,
             "next_action": self.next_action,
             "details": list(self.details),
             "started_at": self.started_at,
@@ -493,10 +499,21 @@ def _load_review_artifact_preview(*, workspace, item: dict[str, Any] | None, kin
     normalized = (kind or "overview").strip().lower()
     if normalized == "overview":
         return None
+    if normalized == "summary":
+        summary_text = _review_summary_display_text(workspace=workspace, item=item)
+        if not summary_text:
+            summary_text = _review_analysis_failure_hint(item)
+        if summary_text:
+            return {
+                "kind": normalized,
+                "label": _review_artifact_label(normalized),
+                "content_type": "text",
+                "relative_path": str(item.get("summary_relpath") or ""),
+                "content": summary_text,
+            }
     mapping = {
         "preview": item.get("preview_relpath"),
         "raw": item.get("raw_eml_relpath"),
-        "summary": item.get("summary_relpath"),
         "record": item.get("extracted_record_relpath"),
         "projected": item.get("projected_row_relpath"),
     }
@@ -525,6 +542,95 @@ def _load_review_artifact_preview(*, workspace, item: dict[str, Any] | None, kin
     }
 
 
+def _read_workspace_json(path: Path) -> dict[str, Any]:
+    if not path.exists() or not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _review_summary_display_text(*, workspace, item: dict[str, Any] | None) -> str:
+    if not item:
+        return ""
+    for key in ("request_summary", "summary_short", "summary_one_line"):
+        value = str(item.get(key) or "").strip()
+        if value:
+            return value
+
+    summary_relpath = str(item.get("summary_relpath") or "")
+    if summary_relpath:
+        summary_path = workspace.from_workspace_relative(summary_relpath).resolve()
+        text = _read_workspace_text(summary_path).strip()
+        if text:
+            return text
+
+    extracted_record_relpath = str(item.get("extracted_record_relpath") or "")
+    if extracted_record_relpath:
+        record_path = workspace.from_workspace_relative(extracted_record_relpath).resolve()
+        payload = _read_workspace_json(record_path)
+        for key in ("request_summary", "summary_short", "summary_one_line"):
+            value = str(payload.get(key) or "").strip()
+            if value:
+                return value
+    subject = str(item.get("subject") or "").strip()
+    sender = str(item.get("sender") or "").strip()
+    triage_label = str(item.get("triage_label") or "").strip()
+    if subject or sender:
+        triage_text = (
+            "신청 메일로 판단된 항목"
+            if triage_label == "application"
+            else ("사람 검토가 더 필요한 항목" if triage_label == "needs_human_review" else "비신청 메일로 분류된 항목")
+        )
+        fragments = [triage_text]
+        if sender:
+            fragments.append(f"발신자 {sender}")
+        if subject:
+            fragments.append(f"제목 {subject}")
+        return " / ".join(fragments)
+    return ""
+
+
+def _review_analysis_failure_hint(item: dict[str, Any] | None) -> str:
+    if not item:
+        return ""
+    notes = list(item.get("notes") or [])
+    if not notes:
+        return ""
+    text_blob = " ".join(str(note) for note in notes)
+    if "invalid_api_key" in text_blob or "Incorrect API key" in text_blob:
+        return "OpenAI API key를 확인하지 못해 자동 분석과 요약을 만들지 못했습니다. 설정에서 API key를 다시 확인한 뒤 분류를 다시 실행해 주세요."
+    if "OPENAI_API_KEY" in text_blob or "OpenAI API" in text_blob or "API key" in text_blob:
+        return "OpenAI API key가 없어 자동 분석과 요약을 만들지 못했습니다. 설정에서 API key를 저장한 뒤 분류·요약 다시 계산을 실행해 주세요."
+    if item.get("analysis_source") == "failed_before_analysis":
+        return "자동 분석이 끝나지 않아 아직 요약을 만들지 못했습니다. 설정을 다시 확인한 뒤 분류·요약 다시 계산을 실행해 주세요."
+    return ""
+
+
+def _review_attachments_relative_items(*, workspace, item: dict[str, Any] | None) -> list[dict[str, str]]:
+    if not item:
+        return []
+    attachments_dir_relpath = str(item.get("attachments_dir_relpath") or "")
+    if not attachments_dir_relpath:
+        return []
+    attachments_dir = workspace.from_workspace_relative(attachments_dir_relpath).resolve()
+    if not attachments_dir.is_relative_to(workspace.root().resolve()) or not attachments_dir.exists():
+        return []
+    files: list[dict[str, str]] = []
+    for candidate in sorted(attachments_dir.iterdir()):
+        if not candidate.is_file():
+            continue
+        relative_path = workspace.to_workspace_relative(candidate)
+        files.append(
+            {
+                "name": candidate.name,
+                "relative_path": relative_path,
+            }
+        )
+    return files
+
+
 def _review_detail_context(
     *,
     workspace,
@@ -545,6 +651,17 @@ def _review_detail_context(
             _review_unresolved_label(value)
             for value in list(display_item.get("unresolved_columns") or [])
         ]
+        display_item["summary_display"] = _review_summary_display_text(
+            workspace=workspace,
+            item=display_item,
+        )
+        display_item["analysis_failure_hint"] = _review_analysis_failure_hint(display_item)
+        if not display_item["summary_display"] and display_item["analysis_failure_hint"]:
+            display_item["summary_display"] = display_item["analysis_failure_hint"]
+        display_item["attachment_items"] = _review_attachments_relative_items(
+            workspace=workspace,
+            item=display_item,
+        )
     artifact_tabs = [
         {
             "key": "overview",
@@ -649,6 +766,20 @@ def _review_detail_context(
         "artifact_tabs": artifact_tabs,
         "current_review_url": current_review_url,
         "query": query,
+        "classification_guide": [
+            {
+                "label": "신청 메일",
+                "description": "참가·지원·신청 의사와 핵심 신청 정보가 충분히 확인된 메일입니다.",
+            },
+            {
+                "label": "사람 검토 필요",
+                "description": "신청 가능성은 있지만 정보가 부족하거나 본문/첨부 판단이 엇갈려 사람이 한 번 더 봐야 하는 메일입니다.",
+            },
+            {
+                "label": "비신청 메일",
+                "description": "안내, 회신, 공지, 내부 정리처럼 운영 엑셀 반영 대상이 아닌 메일입니다.",
+            },
+        ],
     }
 
 
@@ -681,6 +812,9 @@ def _set_job_state(
     stage_label: str = "",
     progress_current: int = 0,
     progress_total: int = 0,
+    progress_percent_override: int | None = None,
+    stage_progress_current: int = 0,
+    stage_progress_total: int = 0,
     next_action: str = "",
     details: list[str] | None = None,
     last_result: dict[str, Any] | None = None,
@@ -696,7 +830,13 @@ def _set_job_state(
         stage_label=stage_label,
         progress_current=progress_current,
         progress_total=progress_total,
-        progress_percent=_job_progress_percent(progress_current, progress_total),
+        progress_percent=(
+            max(0, min(100, int(progress_percent_override)))
+            if progress_percent_override is not None
+            else _job_progress_percent(progress_current, progress_total)
+        ),
+        stage_progress_current=stage_progress_current,
+        stage_progress_total=stage_progress_total,
         next_action=next_action,
         details=list(details or []),
         started_at=started_at,
@@ -1212,6 +1352,9 @@ def _start_mailbox_check_job(
                     stage_label=str(payload.get("stage_label") or "실행 중"),
                     progress_current=int(payload.get("progress_current") or 0),
                     progress_total=int(payload.get("progress_total") or 0),
+                    progress_percent_override=payload.get("progress_percent"),
+                    stage_progress_current=int(payload.get("stage_progress_current") or 0),
+                    stage_progress_total=int(payload.get("stage_progress_total") or 0),
                     next_action=str(payload.get("next_action") or ""),
                     details=list(payload.get("details") or []),
                     preserve_started_at=True,
@@ -1327,6 +1470,9 @@ def _start_sync_job(
                     stage_label=str(payload.get("stage_label") or "실행 중"),
                     progress_current=int(payload.get("progress_current") or 0),
                     progress_total=int(payload.get("progress_total") or 0),
+                    progress_percent_override=payload.get("progress_percent"),
+                    stage_progress_current=int(payload.get("stage_progress_current") or 0),
+                    stage_progress_total=int(payload.get("stage_progress_total") or 0),
                     next_action=str(payload.get("next_action") or ""),
                     details=list(payload.get("details") or []),
                     preserve_started_at=True,
@@ -1341,8 +1487,11 @@ def _start_sync_job(
                 message=result.message,
                 stage_id=result.stage_id,
                 stage_label=result.stage_label,
-                progress_current=3,
-                progress_total=3,
+                progress_current=100,
+                progress_total=100,
+                progress_percent_override=100,
+                stage_progress_current=result.fetched_count + result.skipped_existing_count,
+                stage_progress_total=(result.fetched_count + result.skipped_existing_count) or 0,
                 next_action=result.next_action,
                 details=result.details,
                 last_result={
@@ -1367,8 +1516,9 @@ def _start_sync_job(
                 message="동기화에 실패했습니다.",
                 stage_id="failed",
                 stage_label="실패",
-                progress_current=3,
-                progress_total=3,
+                progress_current=100,
+                progress_total=100,
+                progress_percent_override=100,
                 next_action="설정을 다시 확인하고 재시도해 주세요.",
                 details=[f"{exc.__class__.__name__}: {exc}"],
                 preserve_started_at=True,
@@ -1524,11 +1674,24 @@ def close_workspace():
 
 
 @app.post("/workspace/recent/remove")
-def remove_recent_workspace(workspace_root: str = Form(...)):
+def remove_recent_workspace(
+    request: Request,
+    workspace_root: str = Form(...),
+):
     forget_workspace(workspace_root)
     device_secrets = load_local_device_secrets()
     if device_secrets.last_workspace_root == workspace_root:
         clear_last_workspace_secret()
+    accept_header = (request.headers.get("accept") or "").lower()
+    requested_with = (request.headers.get("x-requested-with") or "").lower()
+    if "application/json" in accept_header or requested_with == "xmlhttprequest":
+        return JSONResponse(
+            {
+                "ok": True,
+                "workspace_root": workspace_root,
+                "message": "최근 세이브 파일 목록에서 정리했습니다.",
+            }
+        )
     return _redirect_with_message("/", notice="최근 세이브 파일 목록에서 정리했습니다.")
 
 
@@ -1621,6 +1784,7 @@ def save_settings(
     mailbox_password: str = Form(""),
     default_folder: str = Form(""),
     template_workbook_relative_path: str = Form(""),
+    classification_guidance: str = Form(""),
 ):
     session = SERVER_STATE.current_session
     if session is None:
@@ -1638,6 +1802,7 @@ def save_settings(
             mailbox_password=mailbox_password,
             default_folder=default_folder,
             template_workbook_relative_path=template_workbook_relative_path,
+            classification_guidance=classification_guidance,
         )
     except HTTPException as exc:
         return _redirect_with_message("/settings", error=str(exc.detail))
@@ -1661,6 +1826,7 @@ def check_mailbox_settings(
     mailbox_password: str = Form(""),
     default_folder: str = Form(""),
     template_workbook_relative_path: str = Form(""),
+    classification_guidance: str = Form(""),
 ):
     session = SERVER_STATE.current_session
     if session is None:
@@ -1681,9 +1847,9 @@ def check_mailbox_settings(
         )
         resolved_password = mailbox_password.strip() or str(current_mailbox.get("password") or "")
         resolved_api_key = (
-            llm_api_key.strip()
-            or str(current_llm.get("api_key") or "")
-            or device_secrets.default_openai_api_key
+            sanitize_openai_api_key(llm_api_key)
+            or sanitize_openai_api_key(str(current_llm.get("api_key") or ""))
+            or sanitize_openai_api_key(device_secrets.default_openai_api_key)
         )
         if not resolved_email:
             raise RuntimeError("이메일 주소를 먼저 입력해 주세요.")
@@ -1696,6 +1862,18 @@ def check_mailbox_settings(
                 template_workbook_relative_path.strip()
                 or str(current_exports.get("template_workbook_relative_path") or "")
             ),
+        )
+        save_workspace_settings(
+            workspace_root=session.workspace_root,
+            workspace_password=session.workspace_password,
+            llm_model=llm_model,
+            llm_api_key=resolved_api_key,
+            email_address=resolved_email,
+            login_username=resolved_login_username,
+            mailbox_password=resolved_password,
+            default_folder=default_folder.strip() or str(current_mailbox.get("default_folder") or ""),
+            template_workbook_relative_path=resolved_template_path,
+            classification_guidance=classification_guidance,
         )
     except HTTPException as exc:
         return _redirect_with_message("/settings", error=str(exc.detail))
@@ -1715,8 +1893,8 @@ def check_mailbox_settings(
     )
     return _redirect_with_message(
         "/settings",
-        notice="계정 연결 확인을 시작했습니다. 이 화면에서 진행 상태를 확인할 수 있습니다.",
-        extra_params={"checked": "1"},
+        notice="입력한 내용을 저장하고 계정 연결 확인을 시작했습니다. 이 화면에서 진행 상태를 확인할 수 있습니다.",
+        extra_params={"checked": "1", "saved": "1"},
     )
 
 
@@ -1748,6 +1926,14 @@ def review_center(
         "selected_bundle_id": page_result.selected_bundle_id,
         "view_mode": page_result.view_mode,
     }
+    page_bundle_ids = {
+        str(item.get("bundle_id") or "")
+        for item in page_result.items
+        if str(item.get("bundle_id") or "")
+    }
+    if page_result.selected_bundle_id and page_result.selected_bundle_id not in page_bundle_ids:
+        page_result.selected_bundle_id = ""
+        resolved_query["selected_bundle_id"] = ""
     if not page_result.selected_bundle_id and page_result.items:
         fallback_bundle_id = str(page_result.items[0].get("bundle_id") or "")
         if fallback_bundle_id:
@@ -1981,6 +2167,24 @@ def rebuild_review_workbook(return_to: str = Form("/review")):
     return _redirect_with_message(return_to, notice="운영 엑셀 재반영을 시작했습니다.")
 
 
+@app.post("/review/refresh")
+def refresh_review_classification(return_to: str = Form("/review")):
+    session = SERVER_STATE.current_session
+    if session is None:
+        return _redirect_with_message("/", error="먼저 세이브 파일을 열어야 분류를 다시 계산할 수 있다.")
+    if session.readonly:
+        return _redirect_with_message(return_to, error="읽기 전용 세션에서는 분류를 다시 계산할 수 없다.")
+    _start_feature_job(
+        session=session,
+        feature_id="analysis.review_board_refresh",
+        success_message="현재 기준으로 분류와 요약을 다시 계산했습니다.",
+    )
+    return _redirect_with_message(
+        return_to,
+        notice="현재 저장된 분류 기준으로 리뷰 분류와 요약을 다시 계산하기 시작했습니다.",
+    )
+
+
 @app.get("/sync", response_class=HTMLResponse)
 def sync_page(request: Request):
     session = SERVER_STATE.current_session
@@ -2091,10 +2295,33 @@ def open_relative_path(
         if "application/json" in request.headers.get("accept", ""):
             return JSONResponse({"ok": False, "error": "세이브 파일 밖 경로는 열 수 없습니다."}, status_code=400)
         return _redirect_with_message(return_to, error="워크스페이스 밖 경로는 열 수 없다.")
-    _open_path_in_os(target)
+    try:
+        _open_path_in_os(target)
+    except Exception as exc:
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": f"파일이나 폴더를 열지 못했습니다: {exc}",
+                },
+                status_code=500,
+            )
+        return _redirect_with_message(return_to, error=f"파일이나 폴더를 열지 못했습니다: {exc}")
     if "application/json" in request.headers.get("accept", ""):
         return JSONResponse({"ok": True, "relative_path": relative_path})
     return _redirect_with_message(return_to, notice="선택한 파일 또는 폴더를 열었습니다.")
+
+
+@app.get("/workspace/file")
+def workspace_file(relative_path: str):
+    session = SERVER_STATE.current_session
+    if session is None:
+        raise HTTPException(status_code=400, detail="먼저 세이브 파일을 열어야 합니다.")
+    workspace, _, _ = _workspace_objects(session)
+    target = workspace.from_workspace_relative(relative_path).resolve()
+    if not target.is_relative_to(workspace.root().resolve()) or not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="파일을 찾지 못했습니다.")
+    return FileResponse(path=target, filename=target.name)
 
 
 @app.get("/review/artifact", response_class=HTMLResponse)
@@ -2126,6 +2353,58 @@ def review_artifact_preview(bundle_id: str, kind: str = "preview"):
         + escape(str(artifact["content"]))
         + "</pre></body></html>"
     )
+
+
+@app.get("/review/attachments", response_class=HTMLResponse)
+def review_attachment_list(bundle_id: str):
+    session = SERVER_STATE.current_session
+    if session is None:
+        raise HTTPException(status_code=400, detail="먼저 세이브 파일을 열어야 합니다.")
+    workspace, _, _ = _workspace_objects(session)
+    detail_result = load_review_detail_service(
+        workspace_root=session.workspace_root,
+        bundle_id=bundle_id,
+    )
+    item = detail_result.item
+    attachments = _review_attachments_relative_items(workspace=workspace, item=item)
+    title = escape(str((item or {}).get("subject") or "첨부파일"))
+    items_html = "".join(
+        "<li><a href='/review/attachment-file?bundle_id="
+        + escape(bundle_id)
+        + "&relative_path="
+        + escape(entry["relative_path"])
+        + "'>"
+        + escape(entry["name"])
+        + "</a></li>"
+        for entry in attachments
+    )
+    if not items_html:
+        items_html = "<li>표시할 첨부파일이 없습니다.</li>"
+    return HTMLResponse(
+        "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
+        "<style>body{margin:0;padding:24px;font-family:'Segoe UI','Malgun Gothic',sans-serif;background:#fff;color:#111827}"
+        "h1{margin:0 0 8px;font-size:24px} p{margin:0 0 18px;color:#475467} ul{margin:0;padding-left:20px;display:grid;gap:10px}"
+        "a{color:#0f766e;text-decoration:none;font-weight:600}</style></head><body>"
+        "<h1>첨부파일 목록</h1>"
+        "<p>" + title + "</p>"
+        "<ul>" + items_html + "</ul>"
+        "</body></html>"
+    )
+
+
+@app.get("/review/attachment-file")
+def review_attachment_file(bundle_id: str, relative_path: str):
+    session = SERVER_STATE.current_session
+    if session is None:
+        raise HTTPException(status_code=400, detail="먼저 세이브 파일을 열어야 합니다.")
+    workspace, _, _ = _workspace_objects(session)
+    target = workspace.from_workspace_relative(relative_path).resolve()
+    attachments_root = workspace.mail_bundles_root().resolve()
+    if not target.is_relative_to(workspace.root().resolve()) or not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="첨부파일을 찾지 못했습니다.")
+    if "attachments" not in target.parts:
+        raise HTTPException(status_code=400, detail="허용되지 않은 파일 경로입니다.")
+    return FileResponse(path=target, filename=Path(relative_path).name)
 
 
 def _reapply_latest_review_state(*, workspace, secrets_store, state_store) -> None:

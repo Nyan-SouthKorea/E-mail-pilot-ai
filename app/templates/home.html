@@ -206,7 +206,7 @@
                 </button>
               </span>
               {% endif %}
-              <form action="/workspace/recent/remove" method="post">
+              <form action="/workspace/recent/remove" method="post" data-recent-remove-form>
                 <input type="hidden" name="workspace_root" value="{{ item.path }}">
                 <button type="submit" class="quiet-button">정리</button>
               </form>

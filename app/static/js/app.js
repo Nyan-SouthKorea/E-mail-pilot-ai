@@ -7,6 +7,8 @@
   var tooltipEl = null;
   var tooltipPinned = false;
   var tooltipOwner = null;
+  var toastRoot = null;
+  var transientScrollKeyPrefix = 'epa-window-scroll:';
 
   function escapeHtml(value) {
     return String(value || '')
@@ -171,6 +173,59 @@
       if (tooltipOwner && tooltipEl && !tooltipEl.hidden) {
         positionTooltip(tooltipOwner);
       }
+    });
+  }
+
+  function currentWindowScrollKey() {
+    return transientScrollKeyPrefix + window.location.pathname;
+  }
+
+  function rememberWindowScrollPosition() {
+    try {
+      window.sessionStorage.setItem(
+        currentWindowScrollKey(),
+        String(window.scrollY || 0)
+      );
+    } catch (error) {
+    }
+  }
+
+  function restoreWindowScrollPosition() {
+    try {
+      var raw = window.sessionStorage.getItem(currentWindowScrollKey());
+      if (!raw) return;
+      window.sessionStorage.removeItem(currentWindowScrollKey());
+      var scrollTop = parseInt(raw, 10);
+      if (!Number.isFinite(scrollTop) || scrollTop <= 0) return;
+      restoreWindowScrollTop(scrollTop);
+    } catch (error) {
+    }
+  }
+
+  function restoreWindowScrollTop(scrollTop) {
+    if (!Number.isFinite(scrollTop) || scrollTop < 0) return;
+    [0, 80, 220, 480, 900].forEach(function (delay) {
+      window.setTimeout(function () {
+        window.scrollTo(window.scrollX || 0, scrollTop);
+      }, delay);
+    });
+  }
+
+  function getToastRoot() {
+    if (toastRoot) return toastRoot;
+    toastRoot = document.createElement('div');
+    toastRoot.className = 'toast-stack';
+    document.body.appendChild(toastRoot);
+    return toastRoot;
+  }
+
+  function bindPreserveScrollForms() {
+    document.querySelectorAll('form[data-preserve-window-scroll]').forEach(function (form) {
+      if (form.dataset.preserveScrollBound === 'yes') return;
+      form.dataset.preserveScrollBound = 'yes';
+      form.addEventListener('submit', function () {
+        rememberWindowScrollPosition();
+      });
     });
   }
 
@@ -489,7 +544,7 @@
     if (document.body.dataset.currentPath !== '/review') return;
     try {
       var selectedSection = document.querySelector('#review-detail-panel [data-selected-bundle-id]');
-      var activeArtifactTab = document.querySelector('#review-detail-panel .review-artifact-tabs a.active');
+      var activeArtifactTab = document.querySelector('#review-detail-panel [data-review-artifact-tab].active');
       var listScroll = reviewListScrollContainer();
       var detailScroll = reviewDetailScrollContainer();
       var payload = {
@@ -558,11 +613,11 @@
   function loadReviewDetail(selectUrl, reviewUrl, bundleId) {
     var panel = document.getElementById('review-detail-panel');
     if (!panel || !selectUrl) return;
+    var previousWindowScrollTop = window.scrollY || 0;
     var listScroll = reviewListScrollContainer();
     var detailScroll = reviewDetailScrollContainer();
     var previousListScrollTop = listScroll ? listScroll.scrollTop : 0;
     var previousDetailScrollTop = detailScroll ? detailScroll.scrollTop : 0;
-    var previousWindowScrollY = window.scrollY || 0;
     var hadExistingDetail = !!panel.querySelector('[data-selected-bundle-id], .review-detail-placeholder');
     updateSelectedReviewRow(bundleId || '');
     if (hadExistingDetail) {
@@ -593,7 +648,7 @@
         if (detailScroll) {
           detailScroll.scrollTop = 0;
         }
-        window.scrollTo(window.scrollX || 0, previousWindowScrollY);
+        restoreWindowScrollTop(previousWindowScrollTop);
         if (reviewUrl) {
           updateReviewUrl(reviewUrl);
         }
@@ -613,26 +668,35 @@
         if (detailScroll) {
           detailScroll.scrollTop = previousDetailScrollTop;
         }
-        window.scrollTo(window.scrollX || 0, previousWindowScrollY);
+        restoreWindowScrollTop(previousWindowScrollTop);
         pushTransientBanner('error', error && error.message ? error.message : '상세를 불러오지 못했습니다.');
         bindDynamicUi();
       });
   }
 
   function pushTransientBanner(kind, text) {
-    var main = document.querySelector('.workspace-main');
-    if (!main || !text) return;
+    if (!text) return;
+    var root = getToastRoot();
     var banner = document.createElement('div');
-    banner.className = 'banner ' + (kind === 'error' ? 'error' : 'success') + ' transient-banner';
+    banner.className = 'banner toast-banner ' + (kind === 'error' ? 'error' : 'success');
     banner.textContent = text;
-    main.insertBefore(banner, main.firstChild);
+    root.appendChild(banner);
     window.setTimeout(function () {
-      if (banner.parentNode) banner.parentNode.removeChild(banner);
+      banner.classList.add('visible');
+    }, 10);
+    window.setTimeout(function () {
+      banner.classList.remove('visible');
+      window.setTimeout(function () {
+        if (banner.parentNode) banner.parentNode.removeChild(banner);
+      }, 180);
     }, 4000);
   }
 
   function openRelativeWorkspacePath(relativePath) {
     if (!relativePath) return Promise.resolve();
+    if (shellMode !== 'desktop_window') {
+      return Promise.reject(new Error('이 기능은 앱 창에서만 파일을 바로 열 수 있습니다. web 검증 모드에서는 새 탭 보기나 다운로드를 사용해 주세요.'));
+    }
     var form = new FormData();
     form.append('relative_path', relativePath);
     form.append('return_to', currentReviewUrl());
@@ -652,19 +716,100 @@
     });
   }
 
+  function openBrowserUrl(url) {
+    if (!url) return false;
+    var popup = window.open(url, '_blank', 'noopener,noreferrer');
+    if (popup) return true;
+    try {
+      var anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      window.setTimeout(function () {
+        if (anchor.parentNode) anchor.parentNode.removeChild(anchor);
+      }, 0);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function setReviewExternalStatus(kind, text) {
+    var node = document.querySelector('[data-review-external-status]');
+    if (!node) return;
+    node.className = 'field-status review-external-status ' + (
+      kind === 'error' ? 'fail' :
+        kind === 'success' ? 'pass' :
+          kind === 'warn' ? 'warn' : 'quiet'
+    );
+    node.textContent = text || '앱 안 미리보기가 기본입니다. 외부 열기가 막히면 이 자리에서 이유를 안내합니다.';
+  }
+
+  function openExternalArtifact(button) {
+    if (!button) return;
+    var label = button.dataset.openLabel || '파일';
+    var relativePath = button.dataset.openRelativePath || '';
+    var browserUrl = button.dataset.openBrowserUrl || '';
+
+    captureReviewState();
+    setReviewExternalStatus('quiet', label + '을(를) 여는 중입니다.');
+    if (shellMode === 'desktop_window' && relativePath) {
+      openRelativeWorkspacePath(relativePath)
+        .then(function () {
+          setReviewExternalStatus('success', label + '을(를) Windows 기본 앱으로 열었습니다.');
+          pushTransientBanner('success', label + '을(를) 열었습니다.');
+        })
+        .catch(function (error) {
+          if (browserUrl && openBrowserUrl(browserUrl)) {
+            setReviewExternalStatus('warn', label + ' 기본 열기가 실패해 브라우저 창으로 대신 열었습니다.');
+            pushTransientBanner('success', label + '을(를) 새 창에서 열었습니다.');
+            return;
+          }
+          setReviewExternalStatus('error', error && error.message ? error.message : label + '을(를) 열지 못했습니다.');
+          pushTransientBanner('error', error && error.message ? error.message : label + '을(를) 열지 못했습니다.');
+        });
+      return;
+    }
+    if (browserUrl) {
+      setReviewExternalStatus('success', label + '을(를) 새 탭에서 열고 있습니다.');
+      return;
+    }
+    setReviewExternalStatus('error', label + '을(를) 열 수 있는 경로를 찾지 못했습니다.');
+    pushTransientBanner('error', label + '을(를) 열 수 있는 경로를 찾지 못했습니다.');
+  }
+
+  function bindBrowserOpenButtons() {
+    document.querySelectorAll('[data-open-browser-url]:not([data-open-relative-path])').forEach(function (button) {
+      if (button.dataset.openBrowserBound === 'yes') return;
+      button.dataset.openBrowserBound = 'yes';
+      button.addEventListener('click', function () {
+        var opened = openBrowserUrl(button.dataset.openBrowserUrl || '');
+        if (opened) {
+          pushTransientBanner('success', '새 탭에서 열었습니다.');
+        } else {
+          pushTransientBanner('error', '브라우저가 새 탭 열기를 차단했습니다. 팝업 차단을 확인해 주세요.');
+        }
+      });
+    });
+  }
+
   function bindOpenRelativePathButtons() {
     document.querySelectorAll('[data-open-relative-path]').forEach(function (button) {
       if (button.dataset.openRelativeBound === 'yes') return;
       button.dataset.openRelativeBound = 'yes';
-      button.addEventListener('click', function () {
+      button.addEventListener('click', function (event) {
+        if (shellMode === 'desktop_window') {
+          event.preventDefault();
+          openExternalArtifact(button);
+          return;
+        }
         captureReviewState();
-        openRelativeWorkspacePath(button.dataset.openRelativePath || '')
-          .then(function () {
-            pushTransientBanner('success', '선택한 파일 또는 폴더를 열었습니다.');
-          })
-          .catch(function (error) {
-            pushTransientBanner('error', error && error.message ? error.message : '파일을 열지 못했습니다.');
-          });
+        var label = button.dataset.openLabel || '파일';
+        setReviewExternalStatus('success', label + '을(를) 새 탭에서 열고 있습니다.');
+        pushTransientBanner('success', label + '을(를) 새 탭에서 열고 있습니다.');
       });
     });
   }
@@ -682,7 +827,7 @@
         );
       });
     });
-    document.querySelectorAll('#review-detail-panel .review-artifact-tabs a').forEach(function (link) {
+    document.querySelectorAll('#review-detail-panel [data-review-artifact-tab]').forEach(function (link) {
       if (link.dataset.reviewArtifactBound === 'yes') return;
       link.dataset.reviewArtifactBound = 'yes';
       link.addEventListener('click', function (event) {
@@ -726,9 +871,12 @@
   function bindDynamicUi() {
     bindTooltips();
     bindNativePickerButtons();
+    bindPreserveScrollForms();
     bindOpenRelativePathButtons();
+    bindBrowserOpenButtons();
     bindReviewRowLinks();
     bindReviewScrollState();
+    bindRecentRemoveForms();
   }
 
   function initializeShellContext() {
@@ -779,6 +927,48 @@
     });
   }
 
+  function bindRecentRemoveForms() {
+    document.querySelectorAll('form[data-recent-remove-form]').forEach(function (form) {
+      if (form.dataset.recentRemoveBound === 'yes') return;
+      form.dataset.recentRemoveBound = 'yes';
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var previousWindowScrollTop = window.scrollY || 0;
+        var recentItem = form.closest('.recent-item');
+        fetch(form.action, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: new FormData(form),
+        })
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            if (!payload || !payload.ok) {
+              throw new Error((payload && payload.message) || '최근 세이브 파일을 정리하지 못했습니다.');
+            }
+            if (recentItem) {
+              recentItem.remove();
+            }
+            var recentList = document.querySelector('.recent-list');
+            if (recentList && !recentList.children.length) {
+              recentList.outerHTML = '<div class="field-status">아직 최근 세이브가 없습니다. 한 번 열거나 만들면 여기에 다시 나타납니다.</div>';
+            }
+            window.requestAnimationFrame(function () {
+              restoreWindowScrollTop(previousWindowScrollTop);
+            });
+            pushTransientBanner('success', payload.message || '최근 세이브 파일 목록에서 정리했습니다.');
+          })
+          .catch(function (error) {
+            restoreWindowScrollTop(previousWindowScrollTop);
+            pushTransientBanner('error', error && error.message ? error.message : '최근 세이브 파일을 정리하지 못했습니다.');
+          });
+      });
+    });
+  }
+
   function renderJobState(target, payload) {
     if (!target || !payload) return;
     var parts = [];
@@ -790,51 +980,110 @@
   }
 
   function renderJobProgressCard(payload) {
-    var card = document.querySelector('[data-job-progress-card]');
-    if (!card) return;
+    var cards = document.querySelectorAll('[data-job-progress-card]');
+    cards.forEach(function (card) {
+      if (!payload || !payload.status || payload.status === 'idle' || payload.status === 'no_workspace') {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+      var title = card.querySelector('[data-job-title]');
+      var stage = card.querySelector('[data-job-stage]');
+      var statusLabel = card.querySelector('[data-job-status-label]');
+      var stageLabel = card.querySelector('[data-job-stage-label]');
+      var progressLabel = card.querySelector('[data-job-progress-label]');
+      var stageProgress = card.querySelector('[data-job-stage-progress]');
+      var nextAction = card.querySelector('[data-job-next-action]');
+      var message = card.querySelector('[data-job-message]');
+      var details = card.querySelector('[data-job-details]');
+      var fill = card.querySelector('[data-job-progress-fill]');
+      var featureLabel = payload.feature_id === 'mailbox.connection_check'
+        ? '계정 연결 확인'
+        : (payload.feature_id === 'runtime.workspace.sync.quick_smoke'
+          ? '빠른 테스트 동기화'
+          : (payload.feature_id === 'runtime.workspace.sync'
+            ? '전체 동기화'
+            : '작업 진행 상태'));
+
+      if (title) title.textContent = featureLabel;
+      if (stage) stage.textContent = payload.stage_label || payload.status || '대기 중';
+      if (statusLabel) statusLabel.textContent = jobStatusLabel(payload.status);
+      if (stageLabel) stageLabel.textContent = payload.stage_label || payload.stage_id || '-';
+      if (progressLabel) progressLabel.textContent = String(payload.progress_percent || 0) + '%';
+      if (stageProgress) {
+        if (payload.stage_progress_total) {
+          stageProgress.textContent = String(payload.stage_progress_current || 0) + ' / ' + String(payload.stage_progress_total);
+        } else {
+          stageProgress.textContent = '표시할 내용이 없습니다.';
+        }
+      }
+      if (nextAction) nextAction.textContent = payload.next_action || '표시할 내용이 없습니다.';
+      if (message) {
+        message.textContent = payload.message || '';
+        message.className = 'field-status ' + (
+          payload.status === 'completed' ? 'pass' :
+            payload.status === 'partial_success' ? 'warn' :
+              payload.status === 'failed' ? 'fail' : 'quiet'
+        );
+      }
+      if (fill) fill.style.width = String(payload.progress_percent || 0) + '%';
+      if (details) {
+        var detailItems = Array.isArray(payload.details) ? payload.details : [];
+        details.innerHTML = detailItems.map(function (item) {
+          return '<li>' + escapeHtml(item) + '</li>';
+        }).join('');
+        details.hidden = detailItems.length === 0;
+      }
+    });
+
+    var globalBar = document.querySelector('[data-global-job-progress]');
+    if (!globalBar) return;
     if (!payload || !payload.status || payload.status === 'idle' || payload.status === 'no_workspace') {
-      card.hidden = true;
+      globalBar.hidden = true;
       return;
     }
-    card.hidden = false;
-    var title = card.querySelector('[data-job-title]');
-    var stage = card.querySelector('[data-job-stage]');
-    var statusLabel = card.querySelector('[data-job-status-label]');
-    var stageLabel = card.querySelector('[data-job-stage-label]');
-    var progressLabel = card.querySelector('[data-job-progress-label]');
-    var nextAction = card.querySelector('[data-job-next-action]');
-    var message = card.querySelector('[data-job-message]');
-    var details = card.querySelector('[data-job-details]');
-    var fill = card.querySelector('[data-job-progress-fill]');
-    var featureLabel = payload.feature_id === 'mailbox.connection_check'
-      ? '계정 연결 확인'
-      : (payload.feature_id === 'runtime.workspace.sync.quick_smoke'
-        ? '빠른 테스트 동기화'
-        : (payload.feature_id === 'runtime.workspace.sync'
-          ? '전체 동기화'
-          : '작업 진행 상태'));
-
-    if (title) title.textContent = featureLabel;
-    if (stage) stage.textContent = payload.stage_label || payload.status || '대기 중';
-    if (statusLabel) statusLabel.textContent = jobStatusLabel(payload.status);
-    if (stageLabel) stageLabel.textContent = payload.stage_label || payload.stage_id || '-';
-    if (progressLabel) progressLabel.textContent = String(payload.progress_percent || 0) + '%';
-    if (nextAction) nextAction.textContent = payload.next_action || '표시할 내용이 없습니다.';
-    if (message) {
-      message.textContent = payload.message || '';
-      message.className = 'field-status ' + (
-        payload.status === 'completed' ? 'pass' :
-          payload.status === 'partial_success' ? 'warn' :
-            payload.status === 'failed' ? 'fail' : 'quiet'
-      );
+    globalBar.hidden = false;
+    var titleNode = globalBar.querySelector('[data-global-job-title]');
+    var stageNode = globalBar.querySelector('[data-global-job-stage]');
+    var countNode = globalBar.querySelector('[data-global-job-count]');
+    var noteNode = globalBar.querySelector('[data-global-job-note]');
+    var fillNode = globalBar.querySelector('[data-global-job-fill]');
+    var detailsNode = globalBar.querySelector('[data-global-job-details]');
+    if (titleNode) {
+      titleNode.textContent = payload.feature_id === 'mailbox.connection_check'
+        ? '계정 연결 확인'
+        : (payload.feature_id === 'runtime.workspace.sync.quick_smoke'
+          ? '빠른 테스트 동기화'
+          : (payload.feature_id === 'runtime.workspace.sync'
+            ? '메일 동기화'
+            : '작업 진행 상태'));
     }
-    if (fill) fill.style.width = String(payload.progress_percent || 0) + '%';
-    if (details) {
-      var detailItems = Array.isArray(payload.details) ? payload.details : [];
-      details.innerHTML = detailItems.map(function (item) {
+    if (stageNode) {
+      stageNode.textContent = jobStatusLabel(payload.status) + ' · ' + (payload.stage_label || payload.stage_id || '대기 중');
+    }
+    if (countNode) {
+      countNode.textContent = payload.stage_progress_total
+        ? String(payload.stage_progress_current || 0) + ' / ' + String(payload.stage_progress_total) + ' · ' + String(payload.progress_percent || 0) + '%'
+        : String(payload.progress_percent || 0) + '%';
+    }
+    if (noteNode) {
+      var noteParts = [];
+      if (payload.message) noteParts.push(payload.message);
+      if (payload.stage_progress_total) {
+        noteParts.push('진행 개수 ' + String(payload.stage_progress_current || 0) + ' / ' + String(payload.stage_progress_total));
+      }
+      if (!noteParts.length && payload.next_action) noteParts.push(payload.next_action);
+      noteNode.textContent = noteParts.join(' · ');
+    }
+    if (fillNode) {
+      fillNode.style.width = String(payload.progress_percent || 0) + '%';
+    }
+    if (detailsNode) {
+      var globalDetailItems = Array.isArray(payload.details) ? payload.details.slice(0, 4) : [];
+      detailsNode.innerHTML = globalDetailItems.map(function (item) {
         return '<li>' + escapeHtml(item) + '</li>';
       }).join('');
-      details.hidden = detailItems.length === 0;
+      detailsNode.hidden = globalDetailItems.length === 0;
     }
   }
 
@@ -873,13 +1122,23 @@
     bindSaveFolderPreview();
     initializeShellContext();
     openAutoModal();
+    restoreWindowScrollPosition();
     restoreReviewScrollPosition();
     pollJobState();
     window.setInterval(pollJobState, 1500);
     if (document.body.dataset.currentPath === '/review') {
       var selectedSection = document.querySelector('#review-detail-panel [data-selected-bundle-id]');
-      if (selectedSection) {
+      if (selectedSection && selectedSection.dataset.selectedBundleId) {
         updateSelectedReviewRow(selectedSection.dataset.selectedBundleId || '');
+      } else {
+        var firstRowLink = document.querySelector('.review-row-link');
+        if (firstRowLink) {
+          loadReviewDetail(
+            firstRowLink.dataset.selectUrl || '',
+            firstRowLink.dataset.reviewUrl || firstRowLink.getAttribute('href') || '',
+            firstRowLink.dataset.bundleId || ''
+          );
+        }
       }
     }
   }

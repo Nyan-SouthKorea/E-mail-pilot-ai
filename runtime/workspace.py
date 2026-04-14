@@ -468,4 +468,7 @@ def _default_shared_settings(workspace: SharedWorkspace) -> dict[str, object]:
             "template_workbook_relative_path": template_relative_path,
             "operating_workbook_relative_path": operating_relative_path,
         },
+        "analysis": {
+            "classification_guidance": "",
+        },
     }

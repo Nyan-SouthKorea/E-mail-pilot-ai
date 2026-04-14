@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
+from typing import Callable
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -110,6 +111,9 @@ class MailboxImapBackfillSmokeReport:
         return payload
 
 
+ProgressCallback = Callable[[dict[str, object]], None]
+
+
 def default_profile_root() -> Path:
     """기능: 현재 예시 사용자 프로필 루트 기본 경로를 반환한다."""
 
@@ -133,6 +137,7 @@ def run_imap_inbox_backfill_smoke(
     latest_limit: int | None = None,
     timeout_seconds: float = 8.0,
     max_probes_per_protocol: int = 2,
+    on_progress: ProgressCallback | None = None,
 ) -> MailboxImapBackfillSmokeReport:
     """기능: 실제 계정으로 INBOX 전체를 read-only backfill 해 bundle로 저장한다."""
 
@@ -209,6 +214,12 @@ def run_imap_inbox_backfill_smoke(
             uid_list = uid_list[-latest_limit:]
             notes.append(f"최근 {latest_limit}건만 빠른 테스트 범위로 backfill 했다.")
         items: list[MailboxImapBackfillItemResult] = []
+        _emit_backfill_progress(
+            callback=on_progress,
+            processed_count=0,
+            total_count=len(uid_list),
+            items=items,
+        )
 
         for index, uid in enumerate(uid_list, start=1):
             try:
@@ -304,6 +315,13 @@ def run_imap_inbox_backfill_smoke(
                 folder=folder,
                 notes=notes,
                 output_path=report_output_path,
+            )
+            _emit_backfill_progress(
+                callback=on_progress,
+                processed_count=index,
+                total_count=len(uid_list),
+                items=items,
+                latest_uid=uid,
             )
 
         fetched_count = sum(1 for item in items if item.status == "fetched")
@@ -426,6 +444,31 @@ def _maybe_checkpoint_backfill_report(
         ),
         file=sys.stderr,
         flush=True,
+    )
+
+
+def _emit_backfill_progress(
+    *,
+    callback: ProgressCallback | None,
+    processed_count: int,
+    total_count: int,
+    items: list[MailboxImapBackfillItemResult],
+    latest_uid: str = "",
+) -> None:
+    if callback is None:
+        return
+    fetched_count = sum(1 for item in items if item.status == "fetched")
+    skipped_existing_count = sum(1 for item in items if item.status == "skipped_existing")
+    failed_count = sum(1 for item in items if item.status == "failed")
+    callback(
+        {
+            "processed_count": processed_count,
+            "total_count": total_count,
+            "fetched_count": fetched_count,
+            "skipped_existing_count": skipped_existing_count,
+            "failed_count": failed_count,
+            "latest_uid": latest_uid,
+        }
     )
 
 

@@ -13,6 +13,17 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 DEVICE_SECRETS_SCHEMA_VERSION = "runtime.device_secrets.v1"
+DEVICE_SECRETS_PATH_ENV = "EPA_DEVICE_SECRETS_PATH"
+_PLACEHOLDER_OPENAI_API_KEY_PREFIXES = (
+    "sk-smoke",
+    "sk-test",
+    "sk-placeholder",
+)
+_PLACEHOLDER_OPENAI_API_KEY_VALUES = {
+    "smoke",
+    "test",
+    "placeholder",
+}
 
 
 @dataclass(slots=True)
@@ -31,11 +42,16 @@ class LocalDeviceSecrets:
         return cls(
             last_workspace_root=str(payload.get("last_workspace_root") or ""),
             last_workspace_password=str(payload.get("last_workspace_password") or ""),
-            default_openai_api_key=str(payload.get("default_openai_api_key") or ""),
+            default_openai_api_key=sanitize_openai_api_key(
+                str(payload.get("default_openai_api_key") or "")
+            ),
         )
 
 
 def default_device_secrets_path() -> Path:
+    override = str(os.environ.get(DEVICE_SECRETS_PATH_ENV) or "").strip()
+    if override:
+        return Path(override)
     if os.name == "nt":
         appdata = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
         return appdata / "EmailPilotAI" / "device_secrets.json"
@@ -88,8 +104,11 @@ def remember_default_openai_api_key(
     api_key: str,
     path: str | Path | None = None,
 ) -> LocalDeviceSecrets:
+    sanitized = sanitize_openai_api_key(api_key)
+    if not sanitized:
+        return load_local_device_secrets(path)
     settings = load_local_device_secrets(path)
-    settings.default_openai_api_key = api_key
+    settings.default_openai_api_key = sanitized
     save_local_device_secrets(settings, path)
     return settings
 
@@ -100,6 +119,25 @@ def clear_last_workspace_secret(path: str | Path | None = None) -> LocalDeviceSe
     settings.last_workspace_password = ""
     save_local_device_secrets(settings, path)
     return settings
+
+
+def is_placeholder_openai_api_key(api_key: str | None) -> bool:
+    value = str(api_key or "").strip()
+    if not value:
+        return False
+    lowered = value.lower()
+    if lowered in _PLACEHOLDER_OPENAI_API_KEY_VALUES:
+        return True
+    return any(lowered.startswith(prefix) for prefix in _PLACEHOLDER_OPENAI_API_KEY_PREFIXES)
+
+
+def sanitize_openai_api_key(api_key: str | None) -> str:
+    value = str(api_key or "").strip()
+    if not value:
+        return ""
+    if is_placeholder_openai_api_key(value):
+        return ""
+    return value
 
 
 def _encrypt_blob(*, plaintext: bytes) -> dict[str, Any]:

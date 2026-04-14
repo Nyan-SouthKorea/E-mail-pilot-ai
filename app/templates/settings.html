@@ -4,8 +4,8 @@
 {% set info_icon %}
 <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
   <circle cx="10" cy="10" r="8"></circle>
-  <path d="M10 8v5"></path>
-  <circle cx="10" cy="5.5" r="1"></circle>
+  <path d="M10 8.2v5"></path>
+  <path d="M10 5.4h.01"></path>
 </svg>
 {% endset %}
 <section class="hero">
@@ -48,7 +48,7 @@
   <ul class="compact-list" data-job-details></ul>
 </section>
 
-<form class="section settings-form" action="/settings/save" method="post">
+<form class="section settings-form" action="/settings/save" method="post" data-preserve-window-scroll>
   <div class="split split-main">
     <div class="section stacked-inner">
       <div class="section-head">
@@ -58,8 +58,8 @@
         </div>
       </div>
 
-      <label>
-        모델
+      <label class="label-with-help">
+        <span class="label-text">모델</span>
         <button type="button" class="info-badge modern-info-badge" aria-label="모델 도움말" data-tooltip="실행할 LLM 모델입니다. 지원하는 모델만 선택할 수 있습니다.">{{ info_icon|safe }}</button>
       </label>
       <select name="llm_model">
@@ -68,22 +68,69 @@
         {% endfor %}
       </select>
 
-      <label>
-        OpenAI API key
+      <label class="label-with-help">
+        <span class="label-text">OpenAI API key</span>
         <button type="button" class="info-badge modern-info-badge" aria-label="OpenAI API key 도움말" data-tooltip="분석과 요약에 사용하는 API key입니다. 이 PC에 저장된 기본 API key가 있으면 새 세이브에서 자동으로 채워집니다.">{{ info_icon|safe }}</button>
       </label>
-      <input type="password" name="llm_api_key" value="{{ '' if shared_settings.llm.api_key_saved else default_openai_api_key }}" placeholder="sk-...">
+      <input
+        type="password"
+        name="llm_api_key"
+        value="{{ '' if shared_settings.llm.api_key_saved else default_openai_api_key }}"
+        placeholder="{{ '현재 저장된 API key를 그대로 사용 중 · 새 값을 입력하면 변경' if shared_settings.llm.api_key_saved else 'sk-...' }}"
+      >
+      <div class="field-status quiet">
+        {% if shared_settings.llm.api_key_status == 'invalid_placeholder' %}
+        이전 테스트용 API key가 감지되어 무시했습니다. 실제 OpenAI API key를 다시 입력해 주세요.
+        {% elif shared_settings.llm.api_key_saved %}
+        이미 저장된 API key가 있습니다. 비워 두면 현재 저장된 값을 그대로 사용합니다.
+        {% elif default_openai_api_key %}
+        이 PC에 저장된 기본 API key가 자동으로 채워집니다.
+        {% else %}
+        아직 저장된 API key가 없습니다.
+        {% endif %}
+      </div>
 
       <label>이메일 주소</label>
       <input name="email_address" value="{{ shared_settings.mailbox.email_address }}" placeholder="예: name@example.com">
+      <div class="trust-strip">
+        <span class="trust-chip">저장된 이메일: {{ shared_settings.mailbox.email_address or "아직 없음" }}</span>
+        <span class="trust-chip">이 칸은 저장 후에도 그대로 보여야 정상</span>
+      </div>
+      <div class="field-status quiet">
+        {% if shared_settings.mailbox.email_address %}
+        현재 저장된 이메일 주소: {{ shared_settings.mailbox.email_address }}
+        {% else %}
+        로그인에 사용할 이메일 주소를 입력해 주세요.
+        {% endif %}
+      </div>
 
-      <label>
-        비밀번호 또는 앱 비밀번호
+      <label class="label-with-help">
+        <span class="label-text">비밀번호 또는 앱 비밀번호</span>
         <button type="button" class="info-badge modern-info-badge" aria-label="비밀번호 도움말" data-tooltip="일부 메일 서비스는 일반 비밀번호 대신 앱 비밀번호를 요구합니다. 구글, 네이버 같은 계정은 이 항목이 앱 비밀번호일 수 있습니다.">{{ info_icon|safe }}</button>
       </label>
-      <input type="password" name="mailbox_password" value="" placeholder="메일 서비스 비밀번호 또는 앱 비밀번호">
+      <input
+        type="password"
+        name="mailbox_password"
+        value=""
+        placeholder="{{ '현재 저장된 비밀번호를 그대로 사용 중 · 새 값을 입력하면 변경' if shared_settings.mailbox.password_saved else '메일 서비스 비밀번호 또는 앱 비밀번호' }}"
+      >
+      <div class="trust-strip">
+        <span class="trust-chip">비밀번호 상태: {{ "저장됨" if shared_settings.mailbox.password_saved else "아직 없음" }}</span>
+        <span class="trust-chip">새 값을 입력한 경우에만 변경</span>
+        <span class="trust-chip">보안상 입력칸은 비어 보이는 것이 정상</span>
+      </div>
+      <div class="field-status quiet">
+        {% if shared_settings.mailbox.password_saved %}
+        비밀번호는 보안상 다시 보여주지 않습니다. 이 칸을 비워 두면 현재 저장된 비밀번호를 그대로 사용합니다.
+        {% else %}
+        아직 저장된 비밀번호가 없습니다. 입력 후 저장하면 다음부터 유지됩니다.
+        {% endif %}
+      </div>
+      <div class="field-status quiet">
+        현재 저장 상태: 이메일 {{ shared_settings.mailbox.email_address or "미저장" }} / 비밀번호 {{ "저장됨" if shared_settings.mailbox.password_saved else "미저장" }}
+      </div>
 
-      <div class="action-row">
+      <div class="action-row" id="settings-save-actions">
         <span class="action-shell" data-tooltip="{{ action_states.settings_save.tooltip }}">
           <button class="primary" type="submit" {% if action_states.settings_save.disabled %}disabled{% endif %}>설정 저장</button>
         </span>
@@ -104,6 +151,9 @@
       {% if action_states.connection_check.reason %}
       <div class="inline-hint warn">{{ action_states.connection_check.reason }}</div>
       {% endif %}
+      <div class="field-status quiet">
+        저장 버튼은 비어 있는 비밀번호 칸으로 기존 비밀번호를 지우지 않습니다. 비밀번호를 바꾸고 싶을 때만 새 값을 입력하면 됩니다.
+      </div>
       {% if request.query_params.get('saved') == '1' or request.query_params.get('next') %}
       <div class="next-step-callout">
         <strong>다음 단계</strong>
@@ -166,14 +216,14 @@
     <summary>고급 설정</summary>
     <div class="split split-main">
       <div class="stacked-inner">
-        <label>
-          로그인 ID
+        <label class="label-with-help">
+          <span class="label-text">로그인 ID</span>
           <button type="button" class="info-badge modern-info-badge" aria-label="로그인 ID 도움말" data-tooltip="일부 메일 서비스는 이메일 주소와 다른 로그인 이름을 요구할 수 있습니다. 비워 두면 이메일 주소를 자동 사용합니다.">{{ info_icon|safe }}</button>
         </label>
         <input name="login_username" value="{{ shared_settings.mailbox.login_username }}" placeholder="필요한 경우에만 입력">
 
-        <label>
-          기본 받은편지함
+        <label class="label-with-help">
+          <span class="label-text">기본 받은편지함</span>
           <button type="button" class="info-badge modern-info-badge" aria-label="기본 받은편지함 도움말" data-tooltip="계정 연결 확인 후 읽을 수 있는 폴더 목록이 나타납니다. 보통은 추천값을 그대로 사용하면 됩니다.">{{ info_icon|safe }}</button>
         </label>
         {% if mailbox_folder_options %}
@@ -189,8 +239,8 @@
       </div>
 
       <div class="stacked-inner">
-        <label>
-          엑셀 양식
+        <label class="label-with-help">
+          <span class="label-text">엑셀 양식</span>
           <button type="button" class="info-badge modern-info-badge" aria-label="엑셀 양식 도움말" data-tooltip="내보내기용 기준 엑셀 양식입니다. 새 세이브를 만들면 기본 양식이 자동 준비되므로 보통은 그대로 사용하면 됩니다.">{{ info_icon|safe }}</button>
         </label>
         <div class="path-picker">
@@ -218,6 +268,17 @@
           <div>이 PC에만 저장: 최근 세이브, 자동 재개 정보, 기본 API key</div>
           <div>실제 양식 경로: {{ template_status.resolved_path or "(없음)" }}</div>
         </div>
+
+        <label class="label-with-help" id="classification-guidance" style="margin-top:14px">
+          <span class="label-text">신청 메일 분류 기준 메모</span>
+          <button type="button" class="info-badge modern-info-badge" aria-label="신청 메일 분류 기준 도움말" data-tooltip="신청 메일을 어떻게 판단할지 운영자 기준을 추가로 적을 수 있습니다. 저장 후 다시 분류하면 이 기준을 prompt에 함께 반영합니다.">{{ info_icon|safe }}</button>
+        </label>
+        <textarea
+          name="classification_guidance"
+          rows="5"
+          placeholder="예: 행사 안내 메일은 비신청으로, 참가 신청서/회사소개서/지원서가 있으면 신청 메일로 우선 분류"
+        >{{ shared_settings.analysis.classification_guidance or "" }}</textarea>
+        <div class="field-status quiet">저장 후 리뷰 새로 고침 또는 동기화를 다시 실행하면 새 기준을 반영해 재분류합니다.</div>
       </div>
     </div>
   </details>

@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from math import ceil
+from typing import Callable
 
 from analysis import run_inbox_review_board_smoke
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
+from runtime.device_secret_store import sanitize_openai_api_key
 from runtime.review_state import ingest_review_report_into_state
 from runtime.secrets_store import WorkspaceSecretsStore
 from runtime.state_store import WorkspaceStateStore
 from runtime.sync_service import update_latest_review_pointers
 from runtime.workspace import load_shared_workspace
+
+
+StageCallback = Callable[[dict[str, object]], None]
 
 
 @dataclass(slots=True)
@@ -66,6 +71,7 @@ def refresh_review_board_service(
     workspace_password: str,
     limit: int | None,
     reuse_existing_analysis: bool = True,
+    on_progress: StageCallback | None = None,
 ) -> ReviewRefreshServiceResult:
     workspace = load_shared_workspace(workspace_root)
     secrets_store = WorkspaceSecretsStore(
@@ -75,6 +81,7 @@ def refresh_review_board_service(
     payload = secrets_store.read()
     llm_settings = dict(payload.get("llm") or {})
     export_settings = dict(payload.get("exports") or {})
+    analysis_settings = dict(payload.get("analysis") or {})
     template_path = _resolve_template_workbook_path(
         workspace=workspace_root,
         export_settings=export_settings,
@@ -82,7 +89,7 @@ def refresh_review_board_service(
     wrapper = OpenAIResponsesWrapper(
         OpenAIResponsesConfig(
             model=str(llm_settings.get("model") or "gpt-5.4"),
-            api_key=str(llm_settings.get("api_key") or ""),
+            api_key=sanitize_openai_api_key(str(llm_settings.get("api_key") or "")),
             usage_log_path=str(workspace.profile_paths().llm_usage_log_path()),
         )
     )
@@ -93,6 +100,8 @@ def refresh_review_board_service(
         bundle_limit=limit,
         reuse_existing_analysis=reuse_existing_analysis,
         wrapper=wrapper,
+        custom_guidance=str(analysis_settings.get("classification_guidance") or ""),
+        on_progress=on_progress,
     )
     update_latest_review_pointers(workspace=workspace, review_report=report)
     from runtime.state_store import WorkspaceStateStore

@@ -17,12 +17,35 @@
           <button class="primary" type="submit" {% if action_states.rebuild_workbook.disabled %}disabled{% endif %}>운영 엑셀 다시 반영</button>
         </form>
       </span>
+      <span class="action-shell" data-tooltip="{% if readonly %}읽기 전용 세션에서는 분류를 다시 계산할 수 없습니다.{% else %}현재 저장된 분류 기준 메모까지 포함해 리뷰 분류를 다시 계산합니다.{% endif %}">
+        <form action="/review/refresh" method="post">
+          <input type="hidden" name="return_to" value="{{ current_review_url }}">
+          <button type="submit" {% if readonly %}disabled{% endif %}>분류·요약 다시 계산</button>
+        </form>
+      </span>
+      <a href="/settings#classification-guidance">분류 기준 수정</a>
       <a href="/sync">동기화</a>
       <a href="/settings">설정</a>
     </div>
   </div>
   {% if action_states.rebuild_workbook.reason %}
   <div class="inline-hint warn">{{ action_states.rebuild_workbook.reason }}</div>
+  {% endif %}
+  {% if counts.failed_before_analysis %}
+  <div class="field-status warn" style="margin-top:12px">
+    자동 분류와 요약이 끝나지 않은 메일이 {{ counts.failed_before_analysis }}건 있습니다.
+    {% if not shared_settings.llm.api_key_saved %}
+    현재 OpenAI API key가 저장되지 않은 상태로 보입니다. 설정에서 API key를 확인한 뒤 <strong>분류·요약 다시 계산</strong>을 실행해 주세요.
+    {% else %}
+    분류 기준을 바꿨다면 <strong>분류·요약 다시 계산</strong>으로 현재 기준을 다시 적용해 주세요.
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if counts.application == 0 and counts.needs_human_review > 0 %}
+  <div class="field-status warn" style="margin-top:12px">
+    아직 <strong>신청 메일</strong>로 확정된 항목이 없습니다. 현재는 <strong>사람 검토 필요 {{ counts.needs_human_review }}건</strong>이 남아 있으니,
+    설정에서 분류 기준이나 OpenAI API key를 확인한 뒤 <strong>분류·요약 다시 계산</strong>을 실행해 주세요.
+  </div>
   {% endif %}
   <div class="status-strip compact" data-job-status></div>
 </section>
@@ -32,12 +55,12 @@
   <div class="card"><span class="label">신청 메일</span><span class="value">{{ counts.application }}</span></div>
   <div class="card"><span class="label">비신청 메일</span><span class="value">{{ counts.not_application }}</span></div>
   <div class="card"><span class="label">사람 검토 필요</span><span class="value">{{ counts.needs_human_review }}</span></div>
-  <div class="card"><span class="label">운영 엑셀에 들어간 메일</span><span class="value">{{ counts.export_included_application }}</span></div>
+  <div class="card"><span class="label">엑셀에 포함된 메일</span><span class="value">{{ counts.export_included_application }}</span></div>
   <div class="card"><span class="label">보류된 신청</span><span class="value">{{ counts.held_application }}</span></div>
 </section>
 
 <section class="section">
-  <form class="toolbar filter-toolbar review-filter-toolbar" method="get" action="/review">
+  <form class="toolbar filter-toolbar review-filter-toolbar" method="get" action="/review" data-preserve-window-scroll>
     <div class="filter-field">
       <label>검색</label>
       <input name="search" value="{{ query.search }}" placeholder="회사명, 발신자, 제목">
@@ -52,12 +75,12 @@
       </select>
     </div>
     <div class="filter-field">
-      <label>운영 엑셀에 들어간 메일만
-        <button class="info-badge modern-info-badge" type="button" aria-label="운영 엑셀에 들어간 메일만 도움말" data-tooltip="같은 신청 흐름 안에서 실제 운영 엑셀에 들어가는 기준 메일만 표시합니다.">
+      <label class="label-with-help"><span class="label-text">실제 엑셀에 들어간 메일만</span>
+        <button class="info-badge modern-info-badge" type="button" aria-label="실제 엑셀에 들어간 메일만 도움말" data-tooltip="같은 신청 흐름 안에서 실제 운영 엑셀에 포함되도록 선택된 메일만 표시합니다.">
           <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
             <circle cx="10" cy="10" r="8"></circle>
-            <path d="M10 8v5"></path>
-            <circle cx="10" cy="5.5" r="1"></circle>
+            <path d="M10 8.2v5"></path>
+            <path d="M10 5.4h.01"></path>
           </svg>
         </button>
       </label>
@@ -97,6 +120,36 @@
       <button class="primary" type="submit">필터 적용</button>
     </div>
   </form>
+  <div class="review-classification-guide">
+    <div class="guide-chip">
+      <strong>현재 분류 현황</strong>
+      <span class="muted">신청 메일 {{ counts.application }}건 / 사람 검토 필요 {{ counts.needs_human_review }}건 / 비신청 {{ counts.not_application }}건</span>
+    </div>
+    {% for entry in classification_guide %}
+    <div class="guide-chip">
+      <strong>{{ entry.label }}</strong>
+      <span class="muted">{{ entry.description }}</span>
+    </div>
+    {% endfor %}
+    <div class="guide-chip">
+      <strong>실제 엑셀에 들어간 메일만</strong>
+      <span class="muted">같은 신청 흐름 안에서 실제 운영 엑셀에 들어가도록 자동 선택된 메일만 보여줍니다.</span>
+    </div>
+    <div class="guide-chip">
+      <strong>현재 분류 메모</strong>
+      <span class="muted">{{ shared_settings.analysis.classification_guidance or "아직 사용자 지정 분류 기준 메모가 없습니다. 설정의 고급 항목에서 기준을 추가할 수 있습니다." }}</span>
+    </div>
+    {% if shared_settings.llm.api_key_status != 'saved' %}
+    <div class="guide-chip warn">
+      <strong>자동 요약과 분류가 제한됨</strong>
+      <span class="muted">현재 유효한 OpenAI API key가 없어 일부 메일이 `사람 검토 필요`로 남거나 요약 메모가 비어 보일 수 있습니다. 설정에서 실제 API key를 저장한 뒤 `현재 저장된 분류 기준으로 리뷰 분류와 요약을 다시 계산`을 실행해 주세요.</span>
+    </div>
+    {% endif %}
+    <div class="guide-chip">
+      <strong>분류 기준 바꾸기</strong>
+      <span class="muted">설정의 `신청 메일 분류 기준`을 바꾼 뒤 리뷰 화면의 `현재 기준으로 다시 분류`를 누르면 새 기준으로 다시 계산합니다.</span>
+    </div>
+  </div>
 </section>
 
 <section class="review-layout review-workbench">
@@ -110,7 +163,7 @@
         <div class="review-pagination-summary">
           {% if review_page.view_mode == 'all_virtual' %}
           <span class="status-pill quiet">전체 보기</span>
-          <span class="status-pill quiet">브라우저가 필요한 줄부터 먼저 그립니다</span>
+          <span class="status-pill quiet">필요한 줄만 먼저 그려서 버벅임을 줄입니다</span>
           {% else %}
           <span class="status-pill quiet">{{ pagination.page }} / {{ pagination.page_count }} 페이지</span>
           {% if pagination.has_previous %}
@@ -141,32 +194,33 @@
             {% for item in items %}
             <tr class="{% if item.selected %}selected{% endif %}" data-review-row data-bundle-id="{{ item.bundle_id }}" data-select-url="{{ item.detail_url }}" data-review-url="{{ item.review_url }}">
               <td>
-                <a
-                  class="review-row-link"
-                  href="{{ item.review_url }}"
+                <button
+                  type="button"
+                  class="review-row-link review-row-button"
                   data-bundle-id="{{ item.bundle_id }}"
                   data-select-url="{{ item.detail_url }}"
                   data-review-url="{{ item.review_url }}"
-                >{{ item.received_at or "-" }}</a>
+                >{{ item.received_at or "-" }}
+                </button>
               </td>
               <td>
-                <a
-                  class="review-row-link"
-                  href="{{ item.review_url }}"
+                <button
+                  type="button"
+                  class="review-row-link review-row-button"
                   data-bundle-id="{{ item.bundle_id }}"
                   data-select-url="{{ item.detail_url }}"
                   data-review-url="{{ item.review_url }}"
-                >{{ item.company_name or "(기업명 미확정)" }}</a>
+                >{{ item.company_name or "(기업명 미확정)" }}</button>
               </td>
               <td>{{ item.sender }}</td>
               <td>
-                <a
-                  class="review-row-link"
-                  href="{{ item.review_url }}"
+                <button
+                  type="button"
+                  class="review-row-link review-row-button"
                   data-bundle-id="{{ item.bundle_id }}"
                   data-select-url="{{ item.detail_url }}"
                   data-review-url="{{ item.review_url }}"
-                >{{ item.subject }}</a>
+                >{{ item.subject }}</button>
               </td>
               <td><span class="badge {{ item.triage_label }}">
                 {% if item.triage_label == 'application' %}신청
@@ -199,37 +253,49 @@
   </div>
 
   <aside class="review-sidebar review-pane">
-    <div id="review-detail-panel" class="review-pane-card" data-current-review-url="{{ current_review_url }}">
+    <div id="review-detail-panel" class="review-pane-card review-detail-shell" data-current-review-url="{{ current_review_url }}">
       {% include "_review_detail_panel.html" %}
     </div>
-
-    <section class="section exports-summary-card review-pane-card">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">엑셀 반영</div>
-          <h2>엑셀은 보조 결과물입니다</h2>
-        </div>
-      </div>
-      <div class="details">
-        <div>현재 운영본: {{ exports_summary.operating_workbook_relpath }}</div>
-        <div>마지막 갱신 시각: {{ exports_summary.operating_workbook_updated_at or "아직 없음" }}</div>
-        <div>운영 엑셀에 포함된 메일 수: {{ exports_summary.export_included_count }}</div>
-        <div>엑셀 행으로 연결된 항목 수: {{ exports_summary.workbook_row_count }}</div>
-      </div>
-      <div class="field-status quiet" style="margin-top:12px">
-        기본 양식은 새 세이브를 만들 때 자동 준비됩니다. 현재 운영본은 이 앱이 다시 쓰고, 스냅샷은 이전 반영 결과를 보관합니다.
-      </div>
-      {% if exports_summary.snapshot_items %}
-      <div class="review-snapshot-list">
-        {% for item in exports_summary.snapshot_items[:5] %}
-        <button type="button" class="snapshot-item-button" data-open-relative-path="{{ item.relative_path }}">
-          <strong>{{ item.name }}</strong>
-          <span class="muted small">{{ item.updated_at }}</span>
-        </button>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </section>
   </aside>
+</section>
+
+<section class="section exports-summary-card">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">엑셀 반영</div>
+      <h2>엑셀은 보조 결과물입니다</h2>
+    </div>
+  </div>
+  <div class="details">
+    <div>현재 운영본: {{ exports_summary.operating_workbook_relpath }}</div>
+    <div>마지막 갱신 시각: {{ exports_summary.operating_workbook_updated_at or "아직 없음" }}</div>
+    <div>엑셀에 포함된 메일 수: {{ exports_summary.export_included_count }}</div>
+    <div>엑셀 행으로 연결된 항목 수: {{ exports_summary.workbook_row_count }}</div>
+  </div>
+  <div class="field-status quiet" style="margin-top:12px">
+    기본 양식은 새 세이브를 만들 때 자동 준비됩니다. 현재 운영본은 이 앱이 다시 쓰고, 스냅샷은 이전 반영 결과를 보관합니다.
+  </div>
+  <div class="toolbar" style="margin-top:12px">
+    <a href="/settings#classification-guidance">분류 기준 설정 열기</a>
+    <form action="/review/refresh" method="post" data-preserve-window-scroll>
+      <input type="hidden" name="return_to" value="{{ current_review_url }}">
+      <button type="submit">현재 기준으로 다시 분류</button>
+    </form>
+  </div>
+  {% if exports_summary.snapshot_items %}
+  <div class="review-snapshot-list">
+    {% for item in exports_summary.snapshot_items[:5] %}
+    <a
+      class="snapshot-item-button"
+      href="/workspace/file?relative_path={{ item.relative_path | urlencode }}"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <strong>{{ item.name }}</strong>
+      <span class="muted small">{{ item.updated_at }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% endblock %}

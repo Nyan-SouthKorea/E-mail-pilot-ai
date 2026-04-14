@@ -73,8 +73,9 @@ def run_pipeline_sync_service(
             on_stage,
             stage_id="fetch",
             stage_label="메일 가져오는 중",
-            progress_current=1,
-            progress_total=3,
+            progress_current=0,
+            progress_total=100,
+            progress_percent=5,
             message="메일을 가져오고 있습니다.",
             next_action="이미 받은 메일은 건너뜁니다.",
             details=[
@@ -86,14 +87,38 @@ def run_pipeline_sync_service(
             workspace_password=workspace_password,
             limit=effective_limit,
             app_kind_note="공유 세이브 파일 sync service에서 메일 fetch를 실행했습니다.",
+            on_stage=lambda payload: _emit_stage(
+                on_stage,
+                stage_id="fetch",
+                stage_label="메일 가져오는 중",
+                progress_current=int(
+                    5 + (
+                        (int(payload.get("stage_progress_current") or 0) / max(1, int(payload.get("stage_progress_total") or 1)))
+                        * 55
+                    )
+                ),
+                progress_total=100,
+                progress_percent=int(
+                    5 + (
+                        (int(payload.get("stage_progress_current") or 0) / max(1, int(payload.get("stage_progress_total") or 1)))
+                        * 55
+                    )
+                ),
+                stage_progress_current=int(payload.get("stage_progress_current") or 0),
+                stage_progress_total=int(payload.get("stage_progress_total") or 0),
+                message=str(payload.get("message") or "메일을 가져오는 중입니다."),
+                next_action=str(payload.get("next_action") or "이미 받은 메일은 건너뜁니다."),
+                details=list(payload.get("details") or []),
+            ),
         )
 
         _emit_stage(
             on_stage,
             stage_id="analysis",
             stage_label="분석 중",
-            progress_current=2,
-            progress_total=3,
+            progress_current=72,
+            progress_total=100,
+            progress_percent=72,
             message="메일 내용을 분석하고 있습니다.",
             next_action="기존 분석은 재사용하고, 바뀐 항목만 다시 계산합니다.",
             details=[
@@ -106,14 +131,47 @@ def run_pipeline_sync_service(
             workspace_password=workspace_password,
             limit=effective_limit,
             reuse_existing_analysis=True,
+            on_progress=lambda payload: _emit_stage(
+                on_stage,
+                stage_id="analysis",
+                stage_label="분석 중",
+                progress_current=int(
+                    72 + (
+                        (int(payload.get("processed_count") or 0) / max(1, int(payload.get("total_count") or 1)))
+                        * 18
+                    )
+                ),
+                progress_total=100,
+                progress_percent=int(
+                    72 + (
+                        (int(payload.get("processed_count") or 0) / max(1, int(payload.get("total_count") or 1)))
+                        * 18
+                    )
+                ),
+                stage_progress_current=int(payload.get("processed_count") or 0),
+                stage_progress_total=int(payload.get("total_count") or 0),
+                message=(
+                    "메일 내용을 분석하고 있습니다. "
+                    f"{int(payload.get('processed_count') or 0)} / {int(payload.get('total_count') or 0)}"
+                ),
+                next_action="기존 분석은 재사용하고, 새 기준이 있으면 필요한 항목만 다시 계산합니다.",
+                details=[
+                    f"신청 메일: {int(payload.get('application_count') or 0)}건",
+                    f"사람 검토 필요: {int(payload.get('needs_human_review_count') or 0)}건",
+                    f"비신청 메일: {int(payload.get('not_application_count') or 0)}건",
+                    f"분석 재사용: {int(payload.get('analysis_reused_count') or 0)}건",
+                    f"새 분석 실행: {int(payload.get('analysis_rerun_count') or 0)}건",
+                ],
+            ),
         )
 
         _emit_stage(
             on_stage,
             stage_id="export",
             stage_label="엑셀 반영 중",
-            progress_current=3,
-            progress_total=3,
+            progress_current=90,
+            progress_total=100,
+            progress_percent=90,
             message="엑셀 결과를 반영하고 있습니다.",
             next_action="엑셀 반영 대상으로 선택된 메일만 운영 엑셀에 반영합니다.",
             details=[

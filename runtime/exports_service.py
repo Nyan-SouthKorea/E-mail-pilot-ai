@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
+from runtime.device_secret_store import sanitize_openai_api_key
 from runtime.secrets_store import WorkspaceSecretsStore
 from runtime.state_store import WorkspaceStateStore
 from runtime.sync_service import rebuild_operating_workbook
@@ -56,7 +57,7 @@ def rebuild_operating_workbook_service(
     wrapper = OpenAIResponsesWrapper(
         OpenAIResponsesConfig(
             model=str(llm_settings.get("model") or "gpt-5.4"),
-            api_key=str(llm_settings.get("api_key") or ""),
+            api_key=sanitize_openai_api_key(str(llm_settings.get("api_key") or "")),
             usage_log_path=str(workspace.profile_paths().llm_usage_log_path()),
         )
     )

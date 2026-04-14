@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from html import escape
 from pathlib import Path
+from typing import Callable
 from urllib.parse import quote
 
 if __package__ in (None, ""):
@@ -108,6 +109,124 @@ class HeuristicTriageDecision:
     triage_confidence: float
 
 
+def _application_prefilter_signals(normalized_message) -> dict[str, bool]:
+    subject_text = (normalized_message.subject or "").casefold()
+    body_text = (normalized_message.body_text or "").casefold()
+    sender_email = (normalized_message.sender.email or "").casefold()
+    recipient_emails = {
+        address.email.casefold()
+        for address in normalized_message.to + normalized_message.cc + normalized_message.bcc
+        if address.email
+    }
+
+    subject_tokens = [
+        "신청",
+        "모집",
+        "참가",
+        "지원",
+        "application",
+        "registration",
+    ]
+    strong_subject_tokens = [
+        "참가신청",
+        "참가 신청",
+        "참가기업 신청",
+        "신청서",
+        "신청서 제출",
+        "지원서",
+        "지원 서류",
+        "지원서 제출",
+        "참가 희망",
+        "신청 자료",
+        "신청 문의",
+        "application form",
+        "registration form",
+        "submit application",
+    ]
+    strong_body_tokens = [
+        "참가 신청",
+        "신청 드립니다",
+        "신청합니다",
+        "지원합니다",
+        "지원서 제출",
+        "참가를 희망",
+        "신청 자료",
+        "submit application",
+    ]
+    overview_tokens = [
+        "안내",
+        "초청",
+        "홍보",
+        "협조 요청",
+        "행사 소개",
+        "program guide",
+        "overview",
+        "newsletter",
+    ]
+    has_attachment = bool(normalized_message.attachment_artifact_ids)
+    has_subject_signal = any(token in subject_text for token in subject_tokens)
+    has_strong_subject_signal = any(token in subject_text for token in strong_subject_tokens)
+    has_strong_body_signal = any(token in body_text for token in strong_body_tokens)
+    is_self_mail = sender_email and sender_email in recipient_emails
+    is_internal_sender = "@kova.or.kr" in sender_email
+    is_system_sender = any(
+        token in sender_email
+        for token in ["newsletter", "antispam", "wblock", "@system"]
+    )
+    looks_like_overview = any(token in subject_text for token in overview_tokens)
+    return {
+        "has_attachment": has_attachment,
+        "has_subject_signal": has_subject_signal,
+        "has_strong_subject_signal": has_strong_subject_signal,
+        "has_strong_body_signal": has_strong_body_signal,
+        "is_self_mail": is_self_mail,
+        "is_internal_sender": is_internal_sender,
+        "is_system_sender": is_system_sender,
+        "looks_like_overview": looks_like_overview,
+    }
+
+
+def _build_failed_analysis_fallback(normalized_message, exc: Exception) -> tuple[str, str, float, str]:
+    signals = _application_prefilter_signals(normalized_message)
+    error_text = f"{exc.__class__.__name__}: {exc}"
+    invalid_api_key = "invalid_api_key" in error_text or "Incorrect API key" in error_text
+    has_strong_application_signal = (
+        signals["has_strong_subject_signal"]
+        or signals["has_strong_body_signal"]
+        or (signals["has_attachment"] and signals["has_subject_signal"])
+    )
+    if has_strong_application_signal and not signals["is_system_sender"] and not signals["is_self_mail"]:
+        if invalid_api_key:
+            return (
+                "application",
+                "OpenAI API key 오류로 자동 분석은 실패했지만, 제목/첨부 신호가 매우 강해 신청 메일로 우선 분류했다.",
+                0.62,
+                "제목과 첨부 기준으로 신청 메일 가능성이 높지만 자동 요약은 아직 만들지 못했습니다.",
+            )
+        return (
+            "application",
+            "자동 분석은 실패했지만, 제목/첨부 신호가 매우 강해 신청 메일로 우선 분류했다.",
+            0.58,
+            "제목과 첨부 기준으로 신청 메일 가능성이 높지만 자동 요약은 아직 만들지 못했습니다.",
+        )
+    if signals["looks_like_overview"] and not signals["has_attachment"]:
+        return (
+            "not_application",
+            "안내·초청·홍보 성격이 강해 비신청 메일로 유지했다.",
+            0.74,
+            "안내 또는 홍보 성격의 메일로 보여 운영 엑셀 반영 대상에서는 제외했습니다.",
+        )
+    failure_reason = "자동 분석이 실패해 사람이 한 번 더 확인해야 합니다."
+    if invalid_api_key:
+        failure_reason = "OpenAI API key 오류로 자동 분석을 진행하지 못해 사람이 한 번 더 확인해야 합니다."
+    return (
+        "needs_human_review",
+        failure_reason,
+        0.42,
+        "자동 분석이 끝나지 않아 요약을 만들지 못했습니다. 설정을 다시 확인한 뒤 재분류해 주세요.",
+    )
+
+
 def default_profile_root() -> Path:
     """기능: 현재 예시 사용자 프로필 루트 기본 경로를 반환한다."""
 
@@ -123,6 +242,8 @@ def run_inbox_review_board_smoke(
     bundle_limit: int | None = None,
     reuse_existing_analysis: bool = False,
     wrapper: OpenAIResponsesWrapper | None = None,
+    custom_guidance: str = "",
+    on_progress: Callable[[dict[str, object]], None] | None = None,
 ) -> InboxReviewBoardReport:
     """기능: runtime bundle 전체를 triage하고 review board를 생성한다."""
 
@@ -197,6 +318,7 @@ def run_inbox_review_board_smoke(
                     bundle_root=str(directory),
                     reuse_existing_analysis=reuse_existing_analysis,
                     wrapper=wrapper,
+                    custom_guidance=custom_guidance,
                 )
                 if not analysis_results:
                     raise RuntimeError("bundle 분석 결과를 만들지 못했다.")
@@ -233,6 +355,14 @@ def run_inbox_review_board_smoke(
                 analysis_source = "heuristic_prefilter"
                 heuristic_prefilter_count += 1
                 item_notes = list(analysis_result.notes)
+                _write_summary_markdown(
+                    path=directory / "summary.md",
+                    summary_one_line=extracted_record.summary_one_line,
+                    summary_short=extracted_record.summary_short,
+                    triage_label=extracted_record.triage_label,
+                    triage_reason=extracted_record.triage_reason,
+                    request_summary=_field_value(extracted_record.field_map(), "request_summary"),
+                )
 
             projected_row = project_record_to_template(mapped_profile, extracted_record)
             projected_row_path = (
@@ -289,6 +419,10 @@ def run_inbox_review_board_smoke(
             )
         except Exception as exc:
             failed_count += 1
+            fallback_label, fallback_reason, fallback_confidence, fallback_summary = _build_failed_analysis_fallback(
+                normalized_message=normalized,
+                exc=exc,
+            )
             items.append(
                 InboxReviewBoardItem(
                     bundle_id=normalized.bundle_id,
@@ -297,15 +431,44 @@ def run_inbox_review_board_smoke(
                     sender=_format_address(normalized.sender),
                     subject=normalized.subject,
                     attachment_count=len(normalized.attachment_artifact_ids),
-                    triage_label="needs_human_review",
-                    triage_reason="분석 또는 projection 단계가 실패해 수동 확인이 필요하다.",
-                    triage_confidence=0.0,
+                    triage_label=fallback_label,
+                    triage_reason=fallback_reason,
+                    triage_confidence=fallback_confidence,
                     analysis_source="failed_before_analysis",
                     export_status="failed",
+                    company_name=normalized.sender.name or "",
+                    contact_name=normalized.sender.name or "",
+                    email_address=normalized.sender.email or "",
+                    request_summary=fallback_summary,
                     summary_path=str(directory / "summary.md"),
                     preview_path=str(directory / "preview.html"),
-                    notes=[f"{exc.__class__.__name__}: {exc}"],
+                    notes=[
+                        fallback_summary,
+                        f"{exc.__class__.__name__}: {exc}",
+                    ],
                 )
+            )
+            _write_summary_markdown(
+                path=directory / "summary.md",
+                summary_one_line=(normalized.subject or "요약 없음").strip(),
+                summary_short=fallback_summary,
+                triage_label=fallback_label,
+                triage_reason=fallback_reason,
+                request_summary=fallback_summary,
+            )
+        if on_progress is not None:
+            on_progress(
+                {
+                    "processed_count": index,
+                    "total_count": len(bundle_directories),
+                    "exported_count": exported_count,
+                    "failed_count": failed_count,
+                    "application_count": sum(1 for item in items if item.triage_label == "application"),
+                    "not_application_count": sum(1 for item in items if item.triage_label == "not_application"),
+                    "needs_human_review_count": sum(1 for item in items if item.triage_label == "needs_human_review"),
+                    "analysis_reused_count": sum(1 for item in items if any("재사용" in note for note in item.notes)),
+                    "analysis_rerun_count": sum(1 for item in items if item.analysis_source == "llm_full_analysis"),
+                }
             )
         if index % 100 == 0 or index == len(bundle_directories):
             print(
@@ -489,6 +652,32 @@ def _field_value(field_map: dict[str, object], field_name: str) -> str:
     return (normalized_value or value or "").strip()
 
 
+def _write_summary_markdown(
+    *,
+    path: Path,
+    summary_one_line: str,
+    summary_short: str,
+    triage_label: str,
+    triage_reason: str,
+    request_summary: str,
+) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "# 요약 메모",
+                "",
+                f"- 한 줄 요약: {summary_one_line or '(없음)'}",
+                f"- 짧은 요약: {summary_short or '(없음)'}",
+                f"- 분류: {triage_label or '(없음)'}",
+                f"- 분류 근거: {triage_reason or '(없음)'}",
+                f"- 요청 요약: {request_summary or '(없음)'}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _format_address(address) -> str:
     if getattr(address, "name", None):
         return f"{address.name} <{address.email}>"
@@ -519,42 +708,9 @@ def _prepare_empty_output_workbook(
 
 
 def _build_prefilter_triage_decision(normalized_message) -> HeuristicTriageDecision:
-    subject_text = (normalized_message.subject or "").casefold()
-    body_text = (normalized_message.body_text or "").casefold()
-    sender_email = (normalized_message.sender.email or "").casefold()
-    recipient_emails = {
-        address.email.casefold()
-        for address in normalized_message.to + normalized_message.cc + normalized_message.bcc
-        if address.email
-    }
+    signals = _application_prefilter_signals(normalized_message)
 
-    subject_tokens = [
-        "신청",
-        "모집",
-        "참가",
-        "지원",
-        "application",
-        "registration",
-    ]
-    strong_body_tokens = [
-        "참가 신청",
-        "신청 드립니다",
-        "신청합니다",
-        "지원합니다",
-        "지원서 제출",
-        "submit application",
-    ]
-    has_attachment = bool(normalized_message.attachment_artifact_ids)
-    has_subject_signal = any(token in subject_text for token in subject_tokens)
-    has_strong_body_signal = any(token in body_text for token in strong_body_tokens)
-    is_self_mail = sender_email and sender_email in recipient_emails
-    is_internal_sender = "@kova.or.kr" in sender_email
-    is_system_sender = any(
-        token in sender_email
-        for token in ["newsletter", "antispam", "wblock", "@system"]
-    )
-
-    if is_system_sender:
+    if signals["is_system_sender"]:
         return HeuristicTriageDecision(
             should_run_llm=False,
             triage_label="not_application",
@@ -563,17 +719,21 @@ def _build_prefilter_triage_decision(normalized_message) -> HeuristicTriageDecis
         )
 
     if (
-        not is_internal_sender
-        and ((has_attachment and (has_subject_signal or has_strong_body_signal)) or has_strong_body_signal)
+        not signals["is_internal_sender"]
+        and (
+            signals["has_subject_signal"]
+            or signals["has_strong_body_signal"]
+            or (signals["has_attachment"] and signals["has_subject_signal"])
+        )
     ):
         return HeuristicTriageDecision(
             should_run_llm=True,
             triage_label="needs_human_review",
-            triage_reason="첨부와 신청 신호가 함께 있거나 본문에 강한 신청 표현이 있어 full analysis 대상으로 유지했다.",
-            triage_confidence=0.67,
+            triage_reason="제목/본문에 신청 관련 신호가 있어 full analysis 대상으로 유지했다.",
+            triage_confidence=0.63,
         )
 
-    if is_self_mail:
+    if signals["is_self_mail"]:
         return HeuristicTriageDecision(
             should_run_llm=False,
             triage_label="not_application",

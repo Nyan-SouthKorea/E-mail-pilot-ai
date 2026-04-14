@@ -632,7 +632,8 @@ class WorkspaceStateStore:
                     SUM(CASE WHEN triage_label = 'not_application' THEN 1 ELSE 0 END) AS not_application,
                     SUM(CASE WHEN triage_label = 'needs_human_review' THEN 1 ELSE 0 END) AS needs_human_review,
                     SUM(CASE WHEN triage_label = 'application' AND included_in_export = 1 THEN 1 ELSE 0 END) AS export_included,
-                    SUM(CASE WHEN triage_label = 'application' AND included_in_export = 0 THEN 1 ELSE 0 END) AS held_application
+                    SUM(CASE WHEN triage_label = 'application' AND included_in_export = 0 THEN 1 ELSE 0 END) AS held_application,
+                    SUM(CASE WHEN analysis_source = 'failed_before_analysis' THEN 1 ELSE 0 END) AS failed_before_analysis
                 FROM bundle_review_state
                 """
             ).fetchone()
@@ -643,6 +644,7 @@ class WorkspaceStateStore:
             "needs_human_review": int(row["needs_human_review"] or 0),
             "export_included_application": int(row["export_included"] or 0),
             "held_application": int(row["held_application"] or 0),
+            "failed_before_analysis": int(row["failed_before_analysis"] or 0),
         }
 
     def _build_review_items_query(

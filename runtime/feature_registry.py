@@ -12,6 +12,7 @@ from typing import Any, Iterator
 
 from analysis import run_inbox_review_board_smoke
 from llm import OpenAIResponsesConfig, OpenAIResponsesWrapper
+from runtime.device_secret_store import sanitize_openai_api_key
 from mailbox import build_local_mailbox_account_config, run_imap_inbox_backfill_smoke
 from mailbox.imap_backfill_smoke import default_backfill_report_path
 from runtime.lockfile import WorkspaceWriteLockHandle, acquire_workspace_write_lock
@@ -792,7 +793,7 @@ def _build_wrapper(context: WorkspaceFeatureContext) -> OpenAIResponsesWrapper:
     return OpenAIResponsesWrapper(
         OpenAIResponsesConfig(
             model=str(llm_settings.get("model") or "gpt-5.4"),
-            api_key=str(llm_settings.get("api_key") or ""),
+            api_key=sanitize_openai_api_key(str(llm_settings.get("api_key") or "")),
             usage_log_path=str(context.workspace.profile_paths().llm_usage_log_path()),
         )
     )
@@ -857,7 +858,7 @@ def _analysis_checks(context: WorkspaceFeatureContext) -> list[FeatureCheckResul
     return [
         FeatureCheckResult(
             label="openai_api_key",
-            status="pass" if str(llm_settings.get("api_key") or "").strip() else "fail",
+            status="pass" if sanitize_openai_api_key(str(llm_settings.get("api_key") or "")) else "fail",
             detail="LLM 재분석에는 OpenAI API key가 필요하다.",
         ),
         FeatureCheckResult(

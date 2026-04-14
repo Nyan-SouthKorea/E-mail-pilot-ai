@@ -11,12 +11,15 @@ from .feature_registry import (
     run_feature,
 )
 from .device_secret_store import (
+    DEVICE_SECRETS_PATH_ENV,
     LocalDeviceSecrets,
     clear_last_workspace_secret,
     default_device_secrets_path,
+    is_placeholder_openai_api_key,
     load_local_device_secrets,
     remember_default_openai_api_key,
     remember_last_workspace_secret,
+    sanitize_openai_api_key,
     save_local_device_secrets,
 )
 from .diagnostics_service import (
@@ -28,6 +31,8 @@ from .diagnostics_service import (
 )
 from .local_settings import (
     LocalAppSettings,
+    LOCAL_SETTINGS_PATH_ENV,
+    STARTUP_LOG_PATH_ENV,
     default_local_portable_exe_path,
     default_local_portable_bundle_root,
     default_local_settings_path,
@@ -122,6 +127,9 @@ __all__ = [
     "FeatureSpec",
     "LocalDeviceSecrets",
     "LocalAppSettings",
+    "DEVICE_SECRETS_PATH_ENV",
+    "LOCAL_SETTINGS_PATH_ENV",
+    "STARTUP_LOG_PATH_ENV",
     "LockedWorkspaceError",
     "MailboxConnectionCheckResult",
     "MailboxFetchResult",
@@ -183,6 +191,7 @@ __all__ = [
     "normalize_workspace_relative_input",
     "normalize_company_name",
     "open_workspace_entry",
+    "is_placeholder_openai_api_key",
     "pick_file_native",
     "pick_folder_native",
     "picker_bridge_self_test",
@@ -201,6 +210,7 @@ __all__ = [
     "save_local_device_secrets",
     "save_local_app_settings",
     "seed_sample_workspace",
+    "sanitize_openai_api_key",
     "suggest_workspace_root",
     "template_status_for_workspace",
     "update_latest_review_pointers",

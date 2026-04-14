@@ -241,6 +241,18 @@
 - `/admin/features`는 packaging prerequisite 예외가 나더라도 페이지 전체가 죽지 않고 check 결과만 렌더링하도록 복구했다.
 - 새 샘플 세이브 기준 `app.ui_smoke`를 다시 통과시켰고, Windows remote build도 재실행해 `EmailPilotAI.exe` packaged smoke까지 완료했다.
 
+### 2026-04-14 | Human + Codex | review web UX 피드백 7종 보정
+
+- 최근 세이브 `정리`는 현재 window scroll top 자체를 복원하는 단순 경로로 바꿔, 정리 후 화면이 위로 튀는 체감을 줄였다.
+- review 목록의 핵심 클릭부는 button 기반 partial update로 다시 묶었고, detail load 전후에도 window scroll을 함께 복원하도록 보강했다.
+- review 레이아웃은 양쪽 패널 독립 스크롤을 더 강하게 유지하도록 조정했고, detail panel의 외부 열기 액션은 상태 메시지와 toast를 함께 쓰는 현재 경로를 유지한 채 visibility를 높였다.
+- review 상단에는 `현재 분류 현황`, `자동 요약과 분류가 제한됨`, `분류 기준 바꾸기` 안내를 추가해 신청 메일 filter와 요약 부재의 이유를 더 직접 설명하게 했다.
+- settings에는 비밀번호 입력칸이 비어 보여도 기존 저장값을 지우지 않는다는 문구를 저장 버튼 근처에 다시 넣었다.
+- `app.ui_smoke`는 새 review 용어 `실제 엑셀에 들어간 메일만` 기준으로 다시 통과시켰다.
+- review 상세 외부 열기는 web 모드에서 새 탭 anchor를 기본으로 쓰고, desktop window에서는 native open 경로를 계속 쓰도록 분기했다.
+- 공통 정보 아이콘은 SVG dot을 path 기반으로 바꾸고 hover/focus 배경을 다시 조정해, plain `i`보다 자연스럽게 보이도록 다듬었다.
+- web-first 확인 중 `8028` 포트에 예전 browser-fallback 서버가 남아 있어 최신 headless 서버와 혼선이 생겼고, 충돌 없는 `8031` 포트에 최신 서버를 다시 띄워 링크 검증 기준을 바로잡았다.
+
 ### 2026-04-08 | Human + Codex | 관리도구 화면과 오프라인 앱 자산 추가
 
 - 앱 상단 내비게이션에 `관리도구`를 추가하고, 기능 카탈로그/최근 실행/직접 실행 버튼을 한 화면에 모았다.
