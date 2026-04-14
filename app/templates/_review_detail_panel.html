@@ -2,6 +2,7 @@
   class="section review-detail-card"
   data-selected-bundle-id="{{ selected_item.bundle_id if selected_item else '' }}"
   data-current-review-url="{{ current_review_url }}"
+  data-current-artifact-kind="{{ query.artifact_kind if query else 'overview' }}"
 >
   <div class="section-head">
     <div>
@@ -10,6 +11,7 @@
     </div>
   </div>
 
+  <div class="review-detail-scroll" data-review-detail-scroll>
   {% if selected_item %}
   <div class="details-grid compact-grid">
     <div><span class="label">받은 시각</span><strong>{{ selected_item.received_at or "-" }}</strong></div>
@@ -45,7 +47,7 @@
 
   {% if selected_item.canonical_selection_reason %}
   <div class="field-status quiet">
-    엑셀 반영 판단: {{ selected_item.canonical_selection_reason }}
+    엑셀 기준 메일 판단: {{ selected_item.canonical_selection_reason }}
     {% if selected_item.canonical_selection_confidence is not none %}
     (신뢰도 {{ "%.2f"|format(selected_item.canonical_selection_confidence) }})
     {% endif %}
@@ -62,10 +64,8 @@
       <a
         href="{{ tab.review_url }}"
         class="{% if tab.active %}active{% endif %}"
-        hx-get="{{ tab.detail_url }}"
-        hx-target="#review-detail-panel"
-        hx-swap="innerHTML"
-        hx-push-url="{{ tab.review_url }}"
+        data-detail-url="{{ tab.detail_url }}"
+        data-review-url="{{ tab.review_url }}"
       >{{ tab.label }}</a>
       {% endif %}
     {% endfor %}
@@ -76,7 +76,7 @@
     <div class="detail-label">엑셀 반영 상태</div>
     <div class="detail-value">
       {% if selected_item.included_in_export %}
-      현재 운영 엑셀에 반영되는 기준 메일입니다.
+      현재 운영 엑셀에 포함되는 기준 메일입니다.
       {% elif selected_item.export_status %}
       현재 상태는 {{ selected_item.export_status }} 입니다.
       {% else %}
@@ -87,7 +87,7 @@
   <div class="details-grid compact-grid">
     <div><span class="label">첨부 개수</span><strong>{{ selected_item.attachment_count }}</strong></div>
     <div><span class="label">엑셀 행</span><strong>{{ selected_item.workbook_row_index or "-" }}</strong></div>
-    <div><span class="label">반영 대상 여부</span><strong>{{ "예" if selected_item.included_in_export else "아니오" }}</strong></div>
+    <div><span class="label">엑셀 포함 여부</span><strong>{{ "예" if selected_item.included_in_export else "아니오" }}</strong></div>
     <div><span class="label">업데이트 시각</span><strong>{{ selected_item.updated_at or "-" }}</strong></div>
   </div>
   {% if selected_item.notes %}
@@ -141,4 +141,5 @@
     <p class="muted">왼쪽 목록에서 회사나 제목을 누르면 메일 미리보기와 추출 결과를 이 화면 안에서 바로 볼 수 있습니다.</p>
   </div>
   {% endif %}
+  </div>
 </section>

@@ -12,12 +12,12 @@
 - 기존 `mailbox / analysis / exports / llm` 엔진을 `mail / exports / logs` 기준의 v2 세이브 구조로 다시 묶는 sync service가 있다.
 - sync service는 `최근 10 / 100 / 500 / 1000 / 직접 입력 / 전체` 범위를 같은 service 계약으로 처리한다.
 - analysis 결과는 bundle fingerprint와 analysis revision이 같으면 기본적으로 재사용한다.
-- 자동 canonical selection으로 고른 엑셀 반영 대상만 stable 운영 workbook으로 다시 쓰고 `검토_인덱스` 시트를 추가하는 재구성 경로가 있다.
+- 자동 canonical selection으로 고른 운영 엑셀에 들어간 메일만 stable 운영 workbook으로 다시 쓰고 `검토_인덱스` 시트를 추가하는 재구성 경로가 있다.
 - `runtime/feature_registry.py`가 제품/운영 기능 카탈로그와 관리도구/CLI 실행 진입점을 같이 맡는다.
 - `runtime service`는 `workspace / settings / mailbox / analysis / exports / pipeline / diagnostics` 7개 그룹으로 나눈다.
 - 명시적 CLI는 `workspace`, `settings`, `mailbox`, `analysis`, `exports`, `pipeline`, `diagnostics` 하위 명령을 지원한다.
 - 리뷰 조회는 `analysis.review-list`와 `analysis.review-item` service/CLI로 분리해, GUI가 목록 1페이지와 선택한 상세만 따로 읽을 수 있게 한다.
-- 엑셀 쪽은 `exports.summary`로 운영본/스냅샷/반영 대상 수를 따로 읽어, 앱 안에서 엑셀을 보조 결과물로 설명할 수 있게 한다.
+- 엑셀 쪽은 `exports.summary`로 운영본/스냅샷/운영 엑셀에 들어간 메일 수를 따로 읽어, 앱 안에서 엑셀을 보조 결과물로 설명할 수 있게 한다.
 - `runtime/sample_workspace.py`가 repo-safe 샘플 세이브를 만든다.
 - `runtime/feature_harness_smoke.py`가 sample workspace와 앱 UI를 묶어 반복 smoke를 수행한다.
 - 새 세이브는 legacy `profile/참고자료/실행결과` 구조를 만들지 않고, v1 세이브는 자동 변환하지 않는다.
@@ -34,6 +34,8 @@
 - 첫 동기화는 작은 recent scope부터 시작하고, 마지막에 `all` scope로 넓혀 가는 흐름을 기본으로 본다.
 - 정적 HTML review board는 fallback/debug 산출물로 남기고, 사용자 검토의 active canonical 상태는 state DB와 앱 UI가 맡는다.
 - 새 세이브 canonical 구조는 `workspace.epa-workspace.json + secure/ + state/ + locks/ + mail/ + exports/ + logs/`를 기준으로 본다.
-- 리뷰 화면이 커져도 GUI가 전체 항목을 한 번에 렌더링하지 않도록, 목록 조회는 `page / page_size / sort / selected_bundle_id` 계약으로 가볍게 유지한다.
+- 리뷰 화면이 커져도 GUI가 전체 항목을 한 번에 렌더링하지 않도록, 목록 조회는 `page / page_size / sort / selected_bundle_id / artifact_kind / view_mode` 계약으로 가볍게 유지한다.
+- `view_mode=all_virtual`은 true full DOM 렌더가 아니라 브라우저가 필요한 줄부터 그리는 가상 스크롤 성격의 계약으로 유지한다.
+- 기본 개발/검증 루프는 `service + CLI + web UI`를 먼저 닫고, 공식 exe는 최신 pushed `main` 기준 마지막에만 다시 패키징한다.
 
 운영 규칙과 읽기 게이트는 root [`../AGENTS.md`](../AGENTS.md)를, 현재 모듈 상태는 [`./docs/logbook.md`](./docs/logbook.md)를 기준으로 본다.

@@ -51,6 +51,13 @@
 
 ## 최근 로그
 
+### 2026-04-14 | Human + Codex | review 조회 계약을 paged/all_virtual와 상세 partial load 기준으로 재정리
+
+- `runtime.analysis_service`의 review 조회 계약은 이제 `page_size=25/50/100/200`, `view_mode=paged|all_virtual`, `selected_bundle_id`, `artifact_kind`를 함께 받는 구조로 다시 고정했다.
+- `review_performance_smoke`는 synthetic 1200건 기준으로 `paged_count=50`, `all_virtual_count=1200`, `detail_loaded=true`를 함께 확인한다.
+- review 상세는 초기 server render + 이후 partial load를 기본으로 두고, GUI가 row 선택이나 artifact 탭 전환 때 전체 reload를 하지 않아도 같은 service 결과를 다시 쓸 수 있게 맞췄다.
+- exports summary도 같은 맥락에서 `운영 엑셀에 들어간 메일 수`, 운영본, 스냅샷을 별도 조회하는 보조 산출물 계약으로 유지한다.
+
 ### 2026-04-14 | Human + Codex | Windows stale lock pid probe 500 hotfix
 
 - 사용자가 올린 흰 화면을 실제 Windows 공식 exe 기준으로 재현했고, launcher가 아니라 홈 화면 첫 route에서 500이 나는 것을 확인했다.

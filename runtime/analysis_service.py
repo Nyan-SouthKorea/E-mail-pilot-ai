@@ -45,6 +45,7 @@ class ReviewCenterPageServiceResult:
     search: str
     triage_label: str
     export_only: bool
+    view_mode: str
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -136,10 +137,12 @@ def load_review_center_page_service(
     page_size: int = 50,
     sort: str = "received_desc",
     selected_bundle_id: str = "",
+    view_mode: str = "paged",
 ) -> ReviewCenterPageServiceResult:
     workspace = load_shared_workspace(workspace_root)
     state_store = WorkspaceStateStore(workspace.state_db_path())
     state_store.ensure_schema()
+    resolved_view_mode = _normalize_review_view_mode(view_mode)
     resolved_page_size = _normalize_review_page_size(page_size)
     resolved_page = max(1, int(page or 1))
     filtered_total_count = state_store.count_review_items(
@@ -147,16 +150,28 @@ def load_review_center_page_service(
         triage_label=triage_label,
         export_only=export_only,
     )
-    page_count = max(1, ceil(filtered_total_count / resolved_page_size)) if filtered_total_count else 1
-    resolved_page = min(resolved_page, page_count)
-    items = state_store.list_review_page_items(
-        search=search,
-        triage_label=triage_label,
-        export_only=export_only,
-        limit=resolved_page_size,
-        offset=(resolved_page - 1) * resolved_page_size,
-        sort=sort,
-    )
+    if resolved_view_mode == "all_virtual":
+        page_count = 1
+        resolved_page = 1
+        items = state_store.list_review_page_items(
+            search=search,
+            triage_label=triage_label,
+            export_only=export_only,
+            limit=None,
+            offset=0,
+            sort=sort,
+        )
+    else:
+        page_count = max(1, ceil(filtered_total_count / resolved_page_size)) if filtered_total_count else 1
+        resolved_page = min(resolved_page, page_count)
+        items = state_store.list_review_page_items(
+            search=search,
+            triage_label=triage_label,
+            export_only=export_only,
+            limit=resolved_page_size,
+            offset=(resolved_page - 1) * resolved_page_size,
+            sort=sort,
+        )
     selected_id = selected_bundle_id.strip()
     if not selected_id and items:
         selected_id = str(items[0]["bundle_id"])
@@ -171,6 +186,7 @@ def load_review_center_page_service(
         search=search,
         triage_label=triage_label,
         export_only=export_only,
+        view_mode=resolved_view_mode,
     )
 
 
@@ -204,6 +220,13 @@ def _normalize_review_page_size(page_size: int) -> int:
         normalized = int(page_size)
     except (TypeError, ValueError):
         normalized = 50
-    if normalized not in {25, 50, 100}:
+    if normalized not in {25, 50, 100, 200}:
         return 50
+    return normalized
+
+
+def _normalize_review_view_mode(view_mode: str) -> str:
+    normalized = (view_mode or "paged").strip().lower()
+    if normalized not in {"paged", "all_virtual"}:
+        return "paged"
     return normalized

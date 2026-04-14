@@ -74,6 +74,21 @@
 
 ## 최근 로그
 
+### 2026-04-14 | Human + Codex | review detail 로딩 중 기존 패널 유지와 scroll jump 완화
+
+- row 선택 시 오른쪽 상세패널을 빈 skeleton으로 바로 바꾸지 않고, 기존 상세를 유지한 채 로딩 veil만 얹도록 바꿨다.
+- 전역 `scroll-behavior:smooth`는 review workbench와 충돌해 점프 체감을 키울 수 있어 `auto`로 되돌렸고, detail partial load 전후로 목록/상세/window scroll을 보수적으로 복원하도록 JS를 보강했다.
+- 최신 web 서버 기준 HTML과 `TestClient` 검사에서 `운영 엑셀에 들어간 메일만`, 한국어 artifact 탭, 한국어 우선 미해결 라벨이 다시 반영된 것을 확인했다.
+
+### 2026-04-14 | Human + Codex | review workbench 고정 2단 패널과 web-first helper 링크 정리
+
+- 리뷰센터는 이제 고정 2단 패널 + 독립 스크롤 구조를 기본으로 두고, `/review` 첫 렌더에서 현재 페이지 첫 항목의 상세를 서버가 같이 렌더링한다.
+- row 선택과 artifact 탭 전환은 전체 reload 대신 오른쪽 상세패널 partial update만 수행하도록 다시 묶었다.
+- `엑셀에 포함된 메일만`은 `운영 엑셀에 들어간 메일만`으로 다시 다듬었고, detail panel의 미해결 항목 표시는 코드명보다 한국어 라벨을 먼저 보여주게 보강했다.
+- plain `i` 배지는 공통 SVG 정보 아이콘 + tooltip/popup 흐름으로 유지한다.
+- web-first 검증을 실제로 돌릴 수 있게 `/_dev/open-workspace?workspace_root=<path>&workspace_password=<pw>&target=/review` helper route를 추가했다.
+- `app.ui_smoke`는 fresh sample workspace 기준으로 다시 통과했고, review 초기 상세 서버 렌더/새 페이지 옵션/재반영 job polling까지 함께 확인했다.
+
 ### 2026-04-14 | Human + Codex | Windows 흰 화면 500 실제 원인 추적과 server traceback logging 추가
 
 - 사용자가 올린 흰 화면 screenshot을 기준으로 Windows 공식 exe의 `/` route를 다시 조회했고, launcher는 정상인데 홈 route가 `500 Internal Server Error`로 죽는 것을 먼저 확인했다.

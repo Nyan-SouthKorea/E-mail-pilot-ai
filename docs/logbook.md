@@ -87,45 +87,46 @@
 ## 현재 실행 계획
 
 - plan 제목:
-  - `리뷰 정본화 + 자동 중복 판정 + 최신 exe 게이트 정비`
+  - `리뷰 정본화 통합 리팩터 + Web-First 검증 루프 + 마지막 exe 패키징`
 - summary:
-  - 현재 Windows 공식 실행본 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`가 최신 repo 상태보다 오래된 빌드일 수 있으므로, 먼저 stale exe 문제를 구조적으로 막는다.
-  - 이번 리팩터의 목표는 세 가지다. `리뷰`를 몇천 건에서도 버벅이지 않는 제품형 화면으로 바꾸고, `중복/대표 메일` 개념을 사용자 화면에서 없애고, `공식 exe 빌드 -> CLI/service 검증 -> 공식 exe 기준 검증 -> 보고`를 하드 게이트로 고정한다.
-  - 기본 UI에서는 중복/대표 개념을 숨기고, 내부적으로만 LLM과 fallback heuristic으로 canonical 메일을 선택한다.
-  - 앱을 검토의 정본으로 두고, 엑셀은 외부 전달/참고용 보조 결과물로 재정의한다.
+  - 이번 작업은 따로따로 쌓인 계획을 다시 하나로 묶는 통합 리팩터다.
+  - 목표는 세 가지다. `리뷰`를 몇천 건에서도 부드럽게 쓰는 제품형 화면으로 바꾸고, `중복/대표 메일`, 어려운 용어, 상태 유실, 상세 미표시 같은 누적 UX 문제를 한 번에 정리하고, 개발/검증은 `CLI/service + web UI`를 기본으로 하고 마지막에만 `공식 exe`를 빌드해 수동 acceptance를 닫는다.
+  - 제품 기준은 계속 `앱이 정본, 엑셀은 보조`, `runtime service + CLI가 단일 실행 진실`, `GUI는 thin wrapper`다.
 - key changes:
-  - `/app-meta`와 앱 진단에 `build_commit`, `build_time`, `official_exe_path`를 노출하고, 공식 exe 재빌드와 packaged smoke를 완료 보고의 하드 게이트로 둔다.
-  - 계정이 이미 `connected`면 홈의 기본 CTA는 `리뷰 계속하기`로 바꾸고, `계정 연결 계속하기`는 기본 CTA에서 제거한다.
-  - 리뷰는 기본 50건 목록만 먼저 렌더링하고, row 선택과 artifact 탭 전환은 full reload가 아니라 우측 상세패널만 partial update로 갱신한다.
-  - 사용자 화면에서는 `중복` 열과 `대표 메일 지정` 액션을 없애고, 내부 상태에는 `application_group_id`, `canonical_bundle_id`, `included_in_export`, `canonical_selection_reason`, `canonical_selection_confidence`를 유지한다.
-  - `preview/raw.eml/summary/record/projected/attachments`는 모두 한국어 용어로 통일하고, 앱 안 미리보기를 기본으로 둔다.
-  - `docs/feature_catalog.md`에는 기능 id, UI/CLI/service, 입력/출력, 저장 위치, smoke 가능 여부, 수동 acceptance 필요 여부와 함께 `source 반영 / CLI 검증 / 공식 exe 반영 / 수동 acceptance` 구분을 남긴다.
+  - 리뷰는 `고정 2단 패널`로 바꾸고, 왼쪽 목록과 오른쪽 상세를 각각 독립 스크롤로 둔다.
+  - `/review` 첫 렌더에서 현재 페이지 첫 항목의 상세를 서버가 같이 렌더링하고, 이후 행 클릭과 탭 전환은 우측 상세패널만 partial update로 갱신한다.
+  - 필터, 정렬, 페이지, 선택 메일, 열린 탭, 목록 스크롤 위치를 유지하고, 외부 열기는 상태를 보존하는 보조 액션으로만 둔다.
+  - `preview/raw.eml/summary/record/projected`는 모두 한국어 용어로 통일하고, `엑셀 반영 대상만`은 더 쉬운 고객용 문구로 다시 바꾼다.
+  - 시스템 전반의 `i` 배지는 plain 문자 버튼을 버리고 공통 SVG 정보 아이콘 + popover 스타일로 교체한다.
+  - 기본 UI에서는 `중복`, `대표 메일 지정`, `대표 메일로 지정`을 없애고, 내부적으로만 `application_group_id`, `canonical_bundle_id`, `included_in_export`, `canonical_selection_reason`, `canonical_selection_confidence`를 유지한다.
+  - canonical selection은 최신 시각만 보지 않고 회신 체인 속 실제 신청 위치, 본문 변화, 첨부 최신성, 신청 정보 충실도, 수정본 여부를 함께 보고 LLM 우선 + heuristic fallback으로 고른다.
+  - 홈 CTA는 계정 연결 상태 기반으로 다시 정리해, 이미 `connected`면 `리뷰 계속하기`를 기본 CTA로 둔다.
+  - 개발/검증 루프는 `runtime service + CLI + FastAPI web UI`를 먼저 닫고, 마지막에만 최신 pushed `main` 기준 공식 exe를 재빌드한다.
+  - `docs/feature_catalog.md`에는 기능별 `UI / CLI / service / 저장 위치 / smoke 가능 여부 / 수동 acceptance 필요 여부 / adjacent acceptance`를 유지한다.
 - public interfaces / types:
-  - `runtime.analysis_service:{load_review_center_page_service, load_review_detail_service, refresh_review_board_service}`
-  - `runtime.exports_service:{load_exports_summary_service, rebuild_operating_workbook_service}`
-  - `runtime.pipeline_service:run_pipeline_sync_service`
-  - `runtime.diagnostics_service:picker_bridge_self_test`
-  - `app-meta`
-    - `build_commit`
-    - `build_time`
-    - `official_exe_path`
+  - 리뷰 조회 계약:
+    - 목록 입력: `search`, `triage_label`, `export_only`, `page`, `page_size`, `sort`, `selected_bundle_id`, `artifact_kind`, `view_mode`
+    - 상세 조회: `bundle_id` 기준 별도 partial load
+    - `view_mode`: `paged | all_virtual`
   - 내부 canonical selection 메타:
     - `application_group_id`
     - `canonical_bundle_id`
     - `included_in_export`
     - `canonical_selection_reason`
     - `canonical_selection_confidence`
+  - build/runtime metadata:
+    - `build_commit`
+    - `build_time`
+    - `official_exe_path`
 - test plan:
   - smoke-safe
     - 세이브 생성/열기/닫기/최근 세이브
     - 설정 저장/읽기
     - picker diagnostics + picker route test override
-    - review refresh
-    - review list/detail paging
-    - exports summary
-    - workbook rebuild
+    - review refresh / review list/detail paging / exports summary
     - `app.ui_smoke`
     - `runtime.feature_harness_smoke`
+    - synthetic 대량 데이터 기준 review performance smoke
   - live-required
     - 실제 계정 연결 확인
     - `sync --limit 10`
@@ -136,31 +137,27 @@
   - manual acceptance
     - Windows exe에서 실제 폴더 선택창이 뜨는지
     - exe 아이콘/창 브랜딩이 새 기준대로 보이는지
+    - web에서 닫은 핵심 리뷰 흐름이 exe에서도 그대로 보이는지
 - assumptions:
-  - 공식 실행 경로는 계속 `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe` 하나다.
-  - GUI는 thin wrapper, 공용 진실은 service/CLI다.
-  - 리뷰 UX는 `가벼운 목록 + 비동기 상세패널`을 기본으로 하고, 앱이 검토의 정본이다.
-  - 기본 UI에서는 중복/대표 개념을 제거하고, 자동 canonical selection + 숨은 복구 정책을 쓴다.
-  - 기존 beta 세이브의 자동 마이그레이션은 하지 않는다.
-  - Windows 네이티브 picker와 exe shell integration만 마지막 수동 acceptance로 남긴다.
+  - 개발 기본 루프는 `web UI 검증 -> 마지막 exe 패키징`으로 바꾼다.
+  - 앱이 검토의 정본이고, 엑셀은 보조 산출물이다.
+  - `전체 보기`는 true full render가 아니라 `가상 스크롤 전체 보기`로 구현한다.
+  - 기본 UI에서는 `중복/대표 메일` 개념을 제거하고, 내부 자동 canonical selection + 숨은 복구만 유지한다.
 
 ## 현재 체크포인트
 
 - 지금 단계:
-  - 사용자가 올린 흰 화면 `Internal Server Error`를 실제 Windows 공식 exe 기준으로 재현했고, launcher 자체가 아니라 홈 화면 첫 진입에서 500이 나는 것을 확인했다.
-  - Windows 쪽 `TestClient(app).get('/')` traceback으로 원인을 고정했다. 마지막 세이브 자동 복원 중 `runtime.lockfile._is_local_dead_process()`의 Windows pid probe가 `SystemError`를 던지며 홈 화면 전체가 죽고 있었다.
-  - stale lock local pid 확인은 이제 Windows에서 `tasklist` 기반으로 보수적으로 판정하고, 예외가 나도 heartbeat fallback으로만 처리하게 고쳤다.
-  - `app.server`에는 전역 예외 logging middleware를 추가해, 다음에 같은 흰 화면이 나더라도 `%APPDATA%\\EmailPilotAI\\startup.log`에서 route traceback을 바로 읽을 수 있게 했다.
-  - `runtime.feature_harness_smoke`에는 `lockfile_windows_safety_smoke`를 추가해, stale lock pid 확인 중 예외가 나도 앱이 죽지 않는 regression을 고정했다.
-  - source/CLI/smoke 기준으로는 `계정 연결 계속하기 CTA`, `중복/대표 UI`, `리뷰 상세 full reload`, `preview click 후 상태 초기화`, `stale exe 게이트`를 모두 정리했다.
-  - 실제 Windows 세이브 기준으로 `state.sqlite` migration 버그(`application_group_id` 없는 오래된 DB에서 index 생성 실패)를 재현했고, `runtime.state_store.ensure_schema()`가 오래된 `bundle_review_state`와 `feature_runs` 테이블을 먼저 컬럼 승격한 뒤 index를 만들도록 고쳤다.
-  - `runtime.feature_harness_smoke`에는 오래된 state DB를 현재 스키마로 승격하는 `schema_upgrade_smoke`를 추가했고, 로컬 자동 검증은 다시 통과했다.
-  - staged live verification은 `recent 100`, `recent 500`, `recent 550`까지 실제 Windows 세이브 기준으로 통과했다.
-  - `all`은 실제 inbox 규모가 `4750`건이어서 장시간 backfill/review가 필요했고, 이번 턴에서는 `fetch 4750/4750 (fetched=3748, skipped=1002, failed=0)`와 `review 2200/4750 (failed=0)`까지 확인한 뒤 장기 운영 검증으로 분리했다.
-  - 가장 최근 pushed `main` 기준으로 공식 Windows exe `D:\EmailPilotAI\portable\EmailPilotAI\EmailPilotAI.exe`를 다시 재빌드했고, packaged smoke와 Windows route 재검증 기준으로 흰 화면 500이 사라진 것을 확인했다.
+  - active plan을 `리뷰 정본화 통합 리팩터 + Web-First 검증 루프 + 마지막 exe 패키징`으로 재정렬했다.
+  - review workbench는 현재 source/web 기준으로 `고정 2단 패널 + 초기 상세 server render + partial detail update + 상태 유지`까지 다시 올라왔다.
+  - 최신 보정으로 row 선택 시 오른쪽 상세패널을 빈 skeleton으로 갈아치우지 않고 기존 상세 위에 로딩 상태만 얹어, `아무 반응이 없는 느낌`을 줄이는 방향으로 바꿨다.
+  - 전역 `scroll-behavior:smooth`는 리뷰 workbench와 충돌해 점프 체감을 키울 수 있어 제거했고, detail partial load 뒤 목록/상세/window scroll을 보수적으로 복원하게 했다.
+  - `운영 엑셀에 들어간 메일만`은 내부적으로 `included_in_export = true`를 뜻하며, 같은 신청 흐름 안에서 실제 운영 엑셀에 들어가는 기준 메일만 보는 필터로 정리했다.
+  - 리뷰 관련 자동 canonical selection은 내부적으로 동작하고 있고, 사용자 표면에서는 `중복/대표 메일` 대신 `엑셀 반영됨 / 보류 / 검토 필요`만 남긴 상태다.
+  - 개발 기본 루프는 이제 브라우저 기반 web UI에서 먼저 닫고, 마지막에 최신 pushed `main` 기준으로만 공식 exe를 다시 빌드하는 방향으로 전환한다.
 - 바로 다음 작업:
-  - 그 다음 Windows 수동 acceptance 2개를 현재 공식 exe 기준으로 직접 닫는다.
-  - `sync --all`은 이번 staged live verification 결과를 바탕으로 별도 operator-run 장기 검증으로 닫는다.
+  - 최신 web-first 검증 링크를 사용자에게 전달하고 실제 브라우저 피드백을 받는다.
+  - 남은 review polish를 source/web에서 먼저 닫고, 마지막에 공식 Windows exe 재빌드와 packaged smoke를 수행한다.
+  - `sync --all` 장기 운영 검증은 별도 acceptance로 계속 누적한다.
 - publish 상태:
   - 이전 plan publish 완료
   - 현재 plan 구현 중
@@ -168,25 +165,36 @@
 
 ## 현재 활성 체크리스트
 
-- `리뷰 정본화 + 자동 중복 판정 + 최신 exe 게이트 정비`
+- `리뷰 정본화 통합 리팩터 + Web-First 검증 루프 + 마지막 exe 패키징`
   - [x] root `AGENTS.md` 재확인
   - [x] root `docs/logbook.md`에 active plan 전문 반영
+  - [x] web-first 개발/검증 루프를 canonical 문서에 반영
   - [x] stale exe 방지용 build metadata / 공식 exe 게이트 추가
   - [x] 홈 CTA를 계정 연결 상태 기반으로 재구성
-  - [x] 리뷰 row/artifact 전환을 partial update로 전환
-  - [x] review 진입 기본 선택/loading 상태 정리
+  - [x] 리뷰를 고정 2단 패널 + 독립 스크롤 구조로 전환
+  - [x] `/review` 첫 렌더에서 초기 상세 서버 렌더링 적용
+  - [x] 리뷰 row/artifact 전환을 partial update로 유지하되 scroll jump 제거
+  - [x] review 진입 기본 선택/loading 상태 재정리
+  - [x] 목록 스크롤/선택/탭/페이지 상태 보존 재정리
   - [x] 사용자 표면에서 `중복` 열과 `대표 메일 지정` 액션 제거
   - [x] 내부 canonical selection 메타와 자동 판정 도입
-  - [x] artifact / export / home 카피를 한국어 기준으로 전면 정리
+  - [x] artifact / export / home 카피를 한국어 기준으로 최종 정리
+  - [x] plain `i` 버튼을 공통 SVG 정보 아이콘 시스템으로 교체
   - [x] `exports summary`와 리뷰 상세패널에 내보내기 요약 강화
+  - [x] 리뷰 page size를 `25 / 50 / 100 / 200`으로 확장
+  - [x] `view_mode=paged|all_virtual` 계약 도입
   - [x] feature catalog에 feedback coverage / source-CLI-exe-manual 추적 반영
   - [x] smoke-safe 자동 검증 재실행
+  - [x] synthetic review performance smoke 추가
   - [x] state DB schema upgrade 보정과 regression smoke 추가
   - [x] staged live verification: `100 / 500 / 550`
   - [ ] staged live verification: `all` long-run operator acceptance
-  - [x] current source 기준 공식 Windows exe 재빌드 + packaged smoke 재확인
+  - [x] current source 기준 web smoke 닫기
+  - [x] dev helper link로 sample workspace를 바로 여는 web 검증 경로 추가
+  - [ ] current source 기준 공식 Windows exe 재빌드 + packaged smoke 재확인
   - [ ] Windows 수동 acceptance: 실제 picker dialog
   - [ ] Windows 수동 acceptance: exe 아이콘/창 브랜딩
+  - [ ] Windows 수동 acceptance: web에서 닫은 리뷰 UX가 exe에서도 그대로 보이는지
   - [ ] current plan final commit 완료
   - [ ] current plan final push 완료
   - [ ] final `git status --short --branch` clean 확인
@@ -195,16 +203,32 @@
 
 | 항목 | source 반영 | CLI/smoke 검증 | 공식 exe 반영 | 사용자 수동 acceptance |
 |---|---|---|---|---|
-| stale exe 방지 build metadata와 공식 게이트 | 완료 | 완료 | 완료 | 필요 없음 |
-| 계정 연결 완료 시 홈 CTA 정리 | 완료 | 완료 | 완료 | 선택 |
-| 리뷰 목록 50건 paging + 상세 partial update | 완료 | 완료 | 완료 | 선택 |
-| `메일 미리보기` 탭/외부 열기 후 상태 유지 | 완료 | 완료 | 완료 | 선택 |
-| `중복/대표` 사용자 UI 제거 + 자동 canonical selection | 완료 | 완료 | 완료 | 선택 |
-| artifact/export/home 한국어 용어 통일 | 완료 | 완료 | 완료 | 선택 |
-| Windows native picker 실제 dialog | 완료 | diagnostics/self-test 완료 | 완료 | 필요 |
-| exe 아이콘/창 브랜딩 최신 반영 | 완료 | packaged smoke 완료 | 완료 | 필요 |
+| stale exe 방지 build metadata와 공식 게이트 | 완료 | 완료 | 대기 | 필요 없음 |
+| 계정 연결 완료 시 홈 CTA 정리 | 완료 | 완료 | 대기 | 선택 |
+| 리뷰 목록 50건 paging + 상세 partial update | 완료 | 완료 | 대기 | 선택 |
+| `메일 미리보기` 탭/외부 열기 후 상태 유지 | 완료 | 완료 | 대기 | 선택 |
+| `중복/대표` 사용자 UI 제거 + 자동 canonical selection | 완료 | 완료 | 대기 | 선택 |
+| artifact/export/home 한국어 용어 통일 | 완료 | 완료 | 대기 | 선택 |
+| web-first sample review 진입 링크 | 완료 | 완료 | 필요 없음 | 선택 |
+| Windows native picker 실제 dialog | 완료 | diagnostics/self-test 완료 | 대기 | 필요 |
+| exe 아이콘/창 브랜딩 최신 반영 | 완료 | packaged smoke 대기 | 대기 | 필요 |
 
 ## 최근 로그
+
+### 2026-04-14 | Human + Codex | review workbench 고정 2단 패널, web-first helper 링크, synthetic performance smoke 정리
+
+- `/review`는 이제 첫 진입에서 현재 페이지 첫 항목의 상세를 서버가 함께 렌더링하고, 이후 row 선택과 artifact 탭 전환은 우측 상세패널만 partial update로 바꿨다.
+- 왼쪽 목록과 오른쪽 상세는 각각 독립 스크롤을 갖는 `고정 2단 패널`로 다시 정리했고, row 클릭 시 전체 window scroll 대신 목록/상세 패널 상태만 갱신하도록 JS를 재구성했다.
+- review 필터에는 `페이지 크기 25 / 50 / 100 / 200`과 `보기 방식: 페이지 보기 / 전체 보기(all_virtual)`를 추가했고, synthetic 1200건 기준 `review_performance_smoke`를 feature harness에 포함했다.
+- 고객용 용어도 다시 다듬었다. `엑셀 반영 대상만`은 `운영 엑셀에 들어간 메일만`으로 바꿨고, 미해결 항목은 detail panel에서 한국어 우선 라벨로 보여주게 했다.
+- web-first 검증을 실제로 굴릴 수 있게 `/_dev/open-workspace?workspace_root=...&workspace_password=...&target=/review` helper route를 추가했다. 이 링크를 쓰면 sample workspace나 서버 경로의 세이브를 바로 열고 review 화면으로 들어갈 수 있다.
+- 검증은 `python -m py_compile ...`, `python -m runtime.feature_harness_smoke --workspace-root /tmp/epa_review_webfirst_smoke --workspace-password SampleWorkspace260408 --create-sample-if-missing`, `python -m app.ui_smoke --workspace-root /tmp/epa_review_webfirst_smoke --workspace-password SampleWorkspace260408`, `analysis review-list --view-mode paged|all_virtual`, `exports summary`, 그리고 실제 uvicorn web 경로 `/_dev/open-workspace -> /review` HTML 검사까지 다시 통과했다.
+
+### 2026-04-14 | Human + Codex | review detail 로딩 중 기존 패널 유지와 scroll jump 완화
+
+- row를 선택할 때 오른쪽 상세패널을 빈 skeleton으로 바로 교체하지 않고, 기존 상세 위에 로딩 표시만 얹도록 바꿨다. 느린 응답이어도 사용자는 기존 상세를 계속 보면서 현재 로딩 중이라는 사실만 확인하게 했다.
+- 전역 `scroll-behavior:smooth`를 꺼서 리뷰 선택/탭 전환 때의 부자연스러운 점프 가능성을 줄였고, detail partial load 성공/실패 뒤 목록/상세/window scroll을 보수적으로 복원하도록 JS를 보강했다.
+- 최신 web 서버(8028)에서 `/_dev/open-workspace?workspace_root=/tmp/epa_review_webfirst_smoke&workspace_password=SampleWorkspace260408&target=/review` 경로를 다시 확인했고, review/detail HTML에 `운영 엑셀에 들어간 메일만`, 한국어 artifact 탭, 한국어 우선 미해결 라벨이 들어가는 것을 재확인했다.
 
 ### 2026-04-13 | Human + Codex | packaged metadata path 정규화와 current commit 기준 Windows 공식 exe 재빌드 완료
 

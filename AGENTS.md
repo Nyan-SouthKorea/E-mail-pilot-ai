@@ -75,6 +75,10 @@
 - 기능을 새로 추가하거나 기존 동작/입출력/검증 방식을 바꾸면 같은 턴에 반드시 `docs/feature_catalog.md`와 관련 `README/logbook`를 함께 갱신한다.
 - 완료 보고 전에는 이번 턴에 `AGENTS.md`를 언제 다시 읽었는지 간단한 재독 기록을 남긴다.
 - 재독 기록은 최소 `총 몇 번 읽었는지`와 `어느 게이트에서 읽었는지`를 포함한다.
+- 사용자가 UI 문제 하나를 말하면 그 control만 고치고 끝내지 않는다.
+- 같은 흐름의 loading, empty, error, success, persistence, scale, copy, adjacent action까지 함께 점검하고 닫아야 완료로 본다.
+- 기본 제품 개발 루프는 `runtime service / CLI / web UI`를 먼저 닫고, 공식 Windows exe는 마지막 패키징 단계에서만 다시 만든다.
+- 즉, 평소 구현/검증은 web-first로 진행하고, exe는 native picker, launcher, 아이콘/창 브랜딩, packaged smoke 같은 shell-specific acceptance만 맡는다.
 - 예:
   - `AGENTS 확인 기록: 총 3회 (시작 게이트 / 실행 직전 / 완료 직전)`
 

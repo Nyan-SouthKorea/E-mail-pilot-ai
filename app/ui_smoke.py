@@ -152,7 +152,7 @@ def run_app_ui_smoke(
             ("/", "home_with_workspace", "다음 행동"),
             ("/sync", "sync_page", "선택한 개수로 동기화"),
             ("/settings", "settings_page", "계정 연결 확인"),
-            ("/review", "review_page", "엑셀 반영 대상만"),
+            ("/review", "review_page", "운영 엑셀에 들어간 메일만"),
             ("/admin/features", "admin_features_page", "고급 도구"),
             ("/jobs/current", "job_status_api", '"status"'),
             ("/app-meta", "app_meta_api", '"app_id":"email_pilot_ai_desktop"'),
@@ -245,6 +245,22 @@ def run_app_ui_smoke(
                 and "직접 입력" in sync_text
             ),
             detail="동기화 화면에 preset + 직접입력 옵션이 보여야 한다.",
+        )
+
+        review_page_response = client.get("/review")
+        review_page_text = review_page_response.text
+        _record(
+            step="review_initial_detail_rendered",
+            response=review_page_response,
+            ok=(
+                review_page_response.status_code == 200
+                and "선택한 메일을 불러오는 중입니다" not in review_page_text
+                and "검토 개요" in review_page_text
+                and "운영 엑셀에 들어간 메일만" in review_page_text
+                and "보기 방식" in review_page_text
+                and "200개" in review_page_text
+            ),
+            detail="리뷰 첫 진입 시 초기 상세가 서버에서 같이 렌더링되고, 새 필터/페이지 옵션이 보여야 한다.",
         )
 
         rebuild_response = client.post("/review/rebuild", follow_redirects=False)

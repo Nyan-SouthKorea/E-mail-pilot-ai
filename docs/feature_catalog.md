@@ -15,6 +15,7 @@
 - 독립된 조사, 병렬 검증, write scope가 분리되는 구현 작업은 sub agent 사용을 기본적으로 먼저 검토한다.
 - sub agent를 사용한 턴은 `역할 / 소유 범위 / 상태 / 남은 agent 유무`를 완료 보고에 함께 남긴다.
 - 불필요하게 살아 있는 sub agent가 있으면 완료로 보지 않고, 종료 또는 재배치를 먼저 처리한다.
+- 사용자가 UI 문제 하나를 말하면 같은 흐름의 `loading / empty / error / success / persistence / scale / copy`까지 함께 확인하는 `adjacent acceptance`를 완료 조건에 포함한다.
 
 ## 현재 변경 검증 4단
 
@@ -39,7 +40,7 @@
 | `mailbox.connect_check` | 계정 연결 확인 | `/settings` | `python -m runtime.cli mailbox connect-check ...` | `runtime.mailbox_service:run_mailbox_connection_check_service` | mailbox status, 추천 받은편지함, 폴더 목록 | live-required |
 | `mailbox.fetch` | 메일 가져오기 | `/sync` | `python -m runtime.cli mailbox fetch ... --limit N|--all` | `runtime.mailbox_service:run_mailbox_fetch_service` | `mail/bundles/`, `logs/mailbox/` | live-required |
 | `analysis.review_refresh` | 리뷰/분석 재생성 | `/review`, `관리도구` | `python -m runtime.cli analysis review-refresh ... --limit N|--all` | `runtime.analysis_service:refresh_review_board_service` | `logs/review/`, `state/state.sqlite` | smoke-safe, live-optional |
-| `analysis.review_list` | 리뷰 목록 조회 | `/review` | `python -m runtime.cli analysis review-list ... --page 1 --page-size 50 --sort received_desc` | `runtime.analysis_service:load_review_center_page_service` | `state/state.sqlite` 읽기 | smoke-safe |
+| `analysis.review_list` | 리뷰 목록 조회 | `/review` | `python -m runtime.cli analysis review-list ... --page 1 --page-size 50 --sort received_desc` | `runtime.analysis_service:load_review_center_page_service` | `state/state.sqlite` 읽기 | smoke-safe + synthetic review performance smoke |
 | `analysis.review_item` | 리뷰 상세 조회 | `/review` | `python -m runtime.cli analysis review-item ... --bundle-id <id>` | `runtime.analysis_service:load_review_detail_service` | `state/state.sqlite`, `mail/bundles/`, `logs/analysis/` 읽기 | smoke-safe |
 | `exports.rebuild` | 운영 엑셀 재반영 | `/review` | `python -m runtime.cli exports rebuild ...` | `runtime.exports_service:rebuild_operating_workbook_service` | `exports/output/operating_workbook.xlsx`, `exports/output/snapshots/` | smoke-safe |
 | `exports.summary` | 엑셀 반영 요약 | `/review` | `python -m runtime.cli exports summary ...` | `runtime.exports_service:load_exports_summary_service` | `exports/output/`, `state/state.sqlite` 읽기 | smoke-safe |
@@ -82,8 +83,9 @@
 ## 리뷰센터 계약
 
 - 기본 구조:
-  - `페이지 기반 목록 + 우측 상세패널`
-  - 기본 페이지 크기 `50`, 옵션 `25 / 50 / 100`
+  - `고정 2단 패널 + 독립 스크롤`
+  - 기본 페이지 크기 `50`, 옵션 `25 / 50 / 100 / 200`
+  - `전체 보기`는 literal full DOM 렌더가 아니라 `view_mode=all_virtual`로 처리
 - 목록 조회 입력:
   - `search`
   - `triage_label`
@@ -92,12 +94,14 @@
   - `page_size`
   - `sort`
   - `selected_bundle_id`
+  - `artifact_kind`
+  - `view_mode`
 - 정렬 옵션:
   - `received_desc`
   - `company_asc`
   - `sender_asc`
 - 사용자 노출 용어:
-  - `대표 export만` -> `엑셀 반영 대상만`
+  - `대표 export만` -> `운영 엑셀에 들어간 메일만`
   - `preview` -> `메일 미리보기`
   - `raw.eml` -> `원본 메일 파일`
   - `summary` -> `요약 메모`
@@ -105,8 +109,13 @@
   - `projected` -> `엑셀 반영 미리보기`
   - `attachments` -> `첨부파일 폴더`
 - 상태 유지 기준:
-  - 필터, 현재 페이지, 정렬, 선택 항목은 URL query와 로컬 설정 둘 다에 저장한다.
+  - 필터, 현재 페이지, 정렬, 선택 항목, 열린 탭, 목록 스크롤 위치는 URL query와 로컬 설정 둘 다에 저장한다.
   - 외부 파일 열기 뒤에도 같은 리뷰 상태로 돌아와야 한다.
+- adjacent acceptance:
+  - `/review` 첫 진입 시 초기 상세가 서버에서 함께 렌더링되어야 한다.
+  - 긴 목록 아래쪽에서 메일을 눌러도 오른쪽 상세가 바로 보여야 한다.
+  - 메일 미리보기/외부 열기 뒤에도 필터/페이지/선택 상태가 유지되어야 한다.
+  - 클릭 시 window scroll jump가 없어야 한다.
 - 자동 canonical selection 기준:
   - 사용자 화면에는 `중복` 열과 `대표 메일 지정` 액션을 두지 않는다.
   - 내부적으로는 `application_group_id`, `canonical_bundle_id`, `included_in_export`, `canonical_selection_reason`, `canonical_selection_confidence`를 저장한다.
@@ -119,7 +128,7 @@
   - `기본 양식`
   - `현재 운영본`
   - `스냅샷`
-- `엑셀 반영 대상만`은 같은 신청 흐름 안에서 자동 canonical selection을 거쳐 실제 운영 엑셀에 포함되는 메일만 뜻한다.
+- `운영 엑셀에 들어간 메일만`은 같은 신청 흐름 안에서 자동 canonical selection을 거쳐 실제 운영 엑셀에 포함되는 기준 메일만 뜻한다.
 
 ## 저장 위치 계약
 
@@ -162,6 +171,9 @@
 - Windows 수동 acceptance 2개:
   - `찾아보기`를 눌렀을 때 실제 폴더/파일 선택창이 뜨는지
   - exe 아이콘/창 브랜딩이 새 기준대로 보이는지
+- web-first 검증 루프:
+  - 기본 구현/검증은 `CLI/service -> FastAPI web UI` 순서로 먼저 닫는다.
+  - 공식 exe는 최신 pushed `main` 기준으로 마지막 패키징 단계에서만 다시 빌드한다.
 - Windows 빌드 전제:
   - `build_windows_portable_and_publish.sh`는 GitHub 기준 mirror sync를 쓰므로, dirty working tree 또는 미push HEAD 상태에서는 빌드를 거부한다.
   - launcher는 고정 포트가 점유돼 있으면 다른 로컬 포트를 자동 선택하고, `/app-meta`로 실제 Email Pilot AI 서버인지 확인한 뒤 창을 연다.

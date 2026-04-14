@@ -32,7 +32,7 @@
   <div class="card"><span class="label">신청 메일</span><span class="value">{{ counts.application }}</span></div>
   <div class="card"><span class="label">비신청 메일</span><span class="value">{{ counts.not_application }}</span></div>
   <div class="card"><span class="label">사람 검토 필요</span><span class="value">{{ counts.needs_human_review }}</span></div>
-  <div class="card"><span class="label">엑셀 반영 대상</span><span class="value">{{ counts.export_included_application }}</span></div>
+  <div class="card"><span class="label">운영 엑셀에 들어간 메일</span><span class="value">{{ counts.export_included_application }}</span></div>
   <div class="card"><span class="label">보류된 신청</span><span class="value">{{ counts.held_application }}</span></div>
 </section>
 
@@ -52,8 +52,14 @@
       </select>
     </div>
     <div class="filter-field">
-      <label>엑셀 반영 대상만
-        <button class="info-badge" type="button" data-tooltip="같은 신청 흐름 안에서 실제 운영 엑셀에 반영되는 메일만 표시합니다.">i</button>
+      <label>운영 엑셀에 들어간 메일만
+        <button class="info-badge modern-info-badge" type="button" aria-label="운영 엑셀에 들어간 메일만 도움말" data-tooltip="같은 신청 흐름 안에서 실제 운영 엑셀에 들어가는 기준 메일만 표시합니다.">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="10" cy="10" r="8"></circle>
+            <path d="M10 8v5"></path>
+            <circle cx="10" cy="5.5" r="1"></circle>
+          </svg>
+        </button>
       </label>
       <select name="export_only">
         <option value="false" {% if not query.export_only %}selected{% endif %}>아니오</option>
@@ -65,6 +71,14 @@
       <select name="sort">
         {% for sort_value, sort_label in sort_options %}
         <option value="{{ sort_value }}" {% if query.sort == sort_value %}selected{% endif %}>{{ sort_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-field">
+      <label>보기 방식</label>
+      <select name="view_mode">
+        {% for mode_value, mode_label in view_mode_options %}
+        <option value="{{ mode_value }}" {% if review_page.view_mode == mode_value %}selected{% endif %}>{{ mode_label }}</option>
         {% endfor %}
       </select>
     </div>
@@ -85,15 +99,19 @@
   </form>
 </section>
 
-<section class="review-layout">
-  <div class="review-primary">
-    <section class="section review-table-card">
+<section class="review-layout review-workbench">
+  <div class="review-primary review-pane">
+    <section class="section review-table-card review-pane-card">
       <div class="section-head">
         <div>
           <div class="eyebrow">목록</div>
           <h2>현재 결과 {{ pagination.filtered_total_count }}건</h2>
         </div>
         <div class="review-pagination-summary">
+          {% if review_page.view_mode == 'all_virtual' %}
+          <span class="status-pill quiet">전체 보기</span>
+          <span class="status-pill quiet">브라우저가 필요한 줄부터 먼저 그립니다</span>
+          {% else %}
           <span class="status-pill quiet">{{ pagination.page }} / {{ pagination.page_count }} 페이지</span>
           {% if pagination.has_previous %}
           <a href="{{ pagination.previous_url }}">이전</a>
@@ -101,11 +119,12 @@
           {% if pagination.has_next %}
           <a href="{{ pagination.next_url }}">다음</a>
           {% endif %}
+          {% endif %}
         </div>
       </div>
 
       {% if items %}
-      <div class="review-table-shell">
+      <div class="review-table-shell {% if review_page.view_mode == 'all_virtual' %}virtual-mode{% endif %}" data-review-list-scroll>
         <table class="review-table">
           <thead>
             <tr>
@@ -126,10 +145,8 @@
                   class="review-row-link"
                   href="{{ item.review_url }}"
                   data-bundle-id="{{ item.bundle_id }}"
-                  hx-get="{{ item.detail_url }}"
-                  hx-target="#review-detail-panel"
-                  hx-swap="innerHTML"
-                  hx-push-url="{{ item.review_url }}"
+                  data-select-url="{{ item.detail_url }}"
+                  data-review-url="{{ item.review_url }}"
                 >{{ item.received_at or "-" }}</a>
               </td>
               <td>
@@ -137,10 +154,8 @@
                   class="review-row-link"
                   href="{{ item.review_url }}"
                   data-bundle-id="{{ item.bundle_id }}"
-                  hx-get="{{ item.detail_url }}"
-                  hx-target="#review-detail-panel"
-                  hx-swap="innerHTML"
-                  hx-push-url="{{ item.review_url }}"
+                  data-select-url="{{ item.detail_url }}"
+                  data-review-url="{{ item.review_url }}"
                 >{{ item.company_name or "(기업명 미확정)" }}</a>
               </td>
               <td>{{ item.sender }}</td>
@@ -149,10 +164,8 @@
                   class="review-row-link"
                   href="{{ item.review_url }}"
                   data-bundle-id="{{ item.bundle_id }}"
-                  hx-get="{{ item.detail_url }}"
-                  hx-target="#review-detail-panel"
-                  hx-swap="innerHTML"
-                  hx-push-url="{{ item.review_url }}"
+                  data-select-url="{{ item.detail_url }}"
+                  data-review-url="{{ item.review_url }}"
                 >{{ item.subject }}</a>
               </td>
               <td><span class="badge {{ item.triage_label }}">
@@ -163,7 +176,7 @@
               </span></td>
               <td>
                 {% if item.included_in_export %}
-                <span class="badge application">반영 대상</span>
+                <span class="badge application">엑셀 포함</span>
                 {% elif item.export_status %}
                 <span class="badge quiet">{{ item.export_status }}</span>
                 {% else %}
@@ -185,26 +198,12 @@
     </section>
   </div>
 
-  <aside class="review-sidebar">
-    <div
-      id="review-detail-panel"
-      data-current-review-url="{{ current_review_url }}"
-      hx-get="{{ detail_panel_url }}"
-      hx-trigger="load"
-      hx-swap="innerHTML"
-    >
-      <section class="section review-detail-card review-detail-skeleton">
-        <div class="section-head">
-          <div>
-            <div class="eyebrow">상세</div>
-            <h2>선택한 메일을 불러오는 중입니다</h2>
-          </div>
-        </div>
-        <div class="field-status quiet">현재 페이지의 첫 메일부터 가볍게 불러옵니다.</div>
-      </section>
+  <aside class="review-sidebar review-pane">
+    <div id="review-detail-panel" class="review-pane-card" data-current-review-url="{{ current_review_url }}">
+      {% include "_review_detail_panel.html" %}
     </div>
 
-    <section class="section exports-summary-card">
+    <section class="section exports-summary-card review-pane-card">
       <div class="section-head">
         <div>
           <div class="eyebrow">엑셀 반영</div>
@@ -214,7 +213,7 @@
       <div class="details">
         <div>현재 운영본: {{ exports_summary.operating_workbook_relpath }}</div>
         <div>마지막 갱신 시각: {{ exports_summary.operating_workbook_updated_at or "아직 없음" }}</div>
-        <div>엑셀 반영 대상 메일 수: {{ exports_summary.export_included_count }}</div>
+        <div>운영 엑셀에 포함된 메일 수: {{ exports_summary.export_included_count }}</div>
         <div>엑셀 행으로 연결된 항목 수: {{ exports_summary.workbook_row_count }}</div>
       </div>
       <div class="field-status quiet" style="margin-top:12px">

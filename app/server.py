@@ -366,6 +366,7 @@ def _review_query_from_request(request: Request) -> dict[str, Any]:
     sort = _pick_text("sort", "received_desc") or "received_desc"
     selected_bundle_id = _pick_text("selected_bundle_id", "")
     artifact_kind = _pick_text("artifact_kind", "overview") or "overview"
+    view_mode = _pick_text("view_mode", "paged") or "paged"
 
     local_settings.last_review_filters = {
         "search": search,
@@ -376,6 +377,7 @@ def _review_query_from_request(request: Request) -> dict[str, Any]:
         "sort": sort,
         "selected_bundle_id": selected_bundle_id,
         "artifact_kind": artifact_kind,
+        "view_mode": view_mode,
     }
     save_local_app_settings(local_settings)
     return {
@@ -387,6 +389,7 @@ def _review_query_from_request(request: Request) -> dict[str, Any]:
         "sort": sort,
         "selected_bundle_id": selected_bundle_id,
         "artifact_kind": artifact_kind,
+        "view_mode": view_mode,
     }
 
 
@@ -403,6 +406,7 @@ def _review_query_string(query: dict[str, Any], **overrides: Any) -> str:
         "sort",
         "selected_bundle_id",
         "artifact_kind",
+        "view_mode",
     ):
         value = merged.get(key)
         if key == "export_only":
@@ -430,6 +434,7 @@ def _review_hidden_fields(query: dict[str, Any], **overrides: Any) -> list[tuple
         "sort",
         "selected_bundle_id",
         "artifact_kind",
+        "view_mode",
     ):
         value = merged.get(key)
         if value in {None, ""}:
@@ -458,6 +463,23 @@ def _review_artifact_label(kind: str) -> str:
         "record": "추출 결과 원본",
         "projected": "엑셀 반영 미리보기",
     }.get(normalized, "검토 개요")
+
+
+def _review_unresolved_label(column_name: str) -> str:
+    normalized = str(column_name or "").strip()
+    if "|" in normalized:
+        return normalized.split("|", 1)[0].strip()
+    return {
+        "company_name": "기업명",
+        "contact_name": "담당자명",
+        "phone_number": "연락처",
+        "email_address": "이메일",
+        "website_or_social": "홈페이지/SNS",
+        "industry": "관련 산업군",
+        "product_or_service": "주요 제품/서비스",
+        "application_purpose": "신청 목적",
+        "request_summary": "상세 요청 사항",
+    }.get(normalized, normalized)
 
 
 def _review_partial_detail_url(query: dict[str, Any], **overrides: Any) -> str:
@@ -517,6 +539,12 @@ def _review_detail_context(
         item=selected_item,
         kind=artifact_kind,
     )
+    display_item = dict(selected_item) if selected_item else None
+    if display_item:
+        display_item["unresolved_columns"] = [
+            _review_unresolved_label(value)
+            for value in list(display_item.get("unresolved_columns") or [])
+        ]
     artifact_tabs = [
         {
             "key": "overview",
@@ -616,7 +644,7 @@ def _review_detail_context(
         },
     ]
     return {
-        "selected_item": selected_item,
+        "selected_item": display_item,
         "artifact_preview": artifact_preview,
         "artifact_tabs": artifact_tabs,
         "current_review_url": current_review_url,
@@ -1542,6 +1570,31 @@ def open_recent_workspace(workspace_root: str = Form(...)):
     )
 
 
+@app.get("/_dev/open-workspace")
+def dev_open_workspace(
+    workspace_root: str,
+    workspace_password: str,
+    target: str = "/review",
+    readonly: bool = False,
+):
+    try:
+        workspace = assert_supported_workspace(load_shared_workspace(workspace_root))
+        _validate_workspace_password(workspace, workspace_password)
+    except Exception as exc:
+        return _redirect_with_message("/", error=f"개발용 세이브 파일을 열지 못했습니다: {exc}")
+
+    _open_workspace_session(
+        workspace=workspace,
+        workspace_password=workspace_password,
+        readonly_requested=readonly,
+    )
+    redirect_target = target if target.startswith("/") else f"/{target}"
+    return _redirect_with_message(
+        redirect_target,
+        notice="개발용 링크로 세이브 파일을 열었습니다.",
+    )
+
+
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request):
     if SERVER_STATE.current_session is None:
@@ -1685,6 +1738,7 @@ def review_center(
         page_size=int(query["page_size"]),
         sort=str(query["sort"]),
         selected_bundle_id=str(query["selected_bundle_id"]),
+        view_mode=str(query["view_mode"]),
     )
     resolved_query = {
         **query,
@@ -1692,6 +1746,7 @@ def review_center(
         "page_size": page_result.page_size,
         "sort": page_result.sort,
         "selected_bundle_id": page_result.selected_bundle_id,
+        "view_mode": page_result.view_mode,
     }
     if not page_result.selected_bundle_id and page_result.items:
         fallback_bundle_id = str(page_result.items[0].get("bundle_id") or "")
@@ -1720,6 +1775,16 @@ def review_center(
     exports_summary = load_exports_summary_service(workspace_root=session.workspace_root)
     current_review_url = _review_url(resolved_query)
     base_hidden_fields = _review_hidden_fields(resolved_query)
+    detail_result = load_review_detail_service(
+        workspace_root=session.workspace_root,
+        bundle_id=page_result.selected_bundle_id,
+    )
+    detail_context = _review_detail_context(
+        workspace=workspace,
+        selected_item=detail_result.item,
+        query=resolved_query,
+        current_review_url=current_review_url,
+    )
     pagination = {
         "page": page_result.page,
         "page_count": page_result.page_count,
@@ -1743,13 +1808,17 @@ def review_center(
             "pagination": pagination,
             "current_review_url": current_review_url,
             "base_hidden_fields": base_hidden_fields,
-            "detail_panel_url": _review_partial_detail_url(resolved_query),
-            "page_size_options": [25, 50, 100],
+            "page_size_options": [25, 50, 100, 200],
+            "view_mode_options": [
+                ("paged", "페이지 보기"),
+                ("all_virtual", "전체 보기"),
+            ],
             "sort_options": [
                 ("received_desc", _review_sort_label("received_desc")),
                 ("company_asc", _review_sort_label("company_asc")),
                 ("sender_asc", _review_sort_label("sender_asc")),
             ],
+            **detail_context,
             **_page_feedback(request),
             **_dialog_context(workspace=workspace),
         },
@@ -1767,6 +1836,7 @@ def review_detail_partial(
     page: int = 1,
     page_size: int = 50,
     sort: str = "received_desc",
+    view_mode: str = "paged",
 ):
     session = SERVER_STATE.current_session
     if session is None:
@@ -1781,6 +1851,7 @@ def review_detail_partial(
         "sort": sort,
         "selected_bundle_id": selected_bundle_id,
         "artifact_kind": artifact_kind,
+        "view_mode": view_mode,
     }
     detail_result = load_review_detail_service(
         workspace_root=session.workspace_root,

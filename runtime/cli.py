@@ -133,6 +133,7 @@ def main() -> None:
     review_list.add_argument("--page-size", type=int, default=50)
     review_list.add_argument("--sort", default="received_desc")
     review_list.add_argument("--selected-bundle-id", default="")
+    review_list.add_argument("--view-mode", choices=["paged", "all_virtual"], default="paged")
 
     review_item = analysis_sub.add_parser("review-item")
     review_item.add_argument("--workspace-root", required=True)
@@ -318,6 +319,7 @@ def main() -> None:
                 page_size=args.page_size,
                 sort=args.sort,
                 selected_bundle_id=args.selected_bundle_id,
+                view_mode=args.view_mode,
             ).to_dict()
         )
         return

@@ -477,16 +477,27 @@
     return 'epa-review-state:' + workspaceRoot;
   }
 
+  function reviewListScrollContainer() {
+    return document.querySelector('[data-review-list-scroll]');
+  }
+
+  function reviewDetailScrollContainer() {
+    return document.querySelector('[data-review-detail-scroll]');
+  }
+
   function captureReviewState() {
     if (document.body.dataset.currentPath !== '/review') return;
     try {
       var selectedSection = document.querySelector('#review-detail-panel [data-selected-bundle-id]');
       var activeArtifactTab = document.querySelector('#review-detail-panel .review-artifact-tabs a.active');
+      var listScroll = reviewListScrollContainer();
+      var detailScroll = reviewDetailScrollContainer();
       var payload = {
         url: currentReviewUrl(),
-        scrollY: window.scrollY || window.pageYOffset || 0,
+        listScrollTop: listScroll ? listScroll.scrollTop : 0,
+        detailScrollTop: detailScroll ? detailScroll.scrollTop : 0,
         selectedBundleId: selectedSection ? (selectedSection.dataset.selectedBundleId || '') : '',
-        artifactKind: activeArtifactTab ? (activeArtifactTab.getAttribute('href') || '') : '',
+        artifactKind: activeArtifactTab ? (activeArtifactTab.dataset.reviewUrl || activeArtifactTab.getAttribute('href') || '') : '',
       };
       window.sessionStorage.setItem(reviewStateStorageKey(), JSON.stringify(payload));
     } catch (error) {
@@ -499,12 +510,113 @@
       var raw = window.sessionStorage.getItem(reviewStateStorageKey());
       if (!raw) return;
       var payload = JSON.parse(raw);
-      if (!payload || typeof payload.scrollY !== 'number') return;
       window.setTimeout(function () {
-        window.scrollTo(0, payload.scrollY);
+        var listScroll = reviewListScrollContainer();
+        var detailScroll = reviewDetailScrollContainer();
+        if (listScroll && typeof payload.listScrollTop === 'number') {
+          listScroll.scrollTop = payload.listScrollTop;
+        }
+        if (detailScroll && typeof payload.detailScrollTop === 'number') {
+          detailScroll.scrollTop = payload.detailScrollTop;
+        }
       }, 30);
     } catch (error) {
     }
+  }
+
+  function renderReviewDetailError(message) {
+    return [
+      '<section class="section review-detail-card" data-selected-bundle-id="" data-current-review-url="' + escapeHtml(currentReviewUrl()) + '">',
+      '<div class="section-head"><div><div class="eyebrow">상세</div><h2>상세를 불러오지 못했습니다</h2></div></div>',
+      '<div class="review-detail-scroll">',
+      '<div class="field-status fail">' + escapeHtml(message || '잠시 후 다시 시도해 주세요.') + '</div>',
+      '</div>',
+      '</section>',
+    ].join('');
+  }
+
+  function renderReviewDetailLoading(message) {
+    return [
+      '<section class="section review-detail-card review-detail-loading" data-selected-bundle-id="" data-current-review-url="' + escapeHtml(currentReviewUrl()) + '">',
+      '<div class="section-head"><div><div class="eyebrow">상세</div><h2>' + escapeHtml(message || '선택한 메일을 불러오는 중입니다') + '</h2></div></div>',
+      '<div class="review-detail-scroll">',
+      '<div class="review-loading-bar"></div>',
+      '<div class="field-status quiet">왼쪽 목록과 현재 필터 상태는 그대로 유지됩니다.</div>',
+      '</div>',
+      '</section>',
+    ].join('');
+  }
+
+  function updateReviewUrl(url) {
+    if (!url) return;
+    try {
+      window.history.replaceState({}, '', url);
+    } catch (error) {
+    }
+  }
+
+  function loadReviewDetail(selectUrl, reviewUrl, bundleId) {
+    var panel = document.getElementById('review-detail-panel');
+    if (!panel || !selectUrl) return;
+    var listScroll = reviewListScrollContainer();
+    var detailScroll = reviewDetailScrollContainer();
+    var previousListScrollTop = listScroll ? listScroll.scrollTop : 0;
+    var previousDetailScrollTop = detailScroll ? detailScroll.scrollTop : 0;
+    var previousWindowScrollY = window.scrollY || 0;
+    var hadExistingDetail = !!panel.querySelector('[data-selected-bundle-id], .review-detail-placeholder');
+    updateSelectedReviewRow(bundleId || '');
+    if (hadExistingDetail) {
+      panel.classList.add('review-panel-loading');
+      panel.setAttribute('data-loading-text', '선택한 메일을 불러오는 중입니다');
+    } else {
+      panel.innerHTML = renderReviewDetailLoading('선택한 메일을 불러오는 중입니다');
+    }
+    fetch(selectUrl, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('상세를 불러오지 못했습니다.');
+        }
+        return response.text();
+      })
+      .then(function (html) {
+        panel.innerHTML = html;
+        panel.classList.remove('review-panel-loading');
+        panel.removeAttribute('data-loading-text');
+        if (listScroll) {
+          listScroll.scrollTop = previousListScrollTop;
+        }
+        detailScroll = reviewDetailScrollContainer();
+        if (detailScroll) {
+          detailScroll.scrollTop = 0;
+        }
+        window.scrollTo(window.scrollX || 0, previousWindowScrollY);
+        if (reviewUrl) {
+          updateReviewUrl(reviewUrl);
+        }
+        bindDynamicUi();
+        captureReviewState();
+      })
+      .catch(function (error) {
+        panel.classList.remove('review-panel-loading');
+        panel.removeAttribute('data-loading-text');
+        if (!hadExistingDetail) {
+          panel.innerHTML = renderReviewDetailError(error && error.message ? error.message : '상세를 불러오지 못했습니다.');
+        }
+        if (listScroll) {
+          listScroll.scrollTop = previousListScrollTop;
+        }
+        detailScroll = reviewDetailScrollContainer();
+        if (detailScroll) {
+          detailScroll.scrollTop = previousDetailScrollTop;
+        }
+        window.scrollTo(window.scrollX || 0, previousWindowScrollY);
+        pushTransientBanner('error', error && error.message ? error.message : '상세를 불러오지 못했습니다.');
+        bindDynamicUi();
+      });
   }
 
   function pushTransientBanner(kind, text) {
@@ -561,9 +673,26 @@
     document.querySelectorAll('.review-row-link').forEach(function (link) {
       if (link.dataset.reviewRowBound === 'yes') return;
       link.dataset.reviewRowBound = 'yes';
-      link.addEventListener('click', function () {
-        updateSelectedReviewRow(link.dataset.bundleId || '');
-        captureReviewState();
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        loadReviewDetail(
+          link.dataset.selectUrl || '',
+          link.dataset.reviewUrl || link.getAttribute('href') || '',
+          link.dataset.bundleId || ''
+        );
+      });
+    });
+    document.querySelectorAll('#review-detail-panel .review-artifact-tabs a').forEach(function (link) {
+      if (link.dataset.reviewArtifactBound === 'yes') return;
+      link.dataset.reviewArtifactBound = 'yes';
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        var selectedSection = document.querySelector('#review-detail-panel [data-selected-bundle-id]');
+        loadReviewDetail(
+          link.dataset.detailUrl || '',
+          link.dataset.reviewUrl || link.getAttribute('href') || '',
+          selectedSection ? (selectedSection.dataset.selectedBundleId || '') : ''
+        );
       });
     });
     document.querySelectorAll('[data-review-row]').forEach(function (row) {
@@ -574,18 +703,23 @@
         var selectUrl = row.dataset.selectUrl || '';
         var bundleId = row.dataset.bundleId || '';
         if (!selectUrl) return;
-        updateSelectedReviewRow(bundleId);
-        captureReviewState();
-        if (window.htmx) {
-          window.htmx.ajax('GET', selectUrl, {
-            target: '#review-detail-panel',
-            swap: 'innerHTML',
-            pushUrl: row.dataset.reviewUrl || currentReviewUrl(),
-          });
-        } else {
-          window.location.href = row.dataset.reviewUrl || selectUrl;
-        }
+        loadReviewDetail(
+          selectUrl,
+          row.dataset.reviewUrl || currentReviewUrl(),
+          bundleId
+        );
       });
+    });
+  }
+
+  function bindReviewScrollState() {
+    [reviewListScrollContainer(), reviewDetailScrollContainer()].forEach(function (node) {
+      if (!node) return;
+      if (node.dataset.reviewScrollBound === 'yes') return;
+      node.dataset.reviewScrollBound = 'yes';
+      node.addEventListener('scroll', function () {
+        captureReviewState();
+      }, { passive: true });
     });
   }
 
@@ -594,6 +728,7 @@
     bindNativePickerButtons();
     bindOpenRelativePathButtons();
     bindReviewRowLinks();
+    bindReviewScrollState();
   }
 
   function initializeShellContext() {
@@ -741,11 +876,12 @@
     restoreReviewScrollPosition();
     pollJobState();
     window.setInterval(pollJobState, 1500);
-    window.addEventListener('scroll', function () {
-      if (document.body.dataset.currentPath === '/review') {
-        captureReviewState();
+    if (document.body.dataset.currentPath === '/review') {
+      var selectedSection = document.querySelector('#review-detail-panel [data-selected-bundle-id]');
+      if (selectedSection) {
+        updateSelectedReviewRow(selectedSection.dataset.selectedBundleId || '');
       }
-    }, { passive: true });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', initializeUi);
